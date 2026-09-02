@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "provider": "msg91",
+  "authkey": "",
+  "widgetId": "",
+  "tokenAuth": "",
+  "verifyUrl": "https://control.msg91.com/api/v5/widget/verifyAccessToken"
+}

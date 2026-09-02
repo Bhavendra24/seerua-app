@@ -1,0 +1,33 @@
+{
+  "name": "seerua-appliance-care",
+  "version": "1.0.0",
+  "description": "Seerua Appliance Care - AC, Washing Machine, RO & Fridge repair and service booking platform with admin and technician panels",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^1.20.2",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "express-mysql-session": "^3.0.3",
+    "express-session": "^1.18.0",
+    "jsdom": "^30.0.1",
+    "multer": "^2.2.0",
+    "mysql2": "^3.23.3",
+    "node-fetch": "^2.7.0",
+    "session-file-store": "^1.5.0"
+  },
+  "overrides": {
+    "express-mysql-session": {
+      "mysql2": "^3.23.3"
+    }
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "author": "Seerua Appliance Care",
+  "license": "ISC"
+}

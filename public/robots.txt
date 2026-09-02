@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /technician
+Disallow: /subadmin
+Disallow: /api/
+
+Sitemap: https://www.seerua.com/sitemap.xml

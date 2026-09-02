@@ -1,0 +1,42 @@
+[
+  {
+    "id": "c1",
+    "name": "Delhi",
+    "active": true
+  },
+  {
+    "id": "c2",
+    "name": "Noida",
+    "active": true
+  },
+  {
+    "id": "c3",
+    "name": "Gurugram",
+    "active": true
+  },
+  {
+    "id": "c4",
+    "name": "Ghaziabad",
+    "active": true
+  },
+  {
+    "id": "c5",
+    "name": "Faridabad",
+    "active": true
+  },
+  {
+    "id": "c6",
+    "name": "Lucknow",
+    "active": true
+  },
+  {
+    "id": "c7",
+    "name": "Jaipur",
+    "active": true
+  },
+  {
+    "id": "c8",
+    "name": "Mumbai",
+    "active": true
+  }
+]

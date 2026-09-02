@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>{{ARTICLE_TITLE}} | Seerua Appliance Care</title>
+<meta name="description" content="{{ARTICLE_META_DESCRIPTION}}">
+<link rel="canonical" href="{{CANONICAL_URL}}">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Seerua Appliance Care">
+
+<meta property="og:type" content="article">
+<meta property="og:url" content="{{CANONICAL_URL}}">
+<meta property="og:title" content="{{ARTICLE_TITLE}}">
+<meta property="og:description" content="{{ARTICLE_META_DESCRIPTION}}">
+<meta property="og:image" content="/images/logo.png">
+<meta property="og:locale" content="en_IN">
+
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "{{ARTICLE_TITLE_JSON_SAFE}}",
+  "description": "{{ARTICLE_META_DESCRIPTION_JSON_SAFE}}",
+  "author": { "@type": "Organization", "name": "Seerua Appliance Care" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Seerua Appliance Care",
+    "logo": { "@type": "ImageObject", "url": "{{SITE_URL}}/images/logo.png" }
+  },
+  "mainEntityOfPage": "{{CANONICAL_URL}}"
+}
+</script>
+{{BREADCRUMB_SCHEMA_JSON}}
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="/" class="brand">
+      <img src="/images/logo.png" alt="Seerua Appliance Care Logo">
+      <span class="brand-name">Seerua Appliance Care</span>
+    </a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#services">Services</a>
+      <a href="/#track">Track</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/careers">👷 Careers</a>
+    </nav>
+    <div class="header-actions">
+      <a class="call-link" href="tel:+919389585479">
+        📞 <span class="call-text">9389585479</span>
+      </a>
+      <a class="btn btn-primary btn-sm" href="/?city={{CITY_ID}}#book">Book Now</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding-bottom:32px;">
+  <div class="container">
+    <a href="{{BLOG_INDEX_URL}}" style="font-size:0.85rem;font-weight:700;color:var(--blue-600);text-decoration:none;">← {{CITY_NAME}} Appliance Care Tips</a>
+    <h1 style="max-width:820px;margin-top:14px;">{{ARTICLE_TITLE_HTML}}</h1>
+    <p class="hero-sub" style="max-width:640px;">{{ARTICLE_EXCERPT}}</p>
+    <p style="font-size:0.82rem;color:var(--slate);">📖 {{ARTICLE_READ_MINUTES}} min read · Seerua Appliance Care Team</p>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <article class="reveal" style="max-width:720px;margin:0 auto;font-size:1.02rem;line-height:1.75;color:var(--ink);">
+      {{ARTICLE_BODY_HTML}}
+    </article>
+
+    <div class="cta-banner reveal" style="max-width:720px;margin:40px auto 0;">
+      <div>
+        <h2>Need this fixed in {{CITY_NAME}}?</h2>
+        <p>Book a verified technician — transparent pricing, same day visits.</p>
+      </div>
+      <div class="hero-cta-row" style="margin:0;">
+        <a href="/?city={{CITY_ID}}#book" class="btn btn-white">Book Service</a>
+        <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="btn btn-primary">WhatsApp Us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bg-mist">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Keep reading</span>
+      <h2>More {{CITY_NAME}} Appliance Care Tips</h2>
+    </div>
+    <div class="why-grid reveal" style="align-items:stretch;">
+      {{RELATED_ARTICLES_HTML}}
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">
+          <img src="/images/logo.png" alt="Seerua Appliance Care">
+          <span>Seerua Appliance Care</span>
+        </div>
+        <p>Seerua Appliance Care is {{CITY_NAME}}'s trusted platform for AC, washing machine, RO and fridge repair &amp; service — verified technicians, transparent pricing, every time. Beyond appliances, we're driven by a bigger purpose: training underprivileged children for real employment, and setting aside a share of our earnings for the medicine and food of voiceless street animals.</p>
+      </div>
+      <div>
+        <h5>Quick Links</h5>
+        <ul>
+          <li><a href="/#services">Services</a></li>
+          <li><a href="/#track">My Booking</a></li>
+          <li><a href="/careers">Careers</a></li>
+          <li><a href="/terms">Terms &amp; Conditions</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Services</h5>
+        <ul>
+          {{FOOTER_SERVICES_HTML}}
+        </ul>
+      </div>
+      <div>
+        <h5>Contact</h5>
+        <ul>
+          <li><a href="tel:+919389585479">📞 9389585479</a></li>
+          <li><a href="https://wa.me/919389585479" target="_blank" rel="noopener">💬 WhatsApp: 9389585479</a></li>
+          <li><a href="mailto:b4india@gmail.com">✉️ b4india@gmail.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© {{YEAR}} Seerua Appliance Care. All rights reserved.</span>
+      <span><a href="/terms">Terms &amp; Conditions</a></span>
+    </div>
+  </div>
+</footer>
+
+<a class="wa-float" href="https://wa.me/919389585479" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
+  <svg width="30" height="30" viewBox="0 0 32 32" fill="white"><path d="M16.04 3C9.37 3 3.98 8.38 3.98 15.05c0 2.44.7 4.72 1.9 6.66L3 29l7.47-2.83c1.84.99 3.94 1.56 6.16 1.56h.01c6.66 0 12.06-5.38 12.06-12.05C28.7 8.38 23.31 3 16.04 3zm0 21.9c-2.03 0-3.94-.55-5.58-1.51l-.4-.24-4.43 1.68 1.7-4.32-.26-.44a9.9 9.9 0 0 1-1.53-5.4C5.54 9.34 10.29 4.6 16.04 4.6c2.79 0 5.42 1.09 7.39 3.06a10.34 10.34 0 0 1 3.05 7.39c0 5.75-4.75 10.5-10.44 10.85zm5.72-7.87c-.31-.16-1.85-.91-2.13-1.01-.29-.1-.5-.16-.7.16-.21.31-.81 1.01-.99 1.22-.18.21-.36.23-.67.08-.31-.16-1.32-.49-2.51-1.56-.93-.83-1.56-1.86-1.74-2.17-.18-.31-.02-.48.14-.63.14-.14.31-.36.47-.55.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.7-1.69-.96-2.31-.25-.6-.5-.52-.7-.53-.18-.01-.39-.01-.6-.01s-.55.08-.84.39c-.29.31-1.1 1.08-1.1 2.62s1.13 3.04 1.28 3.25c.16.21 2.23 3.4 5.4 4.77.75.32 1.34.51 1.8.66.76.24 1.44.21 1.99.13.61-.09 1.85-.75 2.11-1.48.26-.73.26-1.35.18-1.48-.08-.13-.29-.21-.6-.36z"/></svg>
+</a>
+
+<div id="chatWidgetRoot"></div>
+
+<script>
+document.getElementById('navToggle').addEventListener('click', () => document.getElementById('navLinks').classList.toggle('open'));
+(function () {
+  var targets = document.querySelectorAll('.reveal');
+  if (!targets.length) return;
+  if (!('IntersectionObserver' in window)) {
+    targets.forEach(function (el) { el.classList.add('in-view'); });
+    return;
+  }
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  targets.forEach(function (el) { observer.observe(el); });
+})();
+</script>
+<script src="/js/chatbot.js"></script>
+</body>
+</html>

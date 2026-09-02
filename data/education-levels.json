@@ -1,0 +1,26 @@
+[
+  {
+    "id": "ed1",
+    "name": "Below 10th"
+  },
+  {
+    "id": "ed2",
+    "name": "10th Pass"
+  },
+  {
+    "id": "ed3",
+    "name": "12th Pass"
+  },
+  {
+    "id": "ed4",
+    "name": "ITI / Diploma"
+  },
+  {
+    "id": "ed5",
+    "name": "Graduate"
+  },
+  {
+    "id": "ed6",
+    "name": "Post Graduate"
+  }
+]

@@ -1,0 +1,811 @@
+[
+  {
+    "id": "a1",
+    "name": "AC",
+    "icon": "snowflake",
+    "types": [
+      {
+        "id": "t1",
+        "name": "Window AC",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Foam-jet wash of the indoor and outdoor units",
+              "High-pressure water flush of the cooling coil",
+              "Refrigerant pressure and leak check",
+              "Cooling tested before the technician leaves",
+              "Ongoing support for any follow-up questions"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Fault diagnosed before any work begins",
+              "Nothing touched until you approve the plan",
+              "Only genuine, quality-checked spare parts used",
+              "Warranty covers both labour and parts",
+              "Support line stays open after the visit"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Bracket and unit mounted securely on the window/wall",
+              "Copper piping and drain line connected properly",
+              "Electrical wiring checked and safely secured",
+              "Full leak and safety inspection",
+              "Cooling tested end-to-end after setup"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Power cut off first for safety",
+              "Refrigerant recovered without any leakage",
+              "Unit carefully detached from its mounting",
+              "Removal completed quickly and cleanly",
+              "Work area left tidy afterward"
+            ]
+          },
+          {
+            "id": "svc-gasfill",
+            "name": "Gas Filling",
+            "checklist": [
+              "Full check of the AC's internal components",
+              "Leak point identified and sealed",
+              "Refrigerant refilled to the exact spec for your model",
+              "Setup completed with minimal downtime",
+              "Cooling performance verified before finishing"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t2",
+        "name": "Split AC",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Foam-jet wash of the indoor and outdoor units",
+              "High-pressure water flush of the cooling coil",
+              "Refrigerant pressure and leak check",
+              "Cooling tested before the technician leaves",
+              "Ongoing support for any follow-up questions"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Fault diagnosed before any work begins",
+              "Nothing touched until you approve the plan",
+              "Only genuine, quality-checked spare parts used",
+              "Warranty covers both labour and parts",
+              "Support line stays open after the visit"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Bracket and unit mounted securely on the window/wall",
+              "Copper piping and drain line connected properly",
+              "Electrical wiring checked and safely secured",
+              "Full leak and safety inspection",
+              "Cooling tested end-to-end after setup"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Power cut off first for safety",
+              "Refrigerant recovered without any leakage",
+              "Unit carefully detached from its mounting",
+              "Removal completed quickly and cleanly",
+              "Work area left tidy afterward"
+            ]
+          },
+          {
+            "id": "svc-gasfill",
+            "name": "Gas Filling",
+            "checklist": [
+              "Full check of the AC's internal components",
+              "Leak point identified and sealed",
+              "Refrigerant refilled to the exact spec for your model",
+              "Setup completed with minimal downtime",
+              "Cooling performance verified before finishing"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t3",
+        "name": "Cassette AC",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Foam-jet wash of the indoor and outdoor units",
+              "High-pressure water flush of the cooling coil",
+              "Refrigerant pressure and leak check",
+              "Cooling tested before the technician leaves",
+              "Ongoing support for any follow-up questions"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Fault diagnosed before any work begins",
+              "Nothing touched until you approve the plan",
+              "Only genuine, quality-checked spare parts used",
+              "Warranty covers both labour and parts",
+              "Support line stays open after the visit"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Bracket and unit mounted securely on the window/wall",
+              "Copper piping and drain line connected properly",
+              "Electrical wiring checked and safely secured",
+              "Full leak and safety inspection",
+              "Cooling tested end-to-end after setup"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Power cut off first for safety",
+              "Refrigerant recovered without any leakage",
+              "Unit carefully detached from its mounting",
+              "Removal completed quickly and cleanly",
+              "Work area left tidy afterward"
+            ]
+          },
+          {
+            "id": "svc-gasfill",
+            "name": "Gas Filling",
+            "checklist": [
+              "Full check of the AC's internal components",
+              "Leak point identified and sealed",
+              "Refrigerant refilled to the exact spec for your model",
+              "Setup completed with minimal downtime",
+              "Cooling performance verified before finishing"
+            ]
+          }
+        ]
+      }
+    ],
+    "serviceProcess": "Our technician first inspects your AC in front of you and clearly explains if anything is wrong.\n\nNo part is ever changed without your permission. If a part needs replacing, we tell you its price and warranty before starting the work — parts are billed at market price only, with no hidden markup.\n\nDuring the service, we thoroughly check for gas leakage and the condition of the compressor and motor.\n\nThis is followed by a deep clean — soft foam and jet washing of the indoor and outdoor units, along with cleaning the surrounding area. This improves cooling and reduces your electricity bill.\n\nAt the end, we show you the AC working properly in front of you. Payment is taken only after you are fully satisfied.",
+    "aboutText": "Regular AC service keeps cooling stronger and power bills lower — dust on the filter and coil, and a slowly dropping gas level, both quietly reduce performance over time. Our Foam Jet Service deep-cleans the indoor and outdoor units with a foam wash plus high-pressure jet, clearing grime a dry wipe can't reach. We handle AC service, Foam Jet Service, gas refill, installation, and repair — split or window.",
+    "disabledCities": [],
+    "photoUrl": "/images/appliances/ac.jpg"
+  },
+  {
+    "id": "a2",
+    "name": "Washing Machine",
+    "icon": "washer",
+    "types": [
+      {
+        "id": "t4",
+        "name": "Top Load",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Drum cleaned thoroughly inside and out",
+              "Drain path and motor checked for smooth running",
+              "Worn parts flagged before they cause bigger issues",
+              "Machine run-tested after the work is done",
+              "Support available if anything comes up later"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Drum cleaned thoroughly inside and out",
+              "Drain path and motor checked for smooth running",
+              "Worn parts flagged before they cause bigger issues",
+              "Machine run-tested after the work is done",
+              "Support available if anything comes up later"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t5",
+        "name": "Front Load",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Drum cleaned thoroughly inside and out",
+              "Drain path and motor checked for smooth running",
+              "Worn parts flagged before they cause bigger issues",
+              "Machine run-tested after the work is done",
+              "Support available if anything comes up later"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Drum cleaned thoroughly inside and out",
+              "Drain path and motor checked for smooth running",
+              "Worn parts flagged before they cause bigger issues",
+              "Machine run-tested after the work is done",
+              "Support available if anything comes up later"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t6",
+        "name": "Semi Automatic",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Drum cleaned thoroughly inside and out",
+              "Drain path and motor checked for smooth running",
+              "Worn parts flagged before they cause bigger issues",
+              "Machine run-tested after the work is done",
+              "Support available if anything comes up later"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Drum cleaned thoroughly inside and out",
+              "Drain path and motor checked for smooth running",
+              "Worn parts flagged before they cause bigger issues",
+              "Machine run-tested after the work is done",
+              "Support available if anything comes up later"
+            ]
+          }
+        ]
+      }
+    ],
+    "serviceProcess": "Our technician checks your washing machine in front of you first and clearly explains any problem found — nothing is hidden.\n\nNo part is replaced without your permission. If a part needs replacing, we tell you its price and warranty first — parts are billed at market price only, with no hidden markup.\n\nWe check the motor, drum, drain pump, water inlet valve, and the belt/pulley (top load) or door seal (front load) for wear and proper working.\n\nDeep service includes cleaning the drum and detergent tray, removing lint and scale buildup, cleaning the filter, and checking for smooth, balanced spinning — this keeps your clothes cleaner and the machine running longer.\n\nAt the end, we run a test wash in front of you to show smooth washing, spinning and draining. Payment is taken only once you are satisfied.",
+    "aboutText": "Semi-automatic, front-load, or top-load — regular servicing keeps your washing machine running smoothly and catches worn parts before they turn into bigger repairs. Drum cleaning, drain checks, and a proper inspection go a long way. We handle installation, repair, and routine maintenance right at your doorstep.",
+    "disabledCities": [],
+    "photoUrl": "/images/appliances/washing-machine.jpg"
+  },
+  {
+    "id": "a3",
+    "name": "RO",
+    "icon": "droplet",
+    "types": [
+      {
+        "id": "t19",
+        "name": "Domestic",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Filters cleaned or replaced as needed",
+              "Storage tank cleaned out fully",
+              "Electrical parts checked for wear or faults",
+              "Water tested and TDS level correctly set",
+              "Team available for any questions after service"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Fair pricing on any parts that need replacing",
+              "Output water quality checked after the fix",
+              "Only genuine parts used, for a repair that lasts",
+              "TDS level set correctly by a trained hand",
+              "Handled by an experienced RO technician"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Best spot for the unit identified first",
+              "RO body mounted securely to the wall",
+              "Water line and power connection completed",
+              "Full performance check after setup",
+              "Unit inspected and wiped down before handover"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Power supply disconnected safely first",
+              "Water supply shut off properly",
+              "Inlet fittings removed with care",
+              "Unit detached safely from the wall",
+              "Area cleaned up once the unit is out"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t20",
+        "name": "Commercial",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Filters cleaned or replaced as needed",
+              "Storage tank cleaned out fully",
+              "Electrical parts checked for wear or faults",
+              "Water tested and TDS level correctly set",
+              "Team available for any questions after service"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Fair pricing on any parts that need replacing",
+              "Output water quality checked after the fix",
+              "Only genuine parts used, for a repair that lasts",
+              "TDS level set correctly by a trained hand",
+              "Handled by an experienced RO technician"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Best spot for the unit identified first",
+              "RO body mounted securely to the wall",
+              "Water line and power connection completed",
+              "Full performance check after setup",
+              "Unit inspected and wiped down before handover"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Power supply disconnected safely first",
+              "Water supply shut off properly",
+              "Inlet fittings removed with care",
+              "Unit detached safely from the wall",
+              "Area cleaned up once the unit is out"
+            ]
+          }
+        ]
+      }
+    ],
+    "serviceProcess": "Our technician checks your RO/water purifier in front of you — testing the TDS level, filters and membrane — and clearly explains what's working and what needs attention.\n\nNo filter or part is changed without your permission. If a replacement is needed, we tell you its price and warranty first — parts are billed at market price only, with no hidden markup.\n\nWe check the pre-filters (sediment and carbon), the RO membrane, the UV lamp (if fitted), pump pressure, and all pipes and joints for leakage.\n\nDeep service includes sanitising the storage tank and cleaning or replacing filters as needed, so the water stays safe and tastes fresh.\n\nAt the end, we show you the TDS reading and water flow in front of you. Payment is taken only after you're satisfied with the water quality.",
+    "aboutText": "RO purifiers need regular filter changes and membrane checks to keep giving you clean, safe drinking water — skip it too long and both water quality and flow start to drop. We handle RO installation, filter replacement, and repair, and give honest advice on when a part genuinely needs replacing.",
+    "disabledCities": [],
+    "photoUrl": "/images/appliances/ro.jpg"
+  },
+  {
+    "id": "a4",
+    "name": "Fridge",
+    "icon": "fridge",
+    "types": [
+      {
+        "id": "t10",
+        "name": "Single Door",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Full inspection of the fridge's main parts",
+              "Cooling and internal temperature checked",
+              "Door seals checked for a proper, tight fit",
+              "Condenser coils cleaned for better efficiency",
+              "Ongoing support after the visit"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Thorough inspection before any repair starts",
+              "Cooling performance checked carefully",
+              "Loose or damaged door seals identified",
+              "Ventilation space around the unit checked",
+              "Condenser coils cleaned as part of the fix"
+            ]
+          },
+          {
+            "id": "svc-gasfill",
+            "name": "Gas Filling",
+            "checklist": [
+              "Refrigerant type confirmed for your model",
+              "Old refrigerant safely drained out",
+              "Correct refrigerant refilled to spec",
+              "Leak check across the whole system",
+              "Cooling performance tested before finishing"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t11",
+        "name": "Double Door",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Full inspection of the fridge's main parts",
+              "Cooling and internal temperature checked",
+              "Door seals checked for a proper, tight fit",
+              "Condenser coils cleaned for better efficiency",
+              "Ongoing support after the visit"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Thorough inspection before any repair starts",
+              "Cooling performance checked carefully",
+              "Loose or damaged door seals identified",
+              "Ventilation space around the unit checked",
+              "Condenser coils cleaned as part of the fix"
+            ]
+          },
+          {
+            "id": "svc-gasfill",
+            "name": "Gas Filling",
+            "checklist": [
+              "Refrigerant type confirmed for your model",
+              "Old refrigerant safely drained out",
+              "Correct refrigerant refilled to spec",
+              "Leak check across the whole system",
+              "Cooling performance tested before finishing"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t12",
+        "name": "Side by Side",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Full inspection of the fridge's main parts",
+              "Cooling and internal temperature checked",
+              "Door seals checked for a proper, tight fit",
+              "Condenser coils cleaned for better efficiency",
+              "Ongoing support after the visit"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Thorough inspection before any repair starts",
+              "Cooling performance checked carefully",
+              "Loose or damaged door seals identified",
+              "Ventilation space around the unit checked",
+              "Condenser coils cleaned as part of the fix"
+            ]
+          },
+          {
+            "id": "svc-gasfill",
+            "name": "Gas Filling",
+            "checklist": [
+              "Refrigerant type confirmed for your model",
+              "Old refrigerant safely drained out",
+              "Correct refrigerant refilled to spec",
+              "Leak check across the whole system",
+              "Cooling performance tested before finishing"
+            ]
+          }
+        ]
+      }
+    ],
+    "serviceProcess": "Our technician checks your fridge in front of you — cooling, compressor sound, gas level, thermostat and door seal — and clearly explains any issue found.\n\nNo part is changed without your permission. If a part needs replacing, we tell you its price and warranty first — parts are billed at market price only, with no hidden markup.\n\nWe check for gas leakage, compressor condition, thermostat/temperature control, and dust buildup on the condenser coils.\n\nDeep service includes cleaning the condenser coils and drain, cleaning the interior, and checking the door seal — a proper seal keeps cooling steady and lowers your electricity bill.\n\nAt the end, we check the cooling in front of you. Payment is taken only once you're fully satisfied.",
+    "aboutText": "Your refrigerator runs every hour of every day, so small issues — a loose door seal, an overworked compressor, uneven cooling — build up quietly and push your electricity bill up before anything visibly breaks. Single door, double door, or deep fridge each has its own maintenance needs. Our technicians spot these early signs and replace only the part that's actually damaged.",
+    "disabledCities": [],
+    "photoUrl": "/images/appliances/fridge.jpg"
+  },
+  {
+    "id": "a5",
+    "name": "Chimney",
+    "icon": "wrench",
+    "hidden": true,
+    "types": [
+      {
+        "id": "t13",
+        "name": "Chimney",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Basic Service",
+            "checklist": [
+              "Filters cleaned thoroughly",
+              "Airflow checked for any blockage",
+              "Suction strength tested",
+              "Chimney liner brushed clean",
+              "Cap cleaned as a finishing step"
+            ]
+          },
+          {
+            "id": "svc-special-service",
+            "name": "Special Service",
+            "checklist": [
+              "Unit opened up, component by component",
+              "Filters and mesh given a deep clean",
+              "Every part inspected closely",
+              "Any blockages identified and cleared",
+              "Cap cleaned as a finishing step"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Unusual noise checked and diagnosed",
+              "Fan motor tested if it's not running",
+              "Lighting issue looked into",
+              "Weak suction traced to its cause",
+              "Full unit inspection included"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Chimney frame assembled on-site",
+              "Flue liner fitted correctly",
+              "Cap installed as the final piece",
+              "Joints and gaps sealed properly",
+              "Full function check once installed"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Old components safely removed",
+              "Ductwork disconnected carefully",
+              "Chimney sections taken down",
+              "Removal done quickly with minimal mess",
+              "Area left clean afterward"
+            ]
+          }
+        ]
+      }
+    ],
+    "serviceProcess": "Our technician inspects your chimney, explains any issue clearly, and only proceeds with your permission.",
+    "aboutText": "A kitchen chimney needs regular cleaning to keep suction strong and prevent grease buildup, which otherwise slows airflow and makes cooking smokier over time. We handle chimney service, repair, installation, and uninstallation.",
+    "disabledCities": [],
+    "photoUrl": "/images/appliances/chimney.jpg"
+  },
+  {
+    "id": "a6",
+    "name": "Geyser",
+    "icon": "droplet",
+    "hidden": true,
+    "types": [
+      {
+        "id": "t14",
+        "name": "Gas Geyser",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Heating element checked for wear",
+              "Any faults diagnosed early",
+              "Gas/electric supply line inspected",
+              "Tank and internal parts cleaned",
+              "Hot water output tested before finishing"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Heating element checked for wear",
+              "Root cause of the fault diagnosed",
+              "Power/gas supply inspected for safety",
+              "Damaged parts replaced (billed separately)",
+              "Hot water output tested after the fix"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Best mounting spot chosen for your bathroom",
+              "Gas or electric line connected properly",
+              "Hot and cold water inlets connected",
+              "Full leak check across all fittings",
+              "Performance tested before handover"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Power or gas supply disconnected first",
+              "Water inlets safely disconnected",
+              "Unit unscrewed from the wall with care",
+              "Fittings checked for leaks during removal",
+              "Area cleaned up once the unit is out"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t15",
+        "name": "Electric Geyser",
+        "services": [
+          {
+            "id": "svc-service",
+            "name": "Service",
+            "checklist": [
+              "Heating element checked for wear",
+              "Any faults diagnosed early",
+              "Gas/electric supply line inspected",
+              "Tank and internal parts cleaned",
+              "Hot water output tested before finishing"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Heating element checked for wear",
+              "Root cause of the fault diagnosed",
+              "Power/gas supply inspected for safety",
+              "Damaged parts replaced (billed separately)",
+              "Hot water output tested after the fix"
+            ]
+          },
+          {
+            "id": "svc-install",
+            "name": "Installation",
+            "checklist": [
+              "Best mounting spot chosen for your bathroom",
+              "Gas or electric line connected properly",
+              "Hot and cold water inlets connected",
+              "Full leak check across all fittings",
+              "Performance tested before handover"
+            ]
+          },
+          {
+            "id": "svc-uninstall",
+            "name": "Uninstallation",
+            "checklist": [
+              "Power or gas supply disconnected first",
+              "Water inlets safely disconnected",
+              "Unit unscrewed from the wall with care",
+              "Fittings checked for leaks during removal",
+              "Area cleaned up once the unit is out"
+            ]
+          }
+        ]
+      }
+    ],
+    "serviceProcess": "Our technician inspects your geyser, explains any issue clearly, and only proceeds with your permission.",
+    "aboutText": "A geyser needs periodic checks to keep heating efficient and safe — a worn element or a scaling tank can quietly push up both your power bill and your risk. We handle geyser service, repair, installation, and uninstallation — gas and electric both.",
+    "disabledCities": [],
+    "photoUrl": "/images/appliances/geyser.jpg"
+  },
+  {
+    "id": "a7",
+    "name": "Microwave",
+    "icon": "wrench",
+    "hidden": true,
+    "types": [
+      {
+        "id": "t16",
+        "name": "Microwave",
+        "services": [
+          {
+            "id": "svc-deepclean",
+            "name": "Deep Cleaning",
+            "checklist": [
+              "Unit unplugged and parts removed safely",
+              "Steam used to loosen tough grease",
+              "Interior scrubbed with safe cleaning agents",
+              "Turntable and exterior sanitized",
+              "Performance checked once cleaning is done"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Heating issue diagnosed at the source",
+              "Checked for cutting out mid-cycle",
+              "Turntable motor inspected if not spinning",
+              "Internal sparking traced and fixed",
+              "Interior light checked and repaired"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t17",
+        "name": "Oven",
+        "services": [
+          {
+            "id": "svc-deepclean",
+            "name": "Deep Cleaning",
+            "checklist": [
+              "Unit unplugged and parts removed safely",
+              "Steam used to loosen tough grease",
+              "Interior scrubbed with safe cleaning agents",
+              "Turntable and exterior sanitized",
+              "Performance checked once cleaning is done"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Heating issue diagnosed at the source",
+              "Checked for cutting out mid-cycle",
+              "Turntable motor inspected if not spinning",
+              "Internal sparking traced and fixed",
+              "Interior light checked and repaired"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "t18",
+        "name": "Hybrid Microwave",
+        "services": [
+          {
+            "id": "svc-deepclean",
+            "name": "Deep Cleaning",
+            "checklist": [
+              "Unit unplugged and parts removed safely",
+              "Steam used to loosen tough grease",
+              "Interior scrubbed with safe cleaning agents",
+              "Turntable and exterior sanitized",
+              "Performance checked once cleaning is done"
+            ]
+          },
+          {
+            "id": "svc-repair",
+            "name": "Repair",
+            "checklist": [
+              "Heating issue diagnosed at the source",
+              "Checked for cutting out mid-cycle",
+              "Turntable motor inspected if not spinning",
+              "Internal sparking traced and fixed",
+              "Interior light checked and repaired"
+            ]
+          }
+        ]
+      }
+    ],
+    "serviceProcess": "Our technician inspects your microwave/oven, explains any issue clearly, and only proceeds with your permission.",
+    "aboutText": "A microwave or oven that isn't heating properly, sparking, or making unusual noise usually needs a quick diagnostic visit before the issue gets worse. We handle service and repair for microwaves, ovens, and hybrid microwaves.",
+    "disabledCities": [],
+    "photoUrl": "/images/appliances/microwave-oven.jpg"
+  }
+]

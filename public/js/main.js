@@ -1,0 +1,2162 @@
+// ------------------------------------------------------------------
+// Seerua Appliance Care — customer site logic
+// ------------------------------------------------------------------
+let BOOKING_PAUSED_STATUS = null; // set once at page load from /api/booking-status; checked by openQuickBookModal() too, so a paused booking is caught right when someone tries to start, not just deep in the old checkout form
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// Mobile nav toggle
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
+
+// Custom line icons (white strokes, sit on the .service-icon's gradient
+// circle) instead of emoji — emoji render inconsistently across devices
+// and read as an unstyled placeholder rather than a designed icon set.
+const ICONS = {
+  snowflake: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="9" rx="2.5"/><circle cx="7.5" cy="9.5" r="1" fill="#fff" stroke="none"/><path d="M4 18c1.2-1.6 2.4-1.6 3.6 0M9.6 18c1.2-1.6 2.4-1.6 3.6 0M15.2 18c1.2-1.6 2.4-1.6 3.6 0"/></svg>',
+  washer: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3" width="17" height="18" rx="2.5"/><circle cx="6.5" cy="6" r="0.4" fill="#fff" stroke="none"/><circle cx="9" cy="6" r="0.4" fill="#fff" stroke="none"/><circle cx="12" cy="14" r="5"/><circle cx="12" cy="14" r="2.1"/></svg>',
+  droplet: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.4 4 6 7.4 6 10.8a6 6 0 1 1-12 0c0-3.4 2.6-6.8 6-10.8Z"/><path d="M9.3 15.3c0 1.5 1.2 2.5 2.5 2.6"/></svg>',
+  fridge: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.2"/><line x1="5" y1="9.5" x2="19" y2="9.5"/><line x1="8.2" y1="4.8" x2="8.2" y2="7.2"/><line x1="8.2" y1="12" x2="8.2" y2="15"/></svg>',
+  wrench: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 4.9L3 17.5 6.5 21l6.3-6.3a4 4 0 0 0 4.9-5.4l-2.8 2.8-2.4-2.4 2.8-2.8Z"/></svg>'
+};
+
+let CITIES = [];
+let CAREER_CITIES = []; // separate, admin-managed list for the Careers modal's city dropdown — independent of the main service-area Cities list
+let CAREER_APPLIANCES = []; // separate, admin-managed list for the Careers modal's appliance checkboxes — independent of the main service Appliances list
+let ALL_APPLIANCES = []; // full list — used for the general "what we offer" grid, not tied to any one city
+let APPLIANCES = [];     // the list actually selectable in the booking form — filtered to the chosen city once one is picked
+let EDUCATION_LEVELS = []; // options for the Careers form's education dropdown — admin-managed, same pattern as Cities
+let selectedService = 'service';
+let incomingReferralCode = null; // set from ?ref= in the URL, sent along with the booking
+
+// Booking form is hidden until the person taps a "Book Now" button in the
+// header or the mobile sticky bar. Every such link points to #book —
+// instead of letting the browser jump there directly, we intercept those
+// clicks so the form is revealed first, then scroll to it.
+function openBookingForm() {
+  // The header's own "Book Now" button sits next to the hamburger menu,
+  // not inside it — so if the mobile nav menu was left open, tapping it
+  // would scroll to the booking form while that menu's fixed white panel
+  // stayed open on top, hiding the form behind it. Always close the menu
+  // here so that can't happen, no matter which "Book Now" was tapped.
+  if (navLinks) navLinks.classList.remove('open');
+  const wrap = document.getElementById('bookingWrap');
+  if (wrap) wrap.hidden = false;
+  const section = document.getElementById('book');
+  if (section) section.scrollIntoView({ behavior: 'smooth' });
+  // Reset to the full form by default — see hideRedundantBookingFields()
+  // for where/why these get hidden again for the Quick Book shortcut.
+  const cityField = document.getElementById('fCityField');
+  if (cityField) cityField.style.display = '';
+  const addBox = document.querySelector('.cart-add-box');
+  if (addBox) addBox.style.display = '';
+}
+
+// Collapses the form again — used once a booking is successfully placed.
+function closeBookingForm() {
+  const wrap = document.getElementById('bookingWrap');
+  if (wrap) wrap.hidden = true;
+}
+
+// My History (order tracking + referral) is hidden until the person taps
+// "Track" or "My Booking" in the nav/footer — every such link points to
+// #track, intercepted the same way as the booking form's #book links.
+function openTrackHistory(skipScroll) {
+  if (navLinks) navLinks.classList.remove('open'); // same fix as openBookingForm() above
+  const wrap = document.getElementById('trackWrap');
+  if (wrap) wrap.hidden = false;
+  if (skipScroll) return;
+  const section = document.getElementById('track');
+  if (section) section.scrollIntoView({ behavior: 'smooth' });
+}
+
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a[href="#track"]');
+  if (link) {
+    e.preventDefault();
+    openTrackHistory();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a[href="#book"]');
+  if (link) {
+    e.preventDefault();
+    openBookingForm();
+  }
+});
+
+// Arriving from a city/SEO page's "Book Now", the chat assistant, or a
+// "rate your service" WhatsApp/SMS link (?trackPhone=...) all land here
+// with a #book/#track hash or query param already in the URL. Reveals
+// the relevant section right away (so it's not sitting empty while data
+// loads), but the actual scroll is deferred until init() has finished
+// fetching data and rendering everything above it — otherwise the page's
+// height is still changing as content loads in, and a scroll started
+// too early ends up pointed at whatever content happened to land there
+// once the page settles, not the form itself.
+function bindUrlTriggeredSections() {
+  if (window.location.hash === '#track') {
+    document.getElementById('track').scrollIntoView({ behavior: 'smooth' });
+  }
+  const trackPhoneParam = new URLSearchParams(window.location.search).get('trackPhone');
+  if (trackPhoneParam && /^[0-9]{10}$/.test(trackPhoneParam)) {
+    const input = document.getElementById('trackPhone');
+    if (input) {
+      input.value = trackPhoneParam;
+      document.getElementById('track').scrollIntoView({ behavior: 'smooth' });
+      const btn = document.getElementById('trackBtn');
+      if (btn) btn.click();
+    }
+  }
+  if (window.location.hash === '#book') {
+    document.getElementById('book').scrollIntoView({ behavior: 'smooth' });
+  }
+}
+// Reveal (not scroll) immediately, so the section isn't a jarring empty
+// flash of content once the deferred scroll above does land on it.
+if (window.location.hash === '#track' || new URLSearchParams(window.location.search).get('trackPhone')) {
+  openTrackHistory(true);
+}
+if (window.location.hash === '#book') {
+  const wrap = document.getElementById('bookingWrap');
+  if (wrap) wrap.hidden = false;
+}
+
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
+
+// Used whenever customer-typed free text (a review, etc.) is inserted into
+// the page, so it's shown as plain text and can't break out of the HTML.
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+// Turns the Admin-written "what we do during service" text (plain text,
+// blank line between paragraphs) into safe HTML paragraphs. Mirrors
+// formatServiceProcessHtml() in server.js, which does the same for the
+// server-rendered city pages.
+function formatServiceProcessHtml(text) {
+  const t = (text || '').trim();
+  if (!t) return '';
+  return t.split(/\n\s*\n/).map(p => `<p>${escapeHtml(p.trim()).replace(/\n/g, '<br>')}</p>`).join('');
+}
+
+// Joins names the natural way: "AC", "AC and Fridge", "AC, Fridge and RO".
+function joinWithAnd(names) {
+  if (names.length === 0) return 'every essential home appliance';
+  if (names.length === 1) return names[0];
+  return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+}
+
+// Updates the "From AC to fridge..." line under the Services heading to
+// name the appliances currently offered — stays in sync automatically as
+// Admin adds/removes appliances. Kept in English regardless of the EN/HI
+// toggle, same as the rest of this live-data content (see i18n.js).
+function renderServicesSubText() {
+  const el = document.getElementById('servicesSubText');
+  if (!el) return;
+  const names = ALL_APPLIANCES.map(a => a.name);
+  el.textContent = `From ${joinWithAnd(names)}, repair and service for every essential home appliance.`;
+}
+
+// Renders the "Appliance care, explained" homepage section from each
+// appliance's aboutText (Admin panel → Appliances & Types). Only appliances
+// that currently exist AND have text written for them get a block — so
+// adding/deleting an appliance in Admin automatically adds/removes its
+// block here too, no code changes needed.
+function renderServiceDetails() {
+  const section = document.getElementById('serviceDetails');
+  const list = document.getElementById('serviceDetailsList');
+  if (!section || !list) return;
+  const withText = ALL_APPLIANCES.filter(a => (a.aboutText || '').trim());
+  if (!withText.length) {
+    section.style.display = 'none';
+    return;
+  }
+  list.innerHTML = withText.map(a => `
+    <div>
+      <h3 class="appliance-detail-title">${escapeHtml(a.name)} Service</h3>
+      <div class="appliance-detail-text">${formatServiceProcessHtml(a.aboutText)}</div>
+    </div>
+  `).join('');
+  section.style.display = '';
+}
+
+function populateSelect(el, items, placeholder) {
+  el.innerHTML = '';
+  if (placeholder) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = placeholder;
+    opt.disabled = true;
+    opt.selected = true;
+    el.appendChild(opt);
+  }
+  items.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = item.name;
+    el.appendChild(opt);
+  });
+}
+
+// Keeps the booking form's appliance dropdown in sync with the selected
+// city — any appliance an Admin has disabled for that city is left out
+// entirely, so it can't be picked (and won't silently 404 on price lookup).
+// With no city chosen yet, falls back to the full list.
+async function refreshAppliancesForCity(cityId) {
+  if (cityId) {
+    try {
+      APPLIANCES = await fetchJSON(`/api/appliances?cityId=${cityId}`);
+    } catch (e) {
+      APPLIANCES = ALL_APPLIANCES;
+    }
+  } else {
+    APPLIANCES = ALL_APPLIANCES;
+  }
+  const currentApplianceId = document.getElementById('fAppliance').value;
+  populateSelect(document.getElementById('fAppliance'), APPLIANCES, 'Select appliance');
+  if (currentApplianceId && APPLIANCES.some(a => a.id === currentApplianceId)) {
+    document.getElementById('fAppliance').value = currentApplianceId;
+  }
+  refreshFormTypes();
+}
+
+async function init() {
+  loadCartFromStorage();
+  try {
+    CITIES = await fetchJSON('/api/cities');
+    CAREER_CITIES = await fetchJSON('/api/career-cities');
+    CAREER_APPLIANCES = await fetchJSON('/api/career-appliances');
+    ALL_APPLIANCES = await fetchJSON('/api/appliances');
+    APPLIANCES = ALL_APPLIANCES;
+    EDUCATION_LEVELS = await fetchJSON('/api/education-levels');
+  } catch (e) {
+    console.error(e);
+    return;
+  }
+
+  // Booking form selects
+  populateSelect(document.getElementById('fCity'), CITIES, 'Select city');
+  populateSelect(document.getElementById('fAppliance'), APPLIANCES, 'Select appliance');
+  refreshFormTypes();
+  renderServiceDetails();
+  renderServicesSubText();
+
+  // Pre-select city/appliance/type if arriving from a city-specific SEO page,
+  // a footer/service link, or the chat assistant's price lookup
+  // (e.g. /?city=c1&appliance=a1&type=t1)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlCityId = urlParams.get('city');
+  const urlApplianceId = urlParams.get('appliance');
+  const urlTypeId = urlParams.get('type');
+  if (urlCityId && CITIES.some(c => c.id === urlCityId)) {
+    document.getElementById('fCity').value = urlCityId;
+    await refreshAppliancesForCity(urlCityId);
+  }
+  if (urlApplianceId && APPLIANCES.some(a => a.id === urlApplianceId)) {
+    document.getElementById('fAppliance').value = urlApplianceId;
+  }
+  refreshFormTypes();
+  if (urlTypeId) {
+    const appliance = APPLIANCES.find(a => a.id === urlApplianceId);
+    if (appliance && appliance.types.some(t => t.id === urlTypeId)) {
+      document.getElementById('fType').value = urlTypeId;
+    }
+  }
+
+  // Services grid
+  renderServicesGrid();
+  bindFooterApplianceLinks();
+
+  // City chips — link each to its own SEO landing page
+  const chipRow = document.getElementById('cityChipRow');
+  chipRow.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="city-chip">${c.name}</a>`).join('');
+
+  loadPublicStats();
+  loadPublicReviews();
+  bindCareersModal();
+  bindReferralSection();
+  checkIncomingReferral();
+  autoOpenBookingFromUrlParams();
+  bindScrollReveal();
+
+  bindFormEvents();
+  bindBottomNav();
+  if (cartItems.length) renderCart();
+
+  // Now that every section above has finished rendering (services grid,
+  // city chips, stats, reviews, etc.), it's safe to scroll to whichever
+  // section the URL asked for — see bindUrlTriggeredSections() for why
+  // this can't happen any earlier.
+  bindUrlTriggeredSections();
+
+  // SUGGESTION IMPLEMENTED: checked in its own try/catch, separately from
+  // the critical data above — if this one fetch fails for any reason, the
+  // booking form just stays in its normal (open) state rather than
+  // breaking page load entirely.
+  try {
+    BOOKING_PAUSED_STATUS = await fetchJSON('/api/booking-status');
+    applyBookingPausedStatus(BOOKING_PAUSED_STATUS);
+  } catch (e) {
+    console.error('Could not check booking-paused status:', e);
+  }
+}
+
+// SUGGESTION IMPLEMENTED: when Admin has paused new bookings (e.g. "not
+// enough technicians right now"), the form is replaced with a friendly
+// notice instead — everything else on the site (SEO pages, careers,
+// browsing appliances/pricing) stays exactly as normal, unlike
+// Maintenance Mode which would take the whole site down and actively
+// hurt the Google ranking / hiring this is meant to protect.
+function applyBookingPausedStatus(status) {
+  const form = document.getElementById('bookingForm');
+  const notice = document.getElementById('bookingPausedNotice');
+  if (!form || !notice) return;
+  if (status && status.bookingPaused) {
+    form.hidden = true;
+    notice.hidden = false;
+    if (status.bookingPausedMessage) {
+      document.getElementById('bookingPausedMessageText').textContent = status.bookingPausedMessage;
+    }
+  } else {
+    form.hidden = false;
+    notice.hidden = true;
+  }
+}
+
+// Shows a real rating in the hero and stats strip — never a hardcoded
+// number. Prefers Admin's Google rating when it's turned on (independently
+// verified by Google, generally trusted more by new visitors, and linked
+// straight to the real listing so anyone can check it themselves);
+// otherwise falls back to the rating computed live from this site's own
+// "Rate this service" data. If neither exists yet, both spots quietly stay
+// on their honest, evergreen fallback ("✔ Verified Technicians").
+let GOOGLE_REVIEW_URL = null;
+
+async function loadPublicStats() {
+  try {
+    const stats = await fetchJSON('/api/stats/public');
+    const heroRating = document.getElementById('heroRating');
+    const statValue = document.getElementById('statRatingValue');
+    const statLabel = document.getElementById('statRatingLabel');
+
+    if (stats.googleRating) {
+      const g = stats.googleRating;
+      GOOGLE_REVIEW_URL = g.profileUrl;
+      const reviewWord = g.reviewCount === 1 ? 'review' : 'reviews';
+      if (heroRating) {
+        document.getElementById('heroRatingText').innerHTML =
+          `<a href="${g.profileUrl}" target="_blank" rel="noopener" style="color:inherit;">${g.rating}/5 on Google · ${g.reviewCount} ${reviewWord}</a>`;
+        heroRating.style.display = 'inline-flex';
+      }
+      if (statValue && statLabel) {
+        statValue.textContent = `${g.rating}★`;
+        statLabel.innerHTML = `<a href="${g.profileUrl}" target="_blank" rel="noopener" style="color:inherit;">${g.reviewCount} Google ${reviewWord}</a>`;
+      }
+      return;
+    }
+
+    if (!stats.avgRating || !stats.ratingCount) return;
+    const reviewWord = stats.ratingCount === 1 ? 'review' : 'reviews';
+    if (heroRating) {
+      document.getElementById('heroRatingText').textContent = `${stats.avgRating}/5 rated service · ${stats.ratingCount} ${reviewWord}`;
+      heroRating.style.display = 'inline-flex';
+    }
+    if (statValue && statLabel) {
+      statValue.textContent = `${stats.avgRating}★`;
+      statLabel.textContent = `${stats.ratingCount} ${reviewWord}`;
+    }
+  } catch (e) {
+    // Stats are a nice-to-have — if the request fails, the page just keeps
+    // its honest fallback copy instead of showing anything broken or fake.
+  }
+}
+
+// Replaces the homepage's clearly-labelled SAMPLE testimonials with real
+// customer reviews (rating + text, from "Track Order → Rate this service")
+// once there are at least 3 of them — enough to not look sparse/empty. Below
+// that threshold the honest sample cards (labelled as samples) stay as-is,
+// same "don't show fake data" principle used for the rating badge.
+// The Testimonials section stays hidden until there are at least 3 real
+// customer reviews — no placeholder/sample cards are ever shown, so the
+// site never displays anything that isn't real (same rule used everywhere
+// else on the site for ratings/reviews).
+async function loadPublicReviews() {
+  const section = document.getElementById('testimonialsSection');
+  if (!section) return;
+  try {
+    const reviews = await fetchJSON('/api/reviews/public');
+    if (!reviews || reviews.length < 3) {
+      section.style.display = 'none';
+      return;
+    }
+    const grid = document.getElementById('testimonialGrid');
+    const note = document.getElementById('testimonialSectionNote');
+    grid.innerHTML = reviews.slice(0, 6).map(r => `
+      <div class="testimonial-card">
+        <div class="testimonial-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+        <p class="testimonial-quote">"${escapeHtml(r.reviewText)}"</p>
+        <div class="testimonial-person">
+          <div class="testimonial-avatar">${escapeHtml(r.initials)}</div>
+          <div>
+            <div class="testimonial-name">${escapeHtml(r.displayName)}</div>
+            <div class="testimonial-meta">${escapeHtml(r.cityName)} · ${escapeHtml(r.applianceName)} · Verified booking</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    if (note) note.textContent = 'Real reviews from verified Seerua Appliance Care bookings.';
+    section.style.display = '';
+  } catch (e) {
+    section.style.display = 'none';
+  }
+}
+
+// Fades/slides each ".reveal" element into place the first time it scrolls
+// into view — a small polish touch used across the page's sections.
+function bindScrollReveal() {
+  const targets = document.querySelectorAll('.reveal');
+  if (!targets.length) return;
+  if (!('IntersectionObserver' in window)) {
+    targets.forEach(el => el.classList.add('in-view'));
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  targets.forEach(el => observer.observe(el));
+}
+
+// Makes the footer's "Services" links actually change the selected appliance
+// in the booking form (they used to just scroll down without selecting
+// anything) — each link carries a data-appliance id set by the server.
+function bindFooterApplianceLinks() {
+  document.querySelectorAll('.footer-appliance-link').forEach(a => {
+    a.addEventListener('click', (e) => {
+      const id = a.getAttribute('data-appliance');
+      if (!id || !APPLIANCES.some(x => x.id === id)) return;
+      e.preventDefault();
+      openQuickBookModal(id);
+    });
+  });
+}
+
+// ---------------- Refer & Earn ----------------
+// A customer's own referral link is fetched using their phone number and
+// sent straight to WhatsApp — no separate "here's your link" box shown in
+// between. Anyone who books through that link gets a discount on their
+// first booking; once their booking is marked completed by the
+// technician, the referrer gets a reward coupon automatically (handled
+// server-side).
+//
+// We already know the customer's phone once they've looked up their
+// bookings in "My Booking" just above — so in that case we skip asking
+// for it again entirely. The manual phone box only appears as a fallback
+// for someone who lands here via a referral banner without having looked
+// up their bookings yet (see checkIncomingReferral / the "Get my referral
+// link" banner), since there's no other way to know who they are in that
+// case.
+
+// Renders the referral stats/rewards box — referredCount, pendingCount,
+// and every reward coupon earned so far (code, amount, used/unused,
+// expiry). All of this data already came back from /api/referral/my-info
+// but was previously never shown anywhere, so a referrer had no way to
+// discover they'd actually earned something.
+function renderReferralStatus(info) {
+  const box = document.getElementById('referStatus');
+  if (!box) return;
+  const rewardsHtml = info.rewardCoupons && info.rewardCoupons.length
+    ? info.rewardCoupons.map(c => `
+        <div class="row1" style="padding:8px 0;border-bottom:1px solid var(--line);">
+          <span><strong style="color:var(--blue-900);">${escapeHtml(c.code)}</strong> · ₹${c.discountValue} off</span>
+          <span class="status-pill ${c.used ? 'status-completed' : 'status-assigned'}">${c.used ? 'Used' : 'Available'}</span>
+        </div>
+        ${!c.used ? `<div class="row2" style="margin-top:-4px;margin-bottom:6px;">Valid till ${c.expiryDate} — enter this code at checkout on your own next booking.</div>` : ''}
+      `).join('')
+    : '';
+  box.innerHTML = `
+    <div class="row2" style="margin-bottom:8px;">Your link: <a href="${info.link}" style="color:var(--blue-600);word-break:break-all;">${info.link}</a></div>
+    <div class="row1"><span>People you've referred</span><strong>${info.referredCount || 0}</strong></div>
+    <div class="row1"><span>Rewards pending (waiting for their service to complete)</span><strong>${info.pendingCount || 0}</strong></div>
+    ${rewardsHtml ? `<div style="margin-top:10px;"><strong style="color:var(--blue-900);font-size:0.88rem;">Your reward coupons</strong>${rewardsHtml}</div>` : `<div class="row2" style="margin-top:8px;">No reward coupons yet — you'll get one automatically once someone you referred completes their first service.</div>`}
+  `;
+  box.style.display = 'block';
+}
+
+// Fetches the customer's referral link and opens WhatsApp with it
+// pre-filled, in one motion — no intermediate "here's your link" box to
+// look at or a second button to press. The blank tab is opened
+// synchronously, before the `await`, so browsers still treat it as a
+// direct result of the tap and don't block it as a pop-up; its
+// destination is filled in once the link is back from the server.
+async function sendReferralLinkViaWhatsApp(phone) {
+  const msg = document.getElementById('referMsg');
+  msg.className = 'form-msg';
+  msg.textContent = '';
+  const popup = window.open('', '_blank');
+  try {
+    const info = await fetchJSON(`/api/referral/my-info?phone=${phone}`);
+    if (!info.active) {
+      if (popup) popup.close();
+      msg.className = 'form-msg error';
+      msg.textContent = 'The referral program is not active right now. Please check back later.';
+      return false;
+    }
+    renderReferralStatus(info);
+    const shareText = `Hi! I use Seerua Appliance Care for AC/Washing Machine/RO/Fridge repair — book through my link and get ₹${info.referredDiscount} off your first service: ${info.link}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    if (popup) popup.location.href = whatsappUrl;
+    else window.open(whatsappUrl, '_blank'); // popup blocked anyway — try once more directly
+    return true;
+  } catch (e) {
+    if (popup) popup.close();
+    msg.className = 'form-msg error';
+    msg.textContent = e.message || 'Could not get your referral link. Please try again.';
+    return false;
+  }
+}
+
+function resetReferralSectionToPrompt() {
+  const toggleRow = document.getElementById('referToggleRow');
+  const lookup = document.getElementById('referLookup');
+  const msg = document.getElementById('referMsg');
+  const status = document.getElementById('referStatus');
+  if (toggleRow) toggleRow.style.display = 'flex';
+  if (lookup) lookup.style.display = 'none';
+  if (status) { status.style.display = 'none'; status.innerHTML = ''; }
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+}
+
+function bindReferralSection() {
+  const openBtn = document.getElementById('referOpenBtn');
+  const getLinkBtn = document.getElementById('referGetLinkBtn');
+  if (!openBtn || !getLinkBtn) return;
+
+  // Tapped from the collapsed "🎁 Refer a Friend" prompt. If we already
+  // know the phone (from "My Booking" just above), send straight to
+  // WhatsApp in one motion — no separate "here's your link" box to open
+  // first. Only falls back to asking for the phone number if we truly
+  // don't know it yet (arrived via the referral banner cold).
+  openBtn.addEventListener('click', async () => {
+    if (knownReferralPhone) {
+      openBtn.disabled = true;
+      openBtn.textContent = 'Please wait...';
+      await sendReferralLinkViaWhatsApp(knownReferralPhone);
+      openBtn.disabled = false;
+      openBtn.textContent = 'Get My Referral Link';
+    } else {
+      document.getElementById('referToggleRow').style.display = 'none';
+      document.getElementById('referLookup').style.display = 'block';
+    }
+  });
+
+  getLinkBtn.addEventListener('click', async () => {
+    const phoneEl = document.getElementById('referPhone');
+    const phone = phoneEl.value.trim();
+    const msg = document.getElementById('referMsg');
+
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return;
+    }
+
+    getLinkBtn.disabled = true;
+    getLinkBtn.textContent = 'Please wait...';
+    try {
+      const ok = await sendReferralLinkViaWhatsApp(phone);
+      if (ok) knownReferralPhone = phone;
+    } finally {
+      getLinkBtn.disabled = false;
+      getLinkBtn.textContent = 'Get My Referral Link';
+    }
+  });
+}
+
+// If this page was opened via someone's referral link (?ref=CODE), validate
+// it with the server and, if valid, show a banner and remember the code so
+// it's sent along with the booking to apply the discount.
+// If this page was reached with ?appliance=ID (optionally &city=ID too) in
+// the URL — e.g. redirected here from the AI chat's "open booking form"
+// fallback when the customer was on a city/appliance-city page that
+// doesn't have the booking form itself — automatically open the Quick
+// Book modal for that appliance instead of leaving the customer to land
+// on the homepage with nothing happening.
+function autoOpenBookingFromUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const applianceId = params.get('appliance');
+  const cityId = params.get('city');
+  if (cityId && document.getElementById('fCity')) {
+    const match = CITIES.find(c => c.id === cityId);
+    if (match) document.getElementById('fCity').value = cityId;
+  }
+  if (applianceId && APPLIANCES.find(a => a.id === applianceId && !a.hidden)) {
+    openQuickBookModal(applianceId);
+  } else if (window.location.hash === '#book' || window.location.hash === '#services') {
+    document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+async function checkIncomingReferral() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const ref = urlParams.get('ref');
+  if (!ref) return;
+  try {
+    const result = await fetchJSON(`/api/referral/validate?code=${encodeURIComponent(ref)}`);
+    incomingReferralCode = ref;
+    const banner = document.getElementById('referBannerReferred');
+    if (banner) {
+      banner.textContent = `🎉 Referred by ${result.referrerName} — you'll get ₹${result.discountAmount} off your first booking! Just book below (discount applies automatically).`;
+      banner.style.display = 'block';
+    }
+    const referBlock = document.getElementById('refer');
+    if (referBlock) referBlock.hidden = false;
+    // "My Booking" (which contains the refer block) is hidden until the
+    // person opens it manually — but someone arriving via a referral link
+    // needs to actually SEE their discount confirmation, so open + scroll
+    // to it automatically in this one case.
+    if (typeof openTrackHistory === 'function') openTrackHistory();
+  } catch (e) {
+    // Invalid/expired referral code — silently ignore, customer can still book normally.
+    incomingReferralCode = null;
+  }
+}
+
+// ---------------- Careers button + modal (fill & submit right on this page) ----------------
+// A full standalone version of the same form also lives at /careers, which
+// keeps working even when Maintenance Mode is on (Maintenance Mode only
+// blocks the booking API and swaps out this homepage — /careers is a
+// separate route that is never touched by it).
+function openCareersModal() {
+  const modal = document.getElementById('careersModal');
+  if (!modal) return;
+  document.getElementById('mcapCity').innerHTML = '<option value="" disabled selected>Select city</option>' + CAREER_CITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('mcapEducation').innerHTML = '<option value="" disabled selected>Select education</option>' + EDUCATION_LEVELS.map(ed => `<option value="${ed.id}">${ed.name}</option>`).join('');
+  document.getElementById('mcapAppliancePicker').innerHTML = CAREER_APPLIANCES.map(a => `
+    <label class="chip" style="cursor:pointer;">
+      <input type="checkbox" value="${a.id}" name="mcapAppliance" style="margin-right:5px;">${a.name}
+    </label>
+  `).join('');
+  document.getElementById('mcapMsg').className = 'form-msg';
+  document.getElementById('mcapMsg').textContent = '';
+  // Reset button states left over from a previous successful submission
+  // (submit shows "✓ Submitted" and Cancel gets disabled while the modal
+  // auto-closes) — a fresh open of the form should start clean.
+  const mcapSubmitBtn = document.querySelector('#careersModalForm button[type="submit"]');
+  if (mcapSubmitBtn) { mcapSubmitBtn.disabled = false; mcapSubmitBtn.textContent = 'Submit Application'; }
+  const mcapCancelBtn = document.getElementById('careersModalCancel');
+  if (mcapCancelBtn) mcapCancelBtn.disabled = false;
+  modal.classList.add('open');
+  // Without locking the background page's scroll, a mouse-wheel scroll
+  // that reaches the bottom of the form (or starts just outside its
+  // bounds within the backdrop's padding) can fall through and scroll the
+  // page behind the modal instead — on some browsers/laptops that then
+  // registers as if the click/press landed on the backdrop itself,
+  // closing the form. Locking it removes that entire failure mode.
+  document.body.style.overflow = 'hidden';
+}
+function closeCareersModal() {
+  const modal = document.getElementById('careersModal');
+  if (modal) modal.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function bindCareersModal() {
+  const openBtn = document.getElementById('careersBtn');
+  const navLink = document.getElementById('careersNavLink');
+  const modal = document.getElementById('careersModal');
+  if (!modal) return;
+
+  if (openBtn) openBtn.addEventListener('click', openCareersModal);
+  if (navLink) navLink.addEventListener('click', (e) => { e.preventDefault(); openCareersModal(); navLinks.classList.remove('open'); });
+  document.getElementById('careersModalClose').addEventListener('click', closeCareersModal);
+  document.getElementById('careersModalCancel').addEventListener('click', closeCareersModal);
+
+  // Close only when the tap/click both STARTS and ENDS on the empty
+  // backdrop itself — not just ends there. Without this, tapping/scrolling
+  // anywhere inside the form on a touchscreen (a field, a checkbox, even
+  // just scrolling the form up/down) can register its "click" against the
+  // backdrop and close the whole modal, wiping out whatever the person had
+  // filled in. Requiring the press to also start on the backdrop fixes that
+  // while still letting a genuine tap outside the form close it.
+  let careersBackdropPressStartedOnBackdrop = false;
+  let careersBackdropPressStartXY = null;
+  modal.addEventListener('pointerdown', (e) => {
+    careersBackdropPressStartedOnBackdrop = (e.target === modal);
+    careersBackdropPressStartXY = { x: e.clientX, y: e.clientY };
+  });
+  modal.addEventListener('click', (e) => {
+    // Also require the pointer didn't move much between press and
+    // release — a scroll/drag gesture that happens to start and end on
+    // the backdrop still fires a "click", but it isn't really a tap
+    // meant to dismiss the form.
+    const moved = careersBackdropPressStartXY
+      ? Math.hypot(e.clientX - careersBackdropPressStartXY.x, e.clientY - careersBackdropPressStartXY.y) > 8
+      : false;
+    if (e.target === modal && careersBackdropPressStartedOnBackdrop && !moved) closeCareersModal();
+    careersBackdropPressStartedOnBackdrop = false;
+    careersBackdropPressStartXY = null;
+  });
+
+  document.getElementById('careersModalForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('mcapMsg');
+    msg.className = 'form-msg';
+
+    const applianceIds = Array.from(document.querySelectorAll('input[name="mcapAppliance"]:checked')).map(i => i.value);
+    const phone = document.getElementById('mcapPhone').value.trim();
+
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return;
+    }
+    if (!applianceIds.length) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please select at least one appliance you can work on.';
+      return;
+    }
+    if (!document.getElementById('mcapEducation').value) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please select your highest education level.';
+      return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const cancelBtn = document.getElementById('careersModalCancel');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    try {
+      await fetchJSON('/api/technician-applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('mcapName').value.trim(),
+          phone,
+          address: document.getElementById('mcapAddress').value.trim(),
+          cityId: document.getElementById('mcapCity').value,
+          applianceIds,
+          educationId: document.getElementById('mcapEducation').value,
+          experienceYears: document.getElementById('mcapExperience').value,
+          idType: document.getElementById('mcapIdType').value,
+          idNumber: document.getElementById('mcapIdNumber').value.trim(),
+          notes: document.getElementById('mcapNotes').value.trim()
+        })
+      });
+      msg.className = 'form-msg success';
+      msg.textContent = "Application submitted! Our team will contact you when there's an opening in your city.";
+      e.target.reset();
+      // Keep the button showing a clear "done" state instead of reverting
+      // to "Submit Application" — otherwise it looks ready to submit again
+      // right under a success message, which reads as if nothing happened.
+      submitBtn.textContent = '✓ Submitted';
+      if (cancelBtn) cancelBtn.disabled = true;
+      // Long enough to actually read the confirmation before the form
+      // disappears — 1.8s was barely a flash, easy to miss and mistake
+      // for the submission not having worked at all.
+      msg.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      setTimeout(closeCareersModal, 4500);
+    } catch (err) {
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'Could not submit your application. Please try again.';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Application';
+    }
+  });
+}
+
+function slugify(name) {
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function refreshFormTypes() {
+  const applianceId = document.getElementById('fAppliance').value;
+  const appliance = APPLIANCES.find(a => a.id === applianceId);
+  populateSelect(document.getElementById('fType'), appliance ? appliance.types : [], 'Select type');
+}
+
+function renderServicesGrid() {
+  const grid = document.getElementById('servicesGrid');
+  grid.innerHTML = ALL_APPLIANCES.map(a => `
+    <div class="service-card" data-appliance="${a.id}">
+      ${a.photoUrl
+        ? `<img class="service-card-photo" src="${a.photoUrl}" alt="${a.name} service technician at work" loading="lazy">`
+        : `<div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div>`}
+      <h3>${a.name}</h3>
+      <a href="#book" class="btn btn-outline btn-sm">Book Now</a>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.service-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      e.preventDefault();
+      const applianceId = card.getAttribute('data-appliance');
+      openQuickBookModal(applianceId);
+    });
+  });
+}
+
+const CART_STORAGE_KEY = 'seerua_cart_v1';
+
+function loadCartFromStorage() {
+  try {
+    const raw = sessionStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (Array.isArray(saved.cartItems)) cartItems = saved.cartItems;
+    if (saved.appliedCoupon) appliedCoupon = saved.appliedCoupon;
+  } catch (e) { /* corrupted/old data — just start with an empty cart */ }
+}
+
+function saveCartToStorage() {
+  try {
+    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ cartItems, appliedCoupon }));
+  } catch (e) { /* storage full or unavailable — cart just won't survive a refresh this time */ }
+}
+
+let cartItems = [];
+// SUGGESTION IMPLEMENTED: OTP now happens right when the first item is
+// added to the cart (not at final Submit) — this remembers that
+// verification across the rest of the flow, so Submit doesn't ask again
+// for the same session, and so it can be safely discarded if the phone
+// number is changed after verifying (a different number needs its own
+// fresh OTP).
+let verifiedBookingAccessToken = null;
+let verifiedBookingPhone = null;
+
+let appliedCoupon = null;
+
+function renderCart() {
+  updateBottomNavCartBadge();
+  const offset = quickBookViewStartIndex !== null ? quickBookViewStartIndex : 0;
+  const visibleItems = quickBookViewStartIndex !== null ? cartItems.slice(quickBookViewStartIndex) : cartItems;
+  // Clear, visible confirmation that this is an isolated "just this one
+  // item" checkout — so it's obvious nothing else from the regular cart
+  // is quietly being bundled into this booking.
+  const scopeNote = document.getElementById('quickBookScopeNote');
+  if (scopeNote) scopeNote.style.display = (quickBookViewStartIndex !== null && offset > 0) ? 'block' : 'none';
+  // Only persist/restore the REAL full cart to storage — a standalone
+  // Book session is meant to be quick and self-contained, not something
+  // that needs to survive a refresh independent of the main cart.
+  if (quickBookViewStartIndex === null) saveCartToStorage();
+  const list = document.getElementById('cartList');
+  const empty = document.getElementById('cartEmpty');
+  const couponRow = document.getElementById('couponRow');
+  const summaryCard = document.getElementById('paymentSummaryCard');
+  if (!visibleItems.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    couponRow.style.display = 'none';
+    if (summaryCard) summaryCard.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  // Coupons apply to the real, full cart only — kept out of the simpler
+  // standalone single-item Book view.
+  couponRow.style.display = (quickBookViewStartIndex === null) ? 'flex' : 'none';
+  const subtotal = visibleItems.reduce((s, it) => s + it.lineTotal, 0);
+  const discount = (quickBookViewStartIndex === null && appliedCoupon) ? appliedCoupon.discountAmount : 0;
+  const finalTotal = subtotal - discount;
+
+  list.innerHTML = visibleItems.map((it, localIdx) => {
+    const idx = offset + localIdx; // real index into cartItems, so qty/remove target the right item
+    // BUG FIX: the quantity +/- stepper used to show even in the
+    // standalone "Quick Book" (direct-book) view — but that flow is
+    // meant to be a fixed, single-item checkout (city/appliance/type
+    // already chosen one at a time), so a quantity control there doesn't
+    // make sense and just added confusion. Only shown in the real,
+    // full-cart view now.
+    const qtyHtml = quickBookViewStartIndex === null
+      ? `<div class="cart-item-qty-stepper">
+          <button type="button" onclick="adjustCartItemQty(${idx}, -1)" aria-label="Decrease quantity">−</button>
+          <span>${it.qty}</span>
+          <button type="button" onclick="adjustCartItemQty(${idx}, 1)" aria-label="Increase quantity">+</button>
+        </div>`
+      : '';
+    return `
+    <div class="cart-item">
+      <div class="cart-item-info">
+        <strong>${it.applianceName}</strong> — ${it.typeName}, ${it.serviceType === 'repair' ? 'Repair' : 'Service'}
+        ${it.problem ? `<br><span style="color:var(--slate);">${it.problem}</span>` : ''}
+        ${it.photoUrl ? `<br><a href="${it.photoUrl}" target="_blank" rel="noopener" style="color:var(--blue-600);font-size:0.82rem;">📷 View attached photo</a>` : ''}
+        ${qtyHtml}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <span class="cart-item-price">₹${it.lineTotal}</span>
+        <button type="button" class="cart-item-trash" onclick="removeCartItem(${idx})" title="Remove">🗑️</button>
+      </div>
+    </div>
+  `;
+  }).join('') +
+    (discount ? `<div class="discount-row"><span>Coupon "${appliedCoupon.code}" applied</span><span>− ₹${discount}</span></div>` : '') +
+    // In the standalone Quick Book (direct-book) view, this is always a
+    // single fixed item — showing an item-count next to it ("Total (1
+    // item)") is redundant clutter for what's meant to be a simple direct
+    // checkout, so just "Total" there; the full item count still shows in
+    // the real multi-item cart view.
+    `<div class="cart-total-row">
+      <span>${quickBookViewStartIndex === null ? `Total (${visibleItems.length} item${visibleItems.length > 1 ? 's' : ''})` : 'Total'}</span>
+      <span class="amount">₹${finalTotal}</span>
+    </div>`;
+
+  // Payment Summary card — kept in sync with the same numbers as the
+  // cart total above (no extra platform fee, per explicit request).
+  if (summaryCard) {
+    summaryCard.style.display = 'block';
+    document.getElementById('paymentSummaryItemTotal').textContent = `₹${subtotal}`;
+    document.getElementById('paymentSummaryTotal').textContent = `₹${finalTotal}`;
+  }
+}
+
+// Adjusts an already-added item's quantity directly from the cart line
+// (the qty field in the "add appliance" box only sets the STARTING
+// quantity when first adding — this is what lets it be changed after).
+function adjustCartItemQty(idx, delta) {
+  const it = cartItems[idx];
+  if (!it) return;
+  const newQty = Math.max(1, Math.min(10, it.qty + delta));
+  if (newQty === it.qty) return;
+  it.qty = newQty;
+  it.lineTotal = it.unitPrice * newQty;
+  renderCart();
+}
+
+function removeCartItem(idx) {
+  cartItems.splice(idx, 1);
+  if (appliedCoupon) {
+    appliedCoupon = null;
+    document.getElementById('couponCode').value = '';
+    document.getElementById('couponMsg').className = 'msg-inline-coupon';
+    document.getElementById('couponMsg').textContent = '';
+  }
+  renderCart();
+  if (document.getElementById('fDate').value) refreshSlots();
+}
+
+document.getElementById('applyCouponBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('couponMsg');
+  msg.className = 'msg-inline-coupon';
+  const code = document.getElementById('couponCode').value.trim();
+  if (!code) {
+    msg.className = 'msg-inline-coupon error';
+    msg.textContent = 'Please enter a coupon code.';
+    return;
+  }
+  const subtotal = cartItems.reduce((s, it) => s + it.lineTotal, 0);
+  const phone = document.getElementById('fPhone').value.trim();
+  try {
+    const result = await fetchJSON('/api/coupons/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, totalPrice: subtotal, phone })
+    });
+    appliedCoupon = { code: result.code, discountAmount: result.discountAmount };
+    msg.className = 'msg-inline-coupon success';
+    msg.textContent = `Coupon applied! You saved ₹${result.discountAmount}.`;
+    renderCart();
+  } catch (err) {
+    appliedCoupon = null;
+    msg.className = 'msg-inline-coupon error';
+    msg.textContent = err.message || 'Invalid coupon code.';
+    renderCart();
+  }
+});
+
+let pendingPhotoUrl = '';
+let photoUploading = false;
+
+document.getElementById('fPhoto').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  const preview = document.getElementById('fPhotoPreview');
+  pendingPhotoUrl = '';
+  if (!file) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
+
+  preview.style.display = 'block';
+  preview.innerHTML = `<span style="font-size:0.82rem;color:var(--slate);">Uploading photo…</span>`;
+  photoUploading = true;
+  try {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not upload photo.');
+    pendingPhotoUrl = data.url;
+    preview.innerHTML = `
+      <div class="photo-preview-thumb">
+        <img src="${data.url}" alt="Uploaded photo">
+        <span>Photo attached</span>
+        <button type="button" onclick="clearPendingPhoto()">✕</button>
+      </div>`;
+  } catch (err) {
+    preview.innerHTML = `<span style="font-size:0.82rem;color:var(--red);">${escapeHtml(err.message)}</span>`;
+  } finally {
+    photoUploading = false;
+  }
+});
+
+function clearPendingPhoto() {
+  pendingPhotoUrl = '';
+  document.getElementById('fPhoto').value = '';
+  const preview = document.getElementById('fPhotoPreview');
+  preview.style.display = 'none';
+  preview.innerHTML = '';
+}
+
+let addingItem = false;
+
+async function addItemToCart() {
+  if (addingItem) return; // already processing a click — ignore extra clicks (prevents double-adds from a fast double tap on mobile)
+  // Uses its own message box right under the "+ Add to Booking" button —
+  // not the form's #formMsg way down near Submit, which used to leave
+  // people confused about where a message like "already in your list"
+  // even came from since it appeared nowhere near what they'd just tapped.
+  const msg = document.getElementById('addItemMsg');
+  msg.className = 'form-msg';
+  if (photoUploading) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please wait for the photo to finish uploading.';
+    return;
+  }
+  const cityId = document.getElementById('fCity').value;
+  const applianceId = document.getElementById('fAppliance').value;
+  const typeId = document.getElementById('fType').value;
+  const serviceType = document.getElementById('fServiceType').value;
+  const qty = Math.max(1, parseInt(document.getElementById('fQty').value, 10) || 1);
+  const problem = document.getElementById('fProblem').value.trim();
+
+  if (!cityId) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please select your city first.';
+    return;
+  }
+  if (!applianceId || !typeId) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please select an appliance and type.';
+    return;
+  }
+  if (!APPLIANCES.some(a => a.id === applianceId)) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Sorry, this appliance is currently not available for service in your selected city.';
+    return;
+  }
+
+  const phone = document.getElementById('fPhone').value.trim();
+  if (!/^[0-9]{10}$/.test(phone)) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please enter a valid 10 digit mobile number.';
+    return;
+  }
+
+  const addBtn = document.getElementById('addItemBtn');
+  const originalBtnText = addBtn.textContent;
+  addingItem = true;
+  addBtn.disabled = true;
+
+  // OTP verification happens here — right when adding the first item (or
+  // if the phone number changed since it was last verified) — rather
+  // than waiting until final Submit. A number already verified from a
+  // past booking, or with OTP turned off in Admin Panel, skips straight
+  // through; the server independently re-checks this too either way.
+  if (verifiedBookingPhone !== phone) {
+    verifiedBookingAccessToken = null;
+    verifiedBookingPhone = null;
+    let phoneAlreadyVerified = false;
+    try {
+      const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+      phoneAlreadyVerified = !!check.verified;
+    } catch (e) { /* fall back to normal OTP flow */ }
+
+    let otpEnabled = true;
+    try {
+      const cfg = await ensureOtpConfig();
+      otpEnabled = cfg.enabled !== false;
+    } catch (e) { /* fall back to normal OTP flow */ }
+
+    if (otpEnabled && !phoneAlreadyVerified) {
+      addBtn.textContent = 'Verifying number…';
+      msg.className = 'form-msg';
+      msg.textContent = 'Please complete the OTP verification that just opened.';
+      try {
+        verifiedBookingAccessToken = await verifyPhoneWithOtp(phone);
+        verifiedBookingPhone = phone;
+      } catch (err) {
+        addingItem = false;
+        addBtn.disabled = false;
+        addBtn.textContent = originalBtnText;
+        msg.className = 'form-msg error';
+        msg.textContent = err.message || 'OTP verification failed. Please try again.';
+        return;
+      }
+    } else {
+      verifiedBookingPhone = phone; // already verified or OTP disabled — nothing more needed for this number
+    }
+  }
+
+  addBtn.textContent = 'Adding…';
+
+  try {
+    const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${applianceId}&typeId=${typeId}`);
+    // qbSkuOverride is set by the Quick Book services-list flow (see
+    // qbAddService below) when the customer picked a specific service
+    // SKU (e.g. "Installation", "Gas Filling") that has its own price,
+    // distinct from the plain service/repair split this form normally
+    // uses. Falls back to the normal servicePrice/repairPrice otherwise.
+    const unitPrice = (typeof qbSkuOverride !== 'undefined' && qbSkuOverride)
+      ? qbSkuOverride.price
+      : (serviceType === 'repair' ? row.repairPrice : row.servicePrice);
+    const appliance = APPLIANCES.find(a => a.id === applianceId);
+    const type = appliance ? appliance.types.find(t => t.id === typeId) : null;
+
+    // If the same appliance + type + service + problem note is already in
+    // the cart, don't touch the cart at all — no second line, and no
+    // silently bumping the existing line's quantity either. Just tell the
+    // person it's already there; if they want a different quantity they
+    // can remove that line and re-add it with the qty they want.
+    const existing = cartItems.find(it =>
+      it.applianceId === applianceId && it.typeId === typeId &&
+      it.serviceType === serviceType && it.problem === problem &&
+      it.photoUrl === pendingPhotoUrl
+    );
+    if (existing) {
+      // Not an actual error (nothing is wrong, nothing failed) — so this is
+      // shown in the calmer "notice" style, not red, and it doesn't stop
+      // the person from submitting the booking with what's already in the
+      // list below.
+      msg.className = 'form-msg notice';
+      msg.textContent = "Already in your list below — no need to add it again. To change the quantity, remove it below and re-add with the quantity you want.";
+    } else {
+      cartItems.push({
+        applianceId, applianceName: appliance ? appliance.name : '',
+        typeId, typeName: type ? type.name : '',
+        serviceType, qty, problem,
+        photoUrl: pendingPhotoUrl,
+        skuId: (typeof qbSkuOverride !== 'undefined' && qbSkuOverride) ? qbSkuOverride.skuId : null,
+        unitPrice, lineTotal: unitPrice * qty
+      });
+      renderCart();
+      document.getElementById('fProblem').value = '';
+      document.getElementById('fQty').value = 1;
+      clearPendingPhoto();
+      if (document.getElementById('fDate').value) refreshSlots();
+    }
+  } catch (err) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Could not get price for this selection. Please try again.';
+  } finally {
+    addingItem = false;
+    addBtn.disabled = false;
+    addBtn.textContent = originalBtnText;
+    qbSkuOverride = null;
+  }
+}
+
+let selectedSlotId = null;
+
+async function refreshSlots() {
+  const cityId = document.getElementById('fCity').value;
+  const date = document.getElementById('fDate').value;
+  const picker = document.getElementById('slotPicker');
+  if (!cityId || !date) {
+    picker.innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select city and date above to see available slots.</p>';
+    selectedSlotId = null;
+    return;
+  }
+  picker.innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Loading slots...</p>';
+  try {
+    // Pass along which appliances are in the cart so a slot that's only
+    // blocked for a specific appliance (e.g. AC) in this city/date shows
+    // correctly as Full/Available for what the customer is actually booking.
+    const applianceIds = [...new Set(cartItems.map(it => it.applianceId))].join(',');
+    const slots = await fetchJSON(`/api/slots?date=${date}&cityId=${cityId}${applianceIds ? `&applianceIds=${applianceIds}` : ''}`);
+    picker.innerHTML = slots.map(s => `
+      <button type="button" class="slot-btn ${s.available ? '' : 'full'} ${selectedSlotId === s.id ? 'selected' : ''}" data-slot="${s.id}" ${s.available ? '' : 'disabled'}>
+        ${s.label}
+        <small>${s.available ? 'Available' : (s.expired ? 'Time Over' : 'Full')}</small>
+      </button>
+    `).join('');
+    picker.querySelectorAll('.slot-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedSlotId = btn.getAttribute('data-slot');
+        picker.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+    if (!slots.some(s => s.id === selectedSlotId)) selectedSlotId = null;
+  } catch (e) {
+    picker.innerHTML = '<p style="font-size:0.82rem;color:var(--red);margin:0;">Could not load slots. Please try again.</p>';
+  }
+}
+
+// Looks up whether this phone number belongs to a returning customer (has
+// booked before) and, if so, fills in their name/address/city — but only
+// into fields that are currently EMPTY, so it never overwrites something
+// the customer has already typed themselves (e.g. if they're booking for
+// a different address this time). Reused by both the main checkout form's
+// phone field and the Quick Book modal's phone field, since both
+// eventually feed into the same underlying fName/fAddress/fCity inputs.
+async function autoFillReturningCustomer(phoneFieldId, nameFieldId, addressFieldId, cityFieldId) {
+  const phone = document.getElementById(phoneFieldId).value.trim();
+  if (!/^[0-9]{10}$/.test(phone)) return;
+  try {
+    const result = await fetchJSON(`/api/customer-lookup?phone=${phone}`);
+    if (!result.found) return;
+    const nameEl = document.getElementById(nameFieldId);
+    const addressEl = document.getElementById(addressFieldId);
+    const cityEl = document.getElementById(cityFieldId);
+    let filledAnything = false;
+    if (nameEl && !nameEl.value.trim() && result.name) { nameEl.value = result.name; filledAnything = true; }
+    if (addressEl && !addressEl.value.trim() && result.address) { addressEl.value = result.address; filledAnything = true; }
+    if (cityEl && !cityEl.value && result.cityId) {
+      cityEl.value = result.cityId;
+      // Setting .value directly doesn't fire the city dropdown's own
+      // 'change' handler (which loads that city's appliances/slots) — so
+      // trigger that follow-up work manually, same as if the customer had
+      // picked it themselves.
+      if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(result.cityId);
+      if (typeof refreshSlots === 'function') refreshSlots();
+      filledAnything = true;
+    }
+    if (filledAnything) {
+      const msg = document.getElementById('addItemMsg') || document.getElementById('qbMsg');
+      if (msg && !msg.textContent) {
+        msg.className = 'form-msg success';
+        msg.textContent = '👋 Welcome back! Filled in your details from your last booking — feel free to change anything that\'s different this time.';
+        setTimeout(() => { if (msg.textContent.startsWith('👋 Welcome back')) { msg.className = 'form-msg'; msg.textContent = ''; } }, 4500);
+      }
+    }
+  } catch (e) { /* non-critical — silently skip if the lookup fails, customer just fills the form normally */ }
+}
+
+function bindFormEvents() {
+  document.getElementById('fAppliance').addEventListener('change', refreshFormTypes);
+  document.getElementById('addItemBtn').addEventListener('click', addItemToCart);
+  document.getElementById('fDate').addEventListener('change', refreshSlots);
+
+  document.getElementById('fCity').addEventListener('change', async () => {
+    await refreshAppliancesForCity(document.getElementById('fCity').value);
+    refreshSlots();
+    if (cartItems.length) {
+      cartItems = [];
+      appliedCoupon = null;
+      renderCart();
+      // Same box as "Add to Booking" messages, right by the appliance
+      // fields — this notice is about the cart, so it belongs near where
+      // appliances get (re-)added, not down by the final Submit button.
+      const msg = document.getElementById('addItemMsg');
+      msg.className = 'form-msg error';
+      msg.textContent = 'City changed — please re-add your appliances so prices are correct for the new city.';
+    }
+  });
+
+  document.getElementById('fPhone').addEventListener('blur', () => autoFillReturningCustomer('fPhone', 'fName', 'fAddress', 'fCity'));
+  document.getElementById('qbPhone')?.addEventListener('blur', () => autoFillReturningCustomer('qbPhone', 'fName', 'fAddress', 'fCity'));
+
+  const form = document.getElementById('bookingForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('formMsg');
+    msg.className = 'form-msg';
+    msg.textContent = '';
+
+    if (!cartItems.length) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please add at least one appliance to your booking.';
+      return;
+    }
+
+    const phone = document.getElementById('fPhone').value.trim();
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return;
+    }
+
+    if (!selectedSlotId) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please select an available time slot for your visit.';
+      return;
+    }
+
+    const itemsToSubmit = quickBookViewStartIndex !== null ? cartItems.slice(quickBookViewStartIndex) : cartItems;
+    const payload = {
+      name: document.getElementById('fName').value.trim(),
+      phone,
+      address: document.getElementById('fAddress').value.trim(),
+      cityId: document.getElementById('fCity').value,
+      items: itemsToSubmit.map(it => ({ applianceId: it.applianceId, typeId: it.typeId, serviceType: it.serviceType, qty: it.qty, problem: it.problem, photoUrl: it.photoUrl || '', skuId: it.skuId || null })),
+      bookingDate: document.getElementById('fDate').value,
+      timeSlotId: selectedSlotId,
+      couponCode: (quickBookViewStartIndex === null && appliedCoupon) ? appliedCoupon.code : undefined,
+      referralCode: incomingReferralCode || undefined
+    };
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    // If this exact phone number was already verified when the item(s)
+    // were added to the cart, reuse that token — no need to ask for OTP
+    // a second time at the very end of the same session.
+    if (verifiedBookingPhone === phone && verifiedBookingAccessToken) {
+      payload.accessToken = verifiedBookingAccessToken;
+    } else {
+      // Fallback path — covers the phone number being changed after
+      // adding items (a real, if unusual, case), or verifiedBookingPhone
+      // never having been set for some other reason. Re-checks from
+      // scratch exactly as before this change.
+      let phoneAlreadyVerified = false;
+      try {
+        const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+        phoneAlreadyVerified = !!check.verified;
+      } catch (e) { /* if the check itself fails, fall back to normal OTP flow */ }
+
+      let otpEnabled = true;
+      try {
+        const cfg = await ensureOtpConfig();
+        otpEnabled = cfg.enabled !== false;
+      } catch (e) { /* if the config fetch fails, fall back to normal OTP flow */ }
+
+      if (otpEnabled && !phoneAlreadyVerified) {
+        submitBtn.textContent = 'Sending OTP...';
+        msg.className = 'form-msg';
+        msg.textContent = 'Please complete the OTP verification that just opened to confirm your booking.';
+        try {
+          payload.accessToken = await verifyPhoneWithOtp(phone);
+        } catch (err) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit';
+          msg.className = 'form-msg error';
+          msg.textContent = err.message || 'OTP verification failed. Please try again.';
+          return;
+        }
+      }
+    }
+
+    submitBtn.textContent = 'Booking...';
+
+    try {
+      const data = await fetchJSON('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const savedBits = [];
+      if (data.booking.discountAmount) savedBits.push(`coupon: ₹${data.booking.discountAmount}`);
+      if (data.booking.referralDiscount) savedBits.push(`referral: ₹${data.booking.referralDiscount}`);
+      msg.className = 'form-msg success';
+      msg.textContent = `Booking confirmed! Your Booking ID: ${data.booking.id}. Total: ₹${data.booking.totalPrice}${savedBits.length ? ` (you saved ${savedBits.join(' + ')}!)` : ''}. Visit slot: ${data.booking.timeSlot} on ${data.booking.bookingDate}.`;
+      form.reset();
+      // BUG FIX: form.reset() alone doesn't reliably clear the phone
+      // field — many mobile browsers ignore autocomplete="off" for phone
+      // number fields and silently refill it right back from their own
+      // saved-forms memory (without firing any input/blur event, so the
+      // "returning customer" address auto-fill never gets a chance to run
+      // for the next booking). Explicitly force it empty as well so a
+      // second booking in the same session starts with a clean phone
+      // field — typing the number back in (a real keystroke) correctly
+      // re-triggers the address lookup on blur, same as for any new visit.
+      document.getElementById('fPhone').value = '';
+      if (quickBookViewStartIndex !== null) {
+        cartItems.splice(quickBookViewStartIndex); // remove only this standalone booking's item(s), leave earlier cart items untouched
+        quickBookViewStartIndex = null;
+      } else {
+        cartItems = [];
+        appliedCoupon = null;
+      }
+      incomingReferralCode = null;
+      const referBanner = document.getElementById('referBannerReferred');
+      if (referBanner) referBanner.style.display = 'none';
+      document.getElementById('couponMsg').className = 'msg-inline-coupon';
+      document.getElementById('couponMsg').textContent = '';
+      renderCart();
+      selectedSlotId = null;
+      document.getElementById('slotPicker').innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select city and date above to see available slots.</p>';
+
+      // Give the customer a few seconds to read the confirmation, then
+      // collapse the form again — they can reopen it anytime via the
+      // header/footer "Book Now" button. Scrolling to the top at the same
+      // time avoids an odd side effect of the collapse: the expanded
+      // form's height shrinks a lot once it closes, and since scroll
+      // position is just a pixel offset (not tied to a specific section),
+      // the page would otherwise "jump" to whatever content now occupies
+      // that same pixel range — which turned out to be the FAQ section
+      // further down, landing the customer somewhere random instead of
+      // back at a clean starting point.
+      setTimeout(() => {
+        closeBookingForm();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 3500);
+    } catch (err) {
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'Something went wrong with your booking, please try again.';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit';
+    }
+  });
+
+  renderCart();
+}
+
+function bookingCardHtml(b, showBookAgain) {
+  const itemsHtml = (b.items || []).map(it => `
+    <div class="row1" style="margin-top:6px;">
+      <span>${it.qty}x ${it.applianceName} (${it.typeName}, ${it.serviceType === 'repair' ? 'Repair' : 'Service'})</span>
+      <span class="status-pill status-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
+    </div>
+    ${it.technicianName ? `<div class="row2">Technician: ${it.technicianName}</div>` : ''}
+    ${it.itemStatus === 'completed' && it.completionPhotoUrl ? `<div class="row2"><a href="${it.completionPhotoUrl}" target="_blank" rel="noopener" style="color:var(--blue-600);">📷 View photo of completed work</a></div>` : ''}
+    ${it.itemStatus === 'completed' ? ratingHtml(b.id, it) : ''}
+  `).join('');
+  return `
+      <div class="track-order-card">
+        <div class="row2" style="font-weight:700;color:var(--blue-900);">Booking ID: ${b.id} · ${b.cityName} · ₹${b.totalPrice} · ${new Date(b.createdAt).toLocaleDateString('en-IN')}</div>
+        ${b.timeSlot ? `<div class="row2">🕐 Visit: ${b.bookingDate} · ${b.timeSlot}</div>` : ''}
+        ${itemsHtml}
+        ${showBookAgain ? `<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="bookAgain('${b.id}')">↻ Book Again</button>` : ''}
+      </div>
+    `;
+}
+
+function ratingHtml(bookingId, item) {
+  if (item.rating) {
+    const reviewLine = item.reviewText ? `<div class="row2" style="font-style:italic;">"${escapeHtml(item.reviewText)}"</div>` : '';
+    return `<div class="row2">Your rating: ${'⭐'.repeat(item.rating)}</div>${reviewLine}`;
+  }
+  const taskKey = `${bookingId}__${item.id}`;
+  const stars = [1, 2, 3, 4, 5].map(n =>
+    `<span class="rate-star" data-task="${taskKey}" data-n="${n}" onclick="selectRatingStar('${bookingId}','${item.id}',${n})" title="${n} star${n > 1 ? 's' : ''}">☆</span>`
+  ).join('');
+  return `
+    <div class="row2">Rate this service: <span class="rate-stars" id="stars-${taskKey}">${stars}</span></div>
+    <div class="row2" id="reviewBox-${taskKey}" style="display:none;margin-top:6px;">
+      <textarea id="reviewText-${taskKey}" maxlength="280" placeholder="Optional: share a quick word about the service (shown on our homepage, no phone number shared)" style="width:100%;min-height:52px;padding:8px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit;font-size:0.85rem;"></textarea>
+      <button type="button" class="btn btn-primary btn-sm" style="margin-top:6px;" onclick="submitCustomerRating('${bookingId}','${item.id}')">Submit Rating</button>
+    </div>
+  `;
+}
+
+let pendingRating = {};
+function selectRatingStar(bookingId, itemId, rating) {
+  const taskKey = `${bookingId}__${itemId}`;
+  pendingRating[taskKey] = rating;
+  const starsWrap = document.getElementById(`stars-${taskKey}`);
+  if (starsWrap) {
+    starsWrap.querySelectorAll('.rate-star').forEach(el => {
+      el.textContent = Number(el.getAttribute('data-n')) <= rating ? '★' : '☆';
+    });
+  }
+  const box = document.getElementById(`reviewBox-${taskKey}`);
+  if (box) box.style.display = 'block';
+}
+
+async function submitCustomerRating(bookingId, itemId) {
+  const taskKey = `${bookingId}__${itemId}`;
+  const rating = pendingRating[taskKey];
+  if (!rating) return;
+  const phone = document.getElementById('trackPhone').value.trim();
+  if (!/^[0-9]{10}$/.test(phone)) {
+    alert('Please enter your mobile number above and search first.');
+    return;
+  }
+  const reviewEl = document.getElementById(`reviewText-${taskKey}`);
+  const reviewText = reviewEl ? reviewEl.value.trim() : '';
+  try {
+    await fetchJSON(`/api/bookings/${bookingId}/items/${itemId}/rate`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating, phone, reviewText })
+    });
+    // Only happy customers (4-5 stars) get asked to also post on Google —
+    // asking unhappy customers would just invite a public bad review, and
+    // we only ever link to a real, Admin-verified Google profile.
+    if (rating >= 4 && GOOGLE_REVIEW_URL) {
+      showGoogleReviewPrompt();
+    } else {
+      document.getElementById('trackBtn').click();
+    }
+  } catch (e) {
+    alert(e.message || 'Could not submit your rating.');
+  }
+}
+
+function showGoogleReviewPrompt() {
+  const results = document.getElementById('trackResults');
+  if (!results) { document.getElementById('trackBtn').click(); return; }
+  results.innerHTML = `
+    <div class="track-box" style="text-align:center;max-width:440px;margin:0 auto;">
+      <div style="font-size:2rem;">🎉</div>
+      <h4 style="margin:8px 0 6px;">Thanks for rating us!</h4>
+      <p style="color:var(--slate);font-size:0.88rem;margin-bottom:16px;">Glad you had a good experience. Would you mind sharing it on Google too? It takes 30 seconds and really helps other people in your city find us.</p>
+      <a href="${GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" class="btn btn-primary btn-block" onclick="document.getElementById('trackBtn').click();">⭐ Rate us on Google</a>
+      <button type="button" class="btn btn-outline btn-block" style="margin-top:8px;" onclick="document.getElementById('trackBtn').click();">Maybe later</button>
+    </div>
+  `;
+}
+
+// Track order
+let lastTrackedBookings = [];
+let knownReferralPhone = null; // set once the customer has looked themselves up in "My Booking", so the referral button doesn't need to ask for the number a second time
+document.getElementById('trackBtn').addEventListener('click', async () => {
+  const phone = document.getElementById('trackPhone').value.trim();
+  const results = document.getElementById('trackResults');
+  const referBlock = document.getElementById('refer');
+  if (!/^[0-9]{10}$/.test(phone)) {
+    results.innerHTML = '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>';
+    return;
+  }
+  results.innerHTML = '<p>Searching...</p>';
+  try {
+    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
+    lastTrackedBookings = bookings;
+    if (!bookings.length) {
+      results.innerHTML = '<p>No bookings found for this number.</p>';
+      if (referBlock) referBlock.hidden = true;
+      return;
+    }
+    results.innerHTML = bookings.map(b => bookingCardHtml(b, true)).join('');
+    if (referBlock) {
+      knownReferralPhone = phone;
+      // Kept collapsed to just the "Get My Referral Link" button — it's a
+      // separate action from checking your bookings above, not something
+      // that should visually blend into the same result. The actual link
+      // only appears once that button is tapped (see referOpenBtn below).
+      referBlock.hidden = false;
+      resetReferralSectionToPrompt();
+    }
+  } catch (e) {
+    results.innerHTML = '<p style="color:var(--red)">Something went wrong, please try again.</p>';
+    if (referBlock) referBlock.hidden = true;
+  }
+});
+
+// One-click reorder: pre-fill the booking form from a past booking
+function bookAgain(bookingId) {
+  const b = lastTrackedBookings.find(x => x.id === bookingId);
+  if (!b) return;
+  document.getElementById('fName').value = b.name;
+  document.getElementById('fPhone').value = b.phone;
+  document.getElementById('fAddress').value = b.address;
+  document.getElementById('fCity').value = b.cityId;
+  refreshAppliancesForCity(b.cityId);
+
+  cartItems = (b.items || []).map(it => ({
+    applianceId: it.applianceId, applianceName: it.applianceName,
+    typeId: it.typeId, typeName: it.typeName,
+    serviceType: it.serviceType, qty: it.qty, problem: '',
+    unitPrice: it.unitPrice, lineTotal: it.unitPrice * it.qty
+  }));
+  appliedCoupon = null;
+  document.getElementById('couponCode').value = '';
+  renderCart();
+  selectedSlotId = null;
+  refreshSlots();
+
+  const msg = document.getElementById('formMsg');
+  msg.className = 'form-msg success';
+  msg.textContent = 'Your saved details and past items have been filled in. Please pick a fresh date and time slot, then confirm below.';
+
+  openBookingForm();
+}
+
+// FAQ accordion
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.querySelector('.faq-q').addEventListener('click', () => {
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  });
+});
+const faqMoreBtn = document.getElementById('faqMoreBtn');
+if (faqMoreBtn) {
+  // BUG FIX: this used to be one-way — clicking it revealed the extra
+  // questions and then removed itself, with no way to collapse them back
+  // down again. Now toggles between "+ More questions" and "- Show less".
+  let faqExpanded = false;
+  faqMoreBtn.addEventListener('click', () => {
+    faqExpanded = !faqExpanded;
+    document.querySelectorAll('.faq-item-extra').forEach(item => { item.style.display = faqExpanded ? '' : 'none'; });
+    faqMoreBtn.innerHTML = faqExpanded ? '<span class="plus">−</span> Show less' : '<span class="plus">+</span> More questions';
+  });
+}
+
+// ---------------- OTP verification (used at booking time) ----------------
+let OTP_CONFIG = null;
+let otpScriptLoaded = false;
+
+function loadOtpScript(urls) {
+  return new Promise((resolve, reject) => {
+    if (otpScriptLoaded && typeof window.initSendOTP === 'function') return resolve();
+    let i = 0;
+    function attempt() {
+      const s = document.createElement('script');
+      s.src = urls[i];
+      s.async = true;
+      s.onload = () => {
+        if (typeof window.initSendOTP === 'function') {
+          otpScriptLoaded = true;
+          resolve();
+        } else {
+          reject(new Error('OTP service did not load correctly.'));
+        }
+      };
+      s.onerror = () => {
+        i++;
+        if (i < urls.length) attempt();
+        else reject(new Error('Could not load OTP service. Check your internet connection.'));
+      };
+      document.head.appendChild(s);
+    }
+    attempt();
+  });
+}
+
+async function ensureOtpConfig() {
+  if (!OTP_CONFIG) OTP_CONFIG = await fetchJSON('/api/otp-config');
+  return OTP_CONFIG;
+}
+
+// Opens the MSG91 OTP widget for the given phone number and resolves with
+// the verified access-token once the customer completes the OTP step.
+function verifyPhoneWithOtp(phone) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const cfg = await ensureOtpConfig();
+      await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
+      const configuration = {
+        widgetId: cfg.widgetId,
+        tokenAuth: cfg.tokenAuth,
+        identifier: '91' + phone, // MSG91 requires country code, no '+' or spaces
+        exposeMethods: false,
+        success: (data) => {
+          const accessToken = data && (data.message || data.token || data['access-token']);
+          if (!accessToken) {
+            reject(new Error('Verification succeeded but no token was received. Please try again.'));
+            return;
+          }
+          resolve(accessToken);
+        },
+        failure: (error) => {
+          console.log('OTP failure:', error);
+          reject(new Error('OTP verification failed or was cancelled.'));
+        }
+      };
+      window.initSendOTP(configuration);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+// ---------------- Bottom navigation — Cart button (homepage only) ----------------
+// Support/City/Menu sheet wiring lives in chatbot.js (loaded on every
+// page — homepage, city pages, appliance+city pages) so it works
+// identically everywhere without duplicating that logic here. Only the
+// Cart button is genuinely homepage-specific (only this page has a real
+// cart), so only it is wired here — see the data-has-cart="true"
+// attribute on the button in the template, which chatbot.js checks to
+// know to skip binding its own generic fallback for this button.
+function updateBottomNavCartBadge() {
+  const badge = document.getElementById('bottomNavCartBadge');
+  if (!badge) return;
+  // BUG FIX: during a standalone Quick Book (direct-book) session, the
+  // item being booked is technically appended to cartItems (for code
+  // reuse with the normal Add-to-cart flow), but it isn't really "in the
+  // cart" from the customer's point of view — it's a separate, one-off
+  // direct booking. The bottom-nav cart badge used to count it anyway,
+  // showing a number even during what's meant to be a cart-free flow.
+  // Only count real, pre-existing cart items here.
+  const count = quickBookViewStartIndex !== null
+    ? quickBookViewStartIndex
+    : ((typeof cartItems !== 'undefined') ? cartItems.length : 0);
+  badge.textContent = count;
+  badge.hidden = count === 0;
+}
+
+function bindBottomNav() {
+  const cartBtn = document.getElementById('bottomNavCartBtn');
+  if (cartBtn) {
+    cartBtn.addEventListener('click', () => {
+      document.querySelectorAll('.bottom-sheet-backdrop.open').forEach(el => el.classList.remove('open'));
+      document.getElementById('bottomNavSupportBtn')?.classList.remove('open');
+      document.getElementById('supportFanOut')?.classList.remove('open');
+      quickBookViewStartIndex = null;
+      renderCart();
+      if (cartItems.length) {
+        openBookingForm();
+        hideRedundantBookingFields();
+      } else {
+        const services = document.getElementById('services');
+        if (services) services.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  }
+  updateBottomNavCartBadge();
+}
+
+// ---------------- Quick Book modal (per-appliance city→type→price flow) ----------------
+// Opened by tapping an appliance card. This is a friendlier front end
+// that populates the SAME hidden fields (#fCity, #fAppliance, #fType,
+// #fServiceType, #fPhone) and calls the SAME addItemToCart()/OTP logic
+// already built and tested for the main booking form — "Book" simply
+// reveals that form afterward for the remaining name/address/date/slot
+// fields, rather than re-implementing that logic a second time here.
+
+// Short, real feature bullets per appliance (not auto-generated from
+// serviceProcess text, which is too long/prose-y for a checklist) —
+// matches the reference layout's short tick-mark list style.
+const QB_CHECKLISTS = {
+  a1: ['Foam-jet wash of the indoor and outdoor units', 'High-pressure water flush of the cooling coil', 'Refrigerant pressure and leak check', 'Cooling tested before the technician leaves', 'Ongoing support for any follow-up questions'],
+  a2: ['Drum cleaned thoroughly inside and out', 'Drain path and motor checked for smooth running', 'Worn parts flagged before they cause bigger issues', 'Machine run-tested after the work is done', 'Support available if anything comes up later'],
+  a3: ['Filters and membrane checked for wear', 'Full system flushed and sanitized', 'Water flow rate and TDS level checked', 'Machine run-tested after the work is done', 'Support available if anything comes up later'],
+  a4: ['Cooling and compressor performance checked', 'Door seals checked for a proper, tight fit', 'Interior given a thorough clean', 'Machine run-tested after the work is done', 'Support available if anything comes up later']
+};
+
+let qbApplianceId = null;
+let qbSelectedTypeId = null;
+let qbServiceType = 'service';
+let qbSkuOverride = null; // { price, skuName } — set when adding a specific service-list SKU
+// When set (to an index into cartItems), the cart display/submit only
+// shows/books items from that index onward — used so "Book" behaves as
+// a standalone single-item checkout, completely separate from whatever
+// was already sitting in the cart from earlier "Add" actions. Reset to
+// null (showing the full cart again) whenever "Add" or the bottom-nav
+// Cart button is used instead.
+let quickBookViewStartIndex = null;
+
+// Hides the two fields that are redundant once a customer arrives here
+// via Quick Book's "Book" action — city was already chosen there, and
+// the appliance/type/etc. box was already filled+submitted there too.
+// What's left visible: the cart summary (so they can see exactly what
+// they're paying for), Payment Summary, coupon, and Name/Address/Date/
+// Slot — a much shorter checkout than filling the whole form from
+// scratch.
+function hideRedundantBookingFields() {
+  const cityField = document.getElementById('fCityField');
+  if (cityField) cityField.style.display = 'none';
+  const addBox = document.querySelector('.cart-add-box');
+  if (addBox) addBox.style.display = 'none';
+}
+
+function openQuickBookModal(applianceId) {
+  if (BOOKING_PAUSED_STATUS && BOOKING_PAUSED_STATUS.bookingPaused) {
+    // Don't open the modal at all — reveal the existing "not accepting
+    // bookings" notice instead, right at the moment someone tries to
+    // start, rather than letting them go through city/service selection
+    // only to be turned away at the very end. openBookingForm() un-hides
+    // the wrapper this notice lives inside (it's hidden by default until
+    // someone starts booking) and scrolls to it in one step.
+    if (typeof openBookingForm === 'function') openBookingForm();
+    return;
+  }
+  qbApplianceId = applianceId;
+  qbServiceType = 'service';
+  const modal = document.getElementById('quickBookModal');
+  const cityStep = document.getElementById('qbCityStep');
+  const detailsStep = document.getElementById('qbDetailsStep');
+  const msg = document.getElementById('qbMsg');
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+  // BUG FIX: this field never got cleared between sessions — after one
+  // successful Quick Book, reopening it for a second appliance kept
+  // showing the previous phone number (which, like the main form's phone
+  // field, could then silently get refilled by the browser's own memory
+  // instead of a real keystroke, meaning the address auto-fill lookup on
+  // blur never re-triggered for it). Starting blank each time it opens
+  // means a retyped number always re-triggers that lookup correctly.
+  const qbPhoneEl = document.getElementById('qbPhone');
+  if (qbPhoneEl) qbPhoneEl.value = '';
+
+  const existingCity = document.getElementById('fCity').value;
+  if (existingCity) {
+    // Already have a city from earlier in this session — skip straight
+    // to the details step instead of asking again.
+    cityStep.style.display = 'none';
+    detailsStep.style.display = 'block';
+    qbShowDetails();
+  } else {
+    cityStep.style.display = 'block';
+    detailsStep.style.display = 'none';
+    const citySelect = document.getElementById('qbCitySelect');
+    populateSelect(citySelect, CITIES, 'Select city');
+  }
+  modal.classList.add('open');
+}
+
+function closeQuickBookModal() {
+  document.getElementById('quickBookModal').classList.remove('open');
+}
+
+// Small, self-dismissing confirmation toast — used when the Quick Book
+// modal closes right after "Add" so the person still gets clear feedback
+// that it worked, even though the modal (and its inline message) is gone.
+// Top-level (not nested inside bindQuickBookModal) so both qbAddService
+// and qbAddBtn's own click handler can call it.
+function showToast(text) {
+  let toast = document.getElementById('globalToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'globalToast';
+    toast.className = 'global-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.remove('show');
+  // Force a reflow so re-triggering the animation works even if a toast
+  // is already showing when a second one comes in quick succession.
+  void toast.offsetWidth;
+  toast.classList.add('show');
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+async function qbShowDetails() {
+  const appliance = APPLIANCES.find(a => a.id === qbApplianceId);
+  if (!appliance) {
+    // BUG FIX: this used to just silently `return` here, leaving whatever
+    // was already in the modal (often its default empty/blank placeholder
+    // markup) on screen with no explanation. This is the "appliance isn't
+    // served in this city at all" case — a step earlier than "no pricing
+    // set for it" (which qbUpdatePrice/qbRenderServicesList already
+    // handle) — same friendly notice applies here too.
+    document.getElementById('qbApplianceTitle').textContent = 'Service';
+    document.getElementById('qbTypeTabs').innerHTML = '';
+    qbSetNotAvailable(true);
+    return;
+  }
+  qbSetNotAvailable(false); // clear any notice left over from a previous appliance in this same modal session
+  document.getElementById('qbApplianceTitle').textContent = appliance.name + ' Service';
+  document.getElementById('qbPriceImg').src = appliance.photoUrl || '';
+  document.getElementById('qbPriceImg').alt = appliance.name;
+
+  const tabsEl = document.getElementById('qbTypeTabs');
+  tabsEl.innerHTML = appliance.types.map((t, i) =>
+    `<button type="button" data-type="${t.id}" class="${i === 0 ? 'active' : ''}">${t.name}</button>`
+  ).join('');
+  qbSelectedTypeId = appliance.types[0] ? appliance.types[0].id : null;
+
+  tabsEl.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabsEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      qbSelectedTypeId = btn.getAttribute('data-type');
+      qbRenderForSelectedType();
+    });
+  });
+
+  qbRenderForSelectedType();
+}
+
+// Decides which view to show for the currently-selected type: the new
+// scrollable multi-service list (when the type has one defined, e.g.
+// AC's Service/Repair/Installation/Uninstallation/Gas Filling) or the
+// original single price-card fallback (everything else for now).
+async function qbRenderForSelectedType() {
+  const appliance = APPLIANCES.find(a => a.id === qbApplianceId);
+  const type = appliance ? appliance.types.find(t => t.id === qbSelectedTypeId) : null;
+  const servicesList = document.getElementById('qbServicesList');
+  const singleView = document.getElementById('qbSingleServiceView');
+  qbSetNotAvailable(false); // clear any "not available" notice left over from switching appliance/type tabs
+
+  if (type && Array.isArray(type.services) && type.services.length) {
+    singleView.style.display = 'none';
+    servicesList.style.display = 'grid';
+    await qbRenderServicesList(type);
+  } else {
+    servicesList.style.display = 'none';
+    singleView.style.display = 'block';
+    document.getElementById('qbChecklist').innerHTML =
+      (QB_CHECKLISTS[qbApplianceId] || ['Trained Technician', 'Transparent Pricing', 'Final Performance Check After Work', 'Full Support'])
+        .map(item => `<li>${item}</li>`).join('');
+    qbUpdatePrice();
+  }
+}
+
+async function qbRenderServicesList(type) {
+  const listEl = document.getElementById('qbServicesList');
+  const cityId = document.getElementById('fCity').value;
+  const appliance = APPLIANCES.find(a => a.id === qbApplianceId);
+  const city = CITIES.find(c => c.id === cityId);
+  const cityLabel = city ? city.name : 'Your City';
+  listEl.innerHTML = '<p style="text-align:center;color:var(--slate);padding:20px;">Loading prices…</p>';
+  if (!cityId) return;
+
+  let row;
+  try {
+    row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${qbApplianceId}&typeId=${type.id}`);
+  } catch (e) {
+    // Same "not available" notice as the single-service view — this
+    // appliance/type has no pricing set up for the selected city.
+    listEl.innerHTML = '';
+    listEl.style.display = 'none';
+    qbSetNotAvailable(true);
+    return;
+  }
+  const servicePrices = row.servicePrices || {};
+
+  listEl.innerHTML = type.services.map(svc => {
+    const price = servicePrices[svc.id];
+    const priceDisplay = typeof price === 'number'
+      ? (() => { const mrp = Math.round((price * 1.2) / 10) * 10; return `<span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span>`; })()
+      : '<span class="qb-price-now">Contact us for price</span>';
+    return `
+      <div class="qb-service-card" data-service-id="${svc.id}">
+        <div class="qb-price-card qb-price-card-nophoto">
+          <div>
+            <div class="qb-price-title">${type.name} ${svc.name} In ${cityLabel}</div>
+            <div class="qb-price-row">${priceDisplay}</div>
+            <div class="qb-price-trust">✔ Most Trusted Service</div>
+          </div>
+        </div>
+        <ul class="qb-checklist">${svc.checklist.map(item => `<li>${item}</li>`).join('')}</ul>
+        <div class="qb-actions">
+          <button type="button" class="qb-btn qb-btn-add" data-action="add" data-service-id="${svc.id}">🛒 Add</button>
+          <button type="button" class="qb-btn qb-btn-book" data-action="book" data-service-id="${svc.id}">Book</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const svcId = btn.getAttribute('data-service-id');
+      const svc = type.services.find(s => s.id === svcId);
+      const price = servicePrices[svcId];
+      if (btn.getAttribute('data-action') === 'add') qbAddService(svc, price, false);
+      else qbAddService(svc, price, true);
+    });
+  });
+}
+
+// Shared by both the "Add" and "Book" buttons on each service card —
+// sets the SKU price override, maps the specific service name onto the
+// existing service/repair field (plus notes it in the problem field for
+// anything more specific than plain Service/Repair, so it's never lost
+// even though the underlying booking record only tracks those two
+// categories), then reuses the same tested addItemToCart()/OTP logic.
+async function qbAddService(svc, price, thenBook) {
+  const msg = document.getElementById('qbMsg');
+  const phone = document.getElementById('qbPhone').value.trim();
+  if (!/^[0-9]{10}$/.test(phone)) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please enter a valid 10 digit mobile number.';
+    return;
+  }
+  document.getElementById('fAppliance').value = qbApplianceId;
+  refreshFormTypes();
+  document.getElementById('fType').value = qbSelectedTypeId;
+  const mappedServiceType = (svc.id === 'svc-repair' || svc.id === 'svc-install' || svc.id === 'svc-uninstall' || svc.id === 'svc-gasfill') ? 'repair' : 'service';
+  document.getElementById('fServiceType').value = mappedServiceType;
+  document.getElementById('fQty').value = 1;
+  document.getElementById('fPhone').value = phone;
+  document.getElementById('fProblem').value = (svc.id === 'svc-service' || svc.id === 'svc-repair') ? '' : `${svc.name} requested.`;
+  qbSkuOverride = { price, skuName: svc.name, skuId: svc.id };
+
+  // For "Book": remember exactly where in cartItems this new item will
+  // land, so the checkout that follows shows/submits ONLY this item —
+  // completely separate from anything already sitting in the cart from
+  // earlier "Add" actions. For plain "Add": make sure we're NOT still in
+  // a leftover windowed view from an earlier abandoned Book attempt.
+  if (thenBook) quickBookViewStartIndex = cartItems.length;
+  else quickBookViewStartIndex = null;
+  const expectedIndex = cartItems.length;
+
+  await addItemToCart();
+  const addMsg = document.getElementById('addItemMsg');
+  if (addMsg && addMsg.className.includes('error')) {
+    msg.className = 'form-msg error';
+    msg.textContent = addMsg.textContent;
+    quickBookViewStartIndex = null;
+    return;
+  }
+  // BUG FIX: same issue as qbDoAdd — a duplicate item sets the 'notice'
+  // class (not 'error') and adds nothing, but this used to still proceed
+  // to "Book" anyway. That left quickBookViewStartIndex pointing past the
+  // real end of cartItems, which is exactly what let a later, unrelated
+  // cart item slip into what was supposed to be a standalone "book just
+  // this one" checkout. Double-checked here too: bail out unless a new
+  // item genuinely landed at the expected index.
+  if (thenBook && cartItems.length <= expectedIndex) {
+    quickBookViewStartIndex = null;
+    msg.className = addMsg ? addMsg.className.replace('form-msg', 'form-msg') : 'form-msg notice';
+    msg.textContent = addMsg ? addMsg.textContent : 'This is already in your cart.';
+    return;
+  }
+  if (thenBook) {
+    closeQuickBookModal();
+    openBookingForm();
+    hideRedundantBookingFields();
+  } else {
+    // BEHAVIOR CHANGE (per explicit request): close the Appliance Details
+    // modal immediately after a successful Add here too — this is the
+    // OTHER "Add" path (per-service-card Add/Book buttons, as opposed to
+    // qbAddBtn's single top-level Add), and was still leaving the modal
+    // open with an inline message. Same toast treatment as qbAddBtn now.
+    closeQuickBookModal();
+    showToast(`✅ ${svc.name} added to your cart!`);
+  }
+}
+
+async function qbUpdatePrice() {
+  const cityId = document.getElementById('fCity').value;
+  if (!cityId || !qbApplianceId || !qbSelectedTypeId) return;
+  const priceNowEl = document.getElementById('qbPriceNow');
+  const priceStrikeEl = document.getElementById('qbPriceStrike');
+  priceNowEl.textContent = '...';
+  priceStrikeEl.textContent = '';
+  try {
+    const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${qbApplianceId}&typeId=${qbSelectedTypeId}`);
+    const actual = qbServiceType === 'repair' ? row.repairPrice : row.servicePrice;
+    // A visual "was" price above the real one, purely for the discount-
+    // badge look in the reference layout — the real, actual price
+    // charged is always the one from pricing data (actual), never this.
+    const shownMrp = Math.round((actual * 1.2) / 10) * 10;
+    priceStrikeEl.textContent = `₹${shownMrp}`;
+    priceNowEl.textContent = `₹${actual}`;
+    qbSetNotAvailable(false);
+  } catch (e) {
+    // BUG FIX: this used to just show "Price unavailable" text inline
+    // while leaving everything else (Service/Repair toggle, checklist,
+    // Add/Book buttons) looking normal and clickable — confusing, since
+    // there's nothing to actually add or book. Most common real cause:
+    // this appliance/type was removed from (or never set up for) the
+    // customer's city. Now shows a clear, friendly notice instead and
+    // hides the rest of the step.
+    qbSetNotAvailable(true);
+  }
+}
+
+// Toggles between the normal price-card/checklist/actions view and the
+// "not available in your city" notice — used by both the single-service
+// view (qbUpdatePrice) and the multi-service list view (qbRenderServicesList).
+function qbSetNotAvailable(isUnavailable) {
+  const notAvailEl = document.getElementById('qbNotAvailable');
+  const phoneField = document.getElementById('qbPhoneField');
+  const singleView = document.getElementById('qbSingleServiceView');
+  const servicesList = document.getElementById('qbServicesList');
+  if (notAvailEl) notAvailEl.style.display = isUnavailable ? 'block' : 'none';
+  if (phoneField) phoneField.style.display = isUnavailable ? 'none' : '';
+  if (isUnavailable) {
+    if (singleView) singleView.style.display = 'none';
+    if (servicesList) servicesList.style.display = 'none';
+  }
+}
+
+function bindQuickBookModal() {
+  document.getElementById('qbCityContinueBtn').addEventListener('click', () => {
+    const cityId = document.getElementById('qbCitySelect').value;
+    if (!cityId) return;
+    document.getElementById('fCity').value = cityId;
+    refreshAppliancesForCity(cityId).then(() => {
+      document.getElementById('qbCityStep').style.display = 'none';
+      document.getElementById('qbDetailsStep').style.display = 'block';
+      qbShowDetails();
+    });
+  });
+
+  document.querySelectorAll('.qb-service-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.qb-service-type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      qbServiceType = btn.getAttribute('data-service-type');
+      qbUpdatePrice();
+    });
+  });
+
+  document.getElementById('quickBookModalClose').addEventListener('click', closeQuickBookModal);
+  document.getElementById('quickBookModal').addEventListener('click', (e) => {
+    if (e.target.id === 'quickBookModal') closeQuickBookModal();
+  });
+
+  // Sets up the hidden main-form fields to match what was chosen here,
+  // then calls the same, already-tested addItemToCart() — this is the
+  // one place both "Add" and "Book" share, since both need the item
+  // actually added to the cart first.
+  async function qbDoAdd() {
+    const msg = document.getElementById('qbMsg');
+    const phone = document.getElementById('qbPhone').value.trim();
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return false;
+    }
+    document.getElementById('fAppliance').value = qbApplianceId;
+    refreshFormTypes();
+    document.getElementById('fType').value = qbSelectedTypeId;
+    document.getElementById('fServiceType').value = qbServiceType;
+    document.getElementById('fQty').value = 1;
+    document.getElementById('fPhone').value = phone;
+    await addItemToCart();
+    const addMsg = document.getElementById('addItemMsg');
+    if (addMsg && addMsg.className.includes('error')) {
+      msg.className = 'form-msg error';
+      msg.textContent = addMsg.textContent;
+      return false;
+    }
+    // BUG FIX: this used to only check for the 'error' class — but when
+    // the item is already in the cart (a duplicate), addItemToCart() sets
+    // the 'notice' class and does NOT actually add anything, yet this
+    // function still returned true (treated as success). The caller
+    // (qbBookBtn) had already set quickBookViewStartIndex = cartItems.length
+    // BEFORE this ran, expecting one new item to land there — if nothing
+    // actually got added, that index now points past the real end of the
+    // array, so the "just this item" checkout that follows ends up empty
+    // or, worse, mis-scoped once anything else changes cartItems.length
+    // afterward. Treat "nothing was actually added" as not-success too.
+    if (addMsg && addMsg.className.includes('notice')) {
+      msg.className = 'form-msg notice';
+      msg.textContent = addMsg.textContent;
+      return false;
+    }
+    return true;
+  }
+
+document.getElementById('qbAddBtn').addEventListener('click', async () => {
+  quickBookViewStartIndex = null;
+  const ok = await qbDoAdd();
+  if (ok) {
+    // BEHAVIOR CHANGE (per explicit request): close the Appliance Details
+    // modal immediately after a successful Add, instead of leaving it
+    // open with an inline message — a toast confirms it worked without
+    // requiring an extra tap to dismiss the modal.
+    closeQuickBookModal();
+    showToast('✅ Added to your cart!');
+  }
+});
+
+  document.getElementById('qbBookBtn').addEventListener('click', async () => {
+    const expectedIndex = cartItems.length;
+    quickBookViewStartIndex = expectedIndex;
+    const ok = await qbDoAdd();
+    // SAFETY CHECK: even if qbDoAdd() reported success, confirm a new item
+    // actually landed at the expected index before treating this as a
+    // scoped "book just this one" checkout — protects against this ever
+    // silently mis-scoping and pulling in unrelated cart items (or
+    // submitting nothing) if some other edge case slips past qbDoAdd's
+    // own check.
+    if (ok && cartItems.length > expectedIndex) {
+      closeQuickBookModal();
+      openBookingForm();
+      hideRedundantBookingFields();
+    } else {
+      quickBookViewStartIndex = null;
+    }
+  });
+}
+
+bindQuickBookModal();
+
+init();

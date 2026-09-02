@@ -1,0 +1,71 @@
+{
+  "footerSlogan": "Trusted Service. Verified Technicians. Every Time.",
+  "footerDescription": "Seerua Appliance Care started with a simple idea: home appliance repair shouldn't feel like a gamble. From the first call to the final check before we leave, we're focused on getting it right — the same standard, city after city.",
+  "faqs": [
+    {
+      "id": "faq1",
+      "q": "Which cities does Seerua Appliance Care serve?",
+      "a": "We provide {{APPLIANCE_LIST_TEXT}} service in {{CITY_LIST_TEXT}} and more. Each city has its own price, clearly shown right in the booking form."
+    },
+    {
+      "id": "faq2",
+      "q": "How is the price decided?",
+      "a": "Each city and appliance type has a fixed visit charge that's shown in the calculator before you even book. If a spare part is required, that cost is communicated separately."
+    },
+    {
+      "id": "faq3",
+      "q": "Do you also do AC gas refill and installation?",
+      "a": "Yes, gas refill, general service, and repair are all available for both Window AC and Split AC."
+    },
+    {
+      "id": "faq4",
+      "q": "When do I need to pay?",
+      "a": "Payment is collected only after the technician has completed the work."
+    },
+    {
+      "id": "faq5",
+      "q": "Is there a warranty on the service?",
+      "a": "Yes, every repair and service comes with a 30-day service warranty."
+    },
+    {
+      "id": "faq6",
+      "q": "Are spare parts covered under warranty?",
+      "a": "Yes, parts sourced by us are covered under warranty. Parts provided by the customer are not covered under warranty."
+    },
+    {
+      "id": "faq7",
+      "q": "What if the same issue occurs again?",
+      "a": "We offer a warranty after repair. If the same issue occurs again within the warranty period, we will fix it for free."
+    },
+    {
+      "id": "faq8",
+      "q": "What if I am being charged extra?",
+      "a": "Our technicians cannot charge you above our fixed rate card. If you're being charged extra, you can reach out to us via the help centre."
+    },
+    {
+      "id": "faq9",
+      "q": "Will the professional bring all the necessary tools for the service?",
+      "a": "Yes, the professional will bring all the necessary tools for the service. However, please note that the technician does not carry a ladder. If the AC is mounted at a height, kindly arrange for one."
+    },
+    {
+      "id": "faq10",
+      "q": "Does Seerua service centralized/VRV ACs?",
+      "a": "Currently, we service Window and Split ACs only. We do not service centralized or VRV/VRF AC systems."
+    },
+    {
+      "id": "faq11",
+      "q": "How can I verify the quote shared?",
+      "a": "All our prices are fixed and shown upfront in the booking calculator before you confirm. You can compare the quote given by the technician with the price shown on the app or website for the same service."
+    },
+    {
+      "id": "faq12",
+      "q": "Will the professional check the AC after the service?",
+      "a": "Yes, the professional will run and test the AC after completing the service to make sure everything is working properly before they leave."
+    },
+    {
+      "id": "faq13",
+      "q": "What happens if the professional finds an issue with my AC during the service?",
+      "a": "If an additional issue is found, the professional will inform you and share a separate quote for it. The extra work will only be done after you approve the quote."
+    }
+  ]
+}

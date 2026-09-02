@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>Super Admin Panel | Seerua Appliance Care</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/panel.css">
+</head>
+<body class="compact">
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="brand-row">
+      <img src="/images/logo.png" alt="Seerua Appliance Care">
+      <span>Seerua Appliance Care</span>
+    </div>
+    <h2>Super Admin Login</h2>
+    <p class="sub">Manage cities, technicians, pricing and bookings.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="adminUser">Username</label>
+        <input type="text" id="adminUser" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="adminPass">Password</label>
+        <input type="password" id="adminPass" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Login</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+    <div class="demo-hint">Default login — Username: <b>admin</b> · Password: <b>seerua@admin123</b><br>(Pehli baar login karke isse admin.json file mein badal dein.)</div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="app-shell" id="appShell">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <img src="/images/logo.png" alt="Seerua Appliance Care">
+      <span>Super Admin Panel</span>
+    </div>
+    <nav class="side-nav" id="sideNav">
+      <button data-view="dashboard" class="active">📊 Dashboard</button>
+      <button data-view="orders">🧾 Orders / Bookings</button>
+      <button data-view="commission">💵 Commission</button>
+      <button data-view="customers">🧑‍🤝‍🧑 Customers</button>
+      <button data-view="technicians">👷 Technicians</button>
+      <button data-view="reports">📊 Daily Report</button>
+      <button data-view="applications">📋 Career Applications</button>
+      <button data-view="subadmins">🧑‍💼 Admins</button>
+      <button data-view="analytics">📈 Analytics</button>
+      <button data-view="cities">🏙️ Cities</button>
+      <button data-view="appliances">🔧 Appliances &amp; Types</button>
+      <button data-view="pricing">₹ Pricing</button>
+      <button data-view="referrals">🎁 Refer &amp; Earn</button>
+      <button data-view="notifications">🔔 Notifications</button>
+      <button data-view="rating">⭐ Site Rating</button>
+      <button data-view="slots">🕒 Time Slots</button>
+      <button data-view="sitecontent">📝 Site Content</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="who">Logged in as <b>Super Admin</b></div>
+      <button class="btn btn-outline btn-block btn-sm" id="logoutBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main-area">
+
+    <!-- DASHBOARD -->
+    <section class="panel-view active" id="view-dashboard">
+      <div class="topbar"><div><h1>Dashboard</h1><div class="sub">Your business at a glance</div></div></div>
+
+      <!-- Most important thing on this page — customer bookings — shown
+           first, above the settings cards, with a distinct amber highlight
+           so it can't be missed. -->
+      <div class="card important">
+        <div class="card-head"><h3>🧾 Latest Customer Bookings <span class="badge-important">Important</span></h3><button class="btn btn-outline btn-sm" onclick="switchView('orders')">View All</button></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Customer</th><th>Items</th><th>City</th><th>Total</th><th>Status &amp; Technician</th></tr></thead>
+          <tbody id="dashLatestOrders"></tbody>
+        </table></div>
+      </div>
+
+      <div class="stat-row" id="dashStats"></div>
+
+      <div class="section-divider"><span>Site Settings</span></div>
+
+      <div class="card settings-card" id="bookingStatusCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>🔔 Booking Status</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="bookingPausedToggle" style="width:18px;height:18px;">
+            <span id="bookingPausedStatusLabel">Accepting Bookings</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Pause new customer bookings (e.g. while hiring more technicians) <b>without</b> taking the site offline — unlike Maintenance Mode below, the whole site (SEO pages, careers) stays fully live and searchable, so your Google ranking keeps growing and technicians can still apply, while customers just see a "not accepting bookings" notice instead of the form.</p>
+        <div class="field"><label>Message shown to visitors</label><textarea id="bookingPausedMessage" rows="2" placeholder="e.g. We're expanding our technician team — back to taking bookings within a few weeks!"></textarea></div>
+        <button class="btn btn-primary btn-sm" id="saveBookingStatusBtn">Save</button>
+        <div class="msg-inline" id="bookingStatusMsg"></div>
+      </div>
+
+      <div class="card settings-card" id="maintenanceCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>🛠️ Site Maintenance Mode</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="maintenanceToggle" style="width:18px;height:18px;">
+            <span id="maintenanceStatusLabel">Site is Live</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Turn this on if the site is broken, being updated, or otherwise needs to go offline temporarily. Visitors will see a friendly notice instead of the normal site. The Super Admin and Technician panels stay accessible either way. <b>⚠️ For anything longer than a couple of days (e.g. "paused until we hire more technicians"), use Booking Status above instead</b> — leaving the whole site down for weeks hurts your Google ranking and stops new technicians from applying.</p>
+        <div class="field"><label>Message shown to visitors</label><textarea id="maintenanceMessage" rows="2"></textarea></div>
+        <div class="field" style="max-width:220px;">
+          <label>Expected downtime (hours)</label>
+          <input type="number" id="maintenanceExpectedHours" min="1" max="72" step="1" value="2">
+        </div>
+        <p style="font-size:0.72rem;color:var(--slate);margin:-4px 0 10px;">📈 Protects your Google ranking — tells search engines exactly how soon to check back instead of assuming the page is gone. Keep this realistic (and the actual downtime short) — Google may start dropping pages from search results if a site stays down for several days straight.</p>
+        <button class="btn btn-primary btn-sm" id="saveMaintenanceBtn">Save</button>
+        <div class="msg-inline" id="maintenanceMsg"></div>
+      </div>
+
+      <div class="card settings-card" id="otpCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>🔐 OTP Verification</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="otpToggle" style="width:18px;height:18px;">
+            <span id="otpStatusLabel">OTP Enabled</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 0;">When enabled, a customer's mobile number must be OTP-verified the first time they book. Turn this off to let customers book without OTP verification — useful while MSG91 credentials aren't set up yet, or for testing.</p>
+        <div class="msg-inline" id="otpMsg"></div>
+      </div>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section class="panel-view" id="view-analytics">
+      <div class="topbar"><div><h1>Analytics</h1><div class="sub">How the business is performing, at a glance</div></div></div>
+
+      <div class="stat-row" id="analyticsStats"></div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><h3>Revenue by City</h3></div>
+          <div class="bar-chart" id="revenueByCityChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Bookings by Appliance</h3></div>
+          <div class="bar-chart" id="bookingsByApplianceChart"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Revenue — Last 14 Days</h3></div>
+        <div class="trend-chart" id="trendChart"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Commission — Last 14 Days</h3></div>
+        <div class="trend-chart" id="commissionTrendChart"></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><h3>Order Status Mix</h3></div>
+          <div class="status-mix" id="statusMixBar"></div>
+          <div class="status-legend" id="statusLegend"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Top 5 Technicians</h3></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Name</th><th>Rating</th><th>Jobs Done</th></tr></thead>
+            <tbody id="topTechTable"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Rating by Appliance (site-wide)</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Appliance</th><th>Rating</th><th>Rated Jobs</th></tr></thead>
+          <tbody id="ratingByApplianceTable"></tbody>
+        </table></div>
+        <p style="font-size:0.82rem;color:var(--slate);margin-top:12px;">A low rating here points to a whole service line needing attention (training, pricing, part quality) — not just one technician. See Super Admin → Technicians for individual performance.</p>
+      </div>
+    </section>
+
+    <!-- ORDERS -->
+    <section class="panel-view" id="view-orders">
+      <div class="topbar">
+        <div><h1>Orders / Bookings</h1><div class="sub">View all customer bookings and assign technicians</div></div>
+        <button class="btn btn-primary btn-sm" id="newBookingBtn">📞 New Booking (Phone Call)</button>
+      </div>
+
+      <div class="card">
+        <div class="filters">
+          <select id="orderStatusFilter">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="assigned">Assigned</option>
+            <option value="accepted">Accepted</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <input type="text" id="orderSearch" placeholder="Search by name or phone">
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Customer</th><th>Items (status &amp; technician)</th><th>City</th><th>Total</th><th>Action</th></tr></thead>
+          <tbody id="ordersTable"></tbody>
+        </table></div>
+      </div>
+
+      <div class="card settings-card" style="border-left:4px solid #b45309;" id="dayLockCard">
+        <div class="card-head"><h3>🔒 Day Lock <small style="font-weight:400;color:var(--slate);">— protects previous days' records</small></h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Every date before today is locked automatically — no one can reassign a technician, reactivate a completed job, rate an item, or delete a booking from a past date. This keeps yesterday's numbers from being quietly changed later. Only you (Super Admin) can unlock a specific date below, when a genuine correction is needed.</p>
+        <div class="inline-form">
+          <div class="field"><label>Unlock this date for editing</label><input type="date" id="unlockDateInput"></div>
+          <button class="btn btn-outline" id="unlockDateBtn">🔓 Unlock</button>
+        </div>
+        <div id="unlockedDatesList" style="margin-top:10px;"></div>
+        <div class="msg-inline" id="dayLockMsg"></div>
+      </div>
+
+      <div class="card settings-card" style="border-left:4px solid var(--blue-600);">
+        <div class="card-head"><h3>🗄️ Archive Old Bookings <small style="font-weight:400;color:var(--slate);">— for when this list gets long</small></h3></div>
+        <details style="margin:-4px 0 8px;">
+          <summary style="font-size:0.72rem;color:var(--blue-600);cursor:pointer;">What does this do?</summary>
+          <p style="font-size:0.72rem;color:var(--slate);margin:6px 0 0;">
+            Moves fully-finished bookings (every item completed, cancelled, or rejected) created before a date you choose into cold storage — nothing is deleted, and customers can still see archived orders in their own "My Booking". <b>Note:</b> archived bookings won't appear in Commission/Daily Report date ranges that go further back than your cutoff — export any reports you need for that period first.
+          </p>
+        </details>
+        <form class="inline-form" id="archiveForm">
+          <div class="field"><label>Archive bookings created before</label><input type="date" id="archiveBeforeDate" required></div>
+          <button class="btn btn-outline" type="submit">Archive Now</button>
+        </form>
+        <div class="msg-inline" id="archiveMsg"></div>
+      </div>
+    </section>
+
+    <!-- CITIES -->
+    <section class="panel-view" id="view-cities">
+      <div class="topbar"><div><h1>Cities</h1><div class="sub">Add or remove service area cities</div></div></div>
+      <div class="card">
+        <div class="card-head"><h3>Add New City</h3></div>
+        <form class="inline-form" id="cityForm">
+          <div class="field"><label>City Name</label><input type="text" id="newCityName" placeholder="e.g. Pune" required></div>
+          <button class="btn btn-primary" type="submit">Add City</button>
+        </form>
+        <div class="msg-inline" id="cityMsg"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>All Cities</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Name</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="citiesTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- APPLIANCES -->
+    <section class="panel-view" id="view-appliances">
+      <div class="topbar"><div><h1>Appliances &amp; Types</h1><div class="sub">Manage appliance categories and their types</div></div></div>
+      <div class="card">
+        <div class="card-head"><h3>Add New Appliance</h3></div>
+        <form class="inline-form" id="applianceForm" style="flex-direction:column;align-items:stretch;">
+          <div class="field"><label>Appliance Name</label><input type="text" id="newApplianceName" placeholder="e.g. Microwave" required></div>
+          <div class="field">
+            <label>About This Service (shown in the "Appliance care, explained" section on the homepage) — optional, can add later</label>
+            <textarea id="newApplianceAboutText" rows="4" placeholder="A short, customer-facing paragraph about this appliance's service — why it matters, common issues, what Seerua offers. Leave blank and this appliance won't show a block there."></textarea>
+          </div>
+          <button class="btn btn-primary" type="submit" style="align-self:flex-start;">Add Appliance</button>
+        </form>
+        <div class="msg-inline" id="applianceMsg"></div>
+      </div>
+      <div id="appliancesList"></div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="panel-view" id="view-pricing">
+      <div class="topbar"><div><h1>Pricing</h1><div class="sub">Set a different price for each city and appliance type</div></div></div>
+      <div class="card">
+        <div class="filters">
+          <select id="priceCityFilter"></select>
+          <select id="priceApplianceFilter"></select>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>City</th><th>Appliance</th><th>Type</th><th>Service Price (₹)</th><th>Repair Price (₹)</th><th>Save</th></tr></thead>
+          <tbody id="pricingTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- COUPONS -->
+    <!-- REFER & EARN -->
+    <section class="panel-view" id="view-referrals">
+      <div class="topbar"><div><h1>Refer &amp; Earn</h1><div class="sub">Every customer gets a personal referral link — reward the friend they bring in, and reward them back once that friend's service is completed</div></div></div>
+
+      <div class="card">
+        <div class="card-head"><h3>Program Settings</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">A new customer who books using someone's referral link gets an instant discount. The person who referred them earns a personal reward coupon — but only once that referred booking's service is actually completed (not just booked), so it can't be gamed with fake bookings.</p>
+        <form id="referralConfigForm">
+          <div class="two-col">
+            <div class="field"><label>Discount for the referred (new) customer (₹)</label><input type="number" id="refDiscount" min="0" required></div>
+            <div class="field"><label>Reward for the referrer (₹)</label><input type="number" id="refReward" min="0" required></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>Reward coupon validity (days)</label><input type="number" id="refExpiryDays" min="1" required></div>
+            <div class="field">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:30px;">
+                <input type="checkbox" id="refActive" style="width:16px;height:16px;">
+                <span>Referral program is active</span>
+              </label>
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit">Save Settings</button>
+          <div class="msg-inline" id="referralConfigMsg"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Referral Activity</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Referred By</th><th>New Customer</th><th>Booking</th><th>Discount Given</th><th>Reward Status</th></tr></thead>
+          <tbody id="referralUsesTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- NOTIFICATIONS -->
+    <section class="panel-view" id="view-notifications">
+      <div class="topbar"><div><h1>Notifications</h1><div class="sub">Automatically send a booking confirmation by SMS and/or WhatsApp the moment a customer's booking is confirmed</div></div></div>
+
+      <div class="card">
+        <div class="card-head"><h3>How this works</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">
+          This uses <b>MSG91</b> — the same service already used for OTP on this site — which also sends SMS and WhatsApp Business messages. Both channels are <b>off by default</b> and safe to leave off; turn on the ones you want once you have the details below from your MSG91 account. Nothing here can break bookings — if a message fails to send, the booking still goes through normally.
+        </p>
+        <ul style="font-size:0.85rem;color:var(--slate);margin:0 0 0 18px;padding:0;line-height:1.7;">
+          <li><b>SMS</b> needs: your MSG91 AuthKey, a DLT-registered SMS Template (India requires this for all transactional SMS), and your approved Sender ID — all set up from your MSG91 dashboard.</li>
+          <li><b>WhatsApp</b> needs: your MSG91 AuthKey, a WhatsApp Business number connected via MSG91, and a Meta/WhatsApp-approved message template name.</li>
+          <li>Both messages will include: customer name, Booking ID, visit date &amp; time slot, and total amount.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>SMS</h3></div>
+        <form id="notifSmsForm">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px;">
+            <input type="checkbox" id="notifSmsEnabled" style="width:16px;height:16px;">
+            <span>Send booking confirmation SMS</span>
+          </label>
+          <div class="two-col">
+            <div class="field"><label>MSG91 AuthKey</label><input type="text" id="notifAuthkey" placeholder="e.g. 519975AeuFqVMH46a729a96P1"></div>
+            <div class="field"><label>SMS Template ID (Flow ID)</label><input type="text" id="notifSmsTemplateId" placeholder="From MSG91 > Flows"></div>
+          </div>
+          <div class="field"><label>Sender ID (6 characters, DLT approved)</label><input type="text" id="notifSmsSenderId" placeholder="e.g. SEERUA" maxlength="6" style="max-width:220px;"></div>
+          <button class="btn btn-primary" type="submit">Save Notification Settings</button>
+          <div class="msg-inline" id="notifSaveMsg"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>WhatsApp</h3></div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px;">
+          <input type="checkbox" id="notifWhatsappEnabled" style="width:16px;height:16px;">
+          <span>Send booking confirmation on WhatsApp</span>
+        </label>
+        <div class="two-col">
+          <div class="field"><label>WhatsApp Integrated Number</label><input type="text" id="notifWaNumber" placeholder="Your MSG91 WhatsApp business number"></div>
+          <div class="field"><label>Approved Template Name</label><input type="text" id="notifWaTemplate" placeholder="e.g. booking_confirmation"></div>
+        </div>
+        <p style="font-size:0.8rem;color:var(--slate);">(Uses the same "Save Notification Settings" button above — AuthKey is shared between SMS and WhatsApp.)</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Service Completed</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">A separate message sent automatically the moment a technician marks an appliance's service as completed — different from the booking confirmation above. Needs its own SMS Template ID and/or WhatsApp Template Name (India's DLT rules require every SMS template to be individually registered and approved, so the booking-confirmation template can't be reused here). Uses the same AuthKey and the toggles above — leave a field blank to skip that channel just for this message.</p>
+        <div class="two-col">
+          <div class="field"><label>Completion SMS Template ID (Flow ID)</label><input type="text" id="notifCompletionSmsTemplateId" placeholder="From MSG91 > Flows"></div>
+          <div class="field"><label>Completion WhatsApp Template Name</label><input type="text" id="notifCompletionWaTemplate" placeholder="e.g. service_completed"></div>
+        </div>
+        <p style="font-size:0.8rem;color:var(--slate);">Includes: customer name, appliance name, and Booking ID. (Uses the same "Save Notification Settings" button above.)</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Send a Test Message</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Save your settings first, then send a test to your own number to confirm it's actually working before relying on it for real customers.</p>
+        <div class="inline-form">
+          <div class="field"><label>Test mobile number</label><input type="tel" id="notifTestPhone" maxlength="10" placeholder="10 digit number"></div>
+          <button class="btn btn-outline" type="button" id="notifTestBtn">Send Booking-Confirmation Test</button>
+          <button class="btn btn-outline" type="button" id="notifTestCompletionBtn">Send Completion Test</button>
+        </div>
+        <div class="msg-inline" id="notifTestMsg"></div>
+      </div>
+    </section>
+
+    <!-- SITE RATING -->
+    <section class="panel-view" id="view-rating">
+      <div class="topbar"><div><h1>Site Rating</h1><div class="sub">What customers see as your rating on the homepage — your real booking rating, and (optionally) your Google rating</div></div></div>
+
+      <div class="card">
+        <div class="card-head"><h3>Your Real Rating (from this site)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Computed live from the star ratings customers actually leave on "Track Order → Rate this service" — nothing here can be edited, because it's real. This is what shows on the homepage until you also turn on your Google rating below.</p>
+        <div class="two-col">
+          <div class="field"><label>Average rating</label><div style="font-size:1.6rem;font-weight:800;color:var(--blue-900);" id="siteRatingInternalAvg">—</div></div>
+          <div class="field"><label>Number of reviews</label><div style="font-size:1.6rem;font-weight:800;color:var(--blue-900);" id="siteRatingInternalCount">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Google Rating (optional)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">
+          Google reviews are independently verified by Google and generally trusted more by new visitors than any number a site shows about itself. If you have a Google Business Profile with reviews, you can show that rating on your homepage instead. Look up your current rating and review count on Google, enter them below — the number links straight to your real Google listing so anyone can verify it themselves. This does <b>not</b> auto-update; come back and refresh it whenever your Google rating changes.
+        </p>
+        <form id="googleRatingForm">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px;">
+            <input type="checkbox" id="gratEnabled" style="width:16px;height:16px;">
+            <span>Show Google rating on the homepage (instead of the real-bookings rating above)</span>
+          </label>
+          <div class="two-col">
+            <div class="field"><label>Rating (0–5, from Google)</label><input type="number" id="gratRating" min="0" max="5" step="0.1" placeholder="e.g. 4.7"></div>
+            <div class="field"><label>Number of Google reviews</label><input type="number" id="gratReviewCount" min="0" placeholder="e.g. 214"></div>
+          </div>
+          <div class="field"><label>Link to your Google Business listing (so customers can verify)</label><input type="url" id="gratProfileUrl" placeholder="https://www.google.com/maps/place/..."></div>
+          <button class="btn btn-primary" type="submit">Save Google Rating</button>
+          <div class="msg-inline" id="gratMsg"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- TIME SLOTS -->
+    <section class="panel-view" id="view-slots">
+      <div class="topbar"><div><h1>Time Slots</h1><div class="sub">Control which visit slots customers can book — automatically by capacity, or manually per date</div></div></div>
+
+      <div class="card">
+        <div class="card-head"><h3>Slot Capacity (auto-control)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Once this many bookings fill a slot on a given date and city, it automatically shows as "Full" to customers — no manual work needed.</p>
+        <div class="inline-form">
+          <div class="field"><label>Max bookings per slot</label><input type="number" id="slotCapacity" min="1" max="50" style="max-width:140px;"></div>
+          <button class="btn btn-primary" id="saveCapacityBtn">Save</button>
+        </div>
+        <div class="msg-inline" id="capacityMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Max Jobs Per Technician Per Day (auto-control)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Site-wide default cap on how many bookings one technician can be assigned on the same date, so they don't get overloaded and delay customers. Leave blank for no limit. Individual technicians can also have their own override (set in their profile) which takes priority over this default. Technicians at their limit are pushed to the bottom of Assign / Auto-Assign — Super Admin can still assign them manually if needed.</p>
+        <div class="inline-form">
+          <div class="field"><label>Max jobs per technician per day</label><input type="number" id="dailyJobLimit" min="1" max="50" style="max-width:140px;" placeholder="No limit"></div>
+          <button class="btn btn-primary" id="saveDailyLimitBtn">Save</button>
+        </div>
+        <div class="msg-inline" id="dailyLimitMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Manually Block a Slot</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Close a specific date + slot + city (and, optionally, just one appliance) even if it isn't full yet — useful for holidays, or when a technician for a particular appliance is unavailable that day.</p>
+        <div class="inline-form">
+          <div class="field"><label>Date</label><input type="date" id="blockDate"></div>
+          <div class="field"><label>City</label><select id="blockCity"></select></div>
+          <div class="field"><label>Appliance</label><select id="blockAppliance"></select></div>
+          <div class="field"><label>Slot</label><select id="blockSlotId"></select></div>
+          <button class="btn btn-outline" id="blockSlotBtn">Block This Slot</button>
+        </div>
+        <div class="msg-inline" id="blockMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Currently Blocked Slots</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>City</th><th>Appliance</th><th>Slot</th><th>Action</th></tr></thead>
+          <tbody id="blockedSlotsTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- TECHNICIANS -->
+    <section class="panel-view" id="view-technicians">
+      <div class="topbar"><div><h1>Technicians</h1><div class="sub">Add technicians, track their ranking, and manage KYC details</div></div></div>
+      <div class="card">
+        <div class="card-head">
+          <h3>All Technicians <span style="font-weight:400;font-size:0.8rem;color:var(--slate);">(ranked best first)</span></h3>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Rank</th><th>Name</th><th>Phone</th><th>City</th><th>Field (Appliances)</th><th>Exp.</th><th>KYC</th><th>Jobs (Done/Rejected)</th><th>Rating</th><th>Live</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="techTable"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Add New Technician</h3></div>
+        <form id="techForm">
+          <div class="two-col">
+            <div class="field"><label>Name</label><input type="text" id="techName" required></div>
+            <div class="field"><label>Phone (Login ID)</label><input type="text" id="techPhone" required maxlength="10" pattern="[0-9]{10}"></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>Email (optional)</label><input type="email" id="techEmail"></div>
+            <div class="field"><label>Password</label><input type="text" id="techPassword" required></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>City</label><select id="techCity"></select></div>
+            <div class="field"><label>Specialities</label><div class="chip-list" id="techSpecialityPicker"></div></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>Experience (years)</label><input type="number" id="techExperience" min="0" max="50" value="0"></div>
+            <div class="field"><label>ID Type (KYC)</label>
+              <select id="techIdType">
+                <option value="">Not provided</option>
+                <option value="Aadhar">Aadhar Card</option>
+                <option value="PAN">PAN Card</option>
+                <option value="Driving License">Driving License</option>
+                <option value="Voter ID">Voter ID</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>ID Number</label>
+            <input type="text" id="techIdNumber" placeholder="e.g. XXXX-XXXX-1234">
+            <div style="font-size:0.76rem;color:var(--slate);margin-top:4px;">⚠️ For privacy &amp; legal compliance, store only masked digits (e.g. last 4), not the full Aadhar number.</div>
+          </div>
+          <div class="field">
+            <label>Max Jobs Per Day (override, optional)</label>
+            <input type="number" id="techDailyLimit" min="1" max="50" placeholder="Use site-wide default" style="max-width:200px;">
+            <div style="font-size:0.76rem;color:var(--slate);margin-top:4px;">Leave blank to use the site-wide default set in Time Slots. Set a number here to give this technician their own daily cap.</div>
+          </div>
+          <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;">Commission rate for this technician can be set after adding them, from the <b>Commission</b> tab → Per-Technician Rates.</p>
+          <button class="btn btn-primary" type="submit">Add Technician</button>
+          <div class="msg-inline" id="techMsg"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>💰 Technician Earnings &amp; Company Commission</h3>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:0;">Moved to the <b>Commission</b> tab — a searchable, filterable report per technician/city/date range, exportable to Excel with the Seerua logo, so it only lives in one place.</p>
+      </div>
+    </section>
+
+    <!-- CAREER APPLICATIONS -->
+    <section class="panel-view" id="view-applications">
+      <div class="topbar"><div><h1>Career Applications</h1><div class="sub">Technicians who applied to join, from the public Careers page</div></div></div>
+
+      <div class="card">
+        <div class="filters">
+          <select id="appStatusFilter">
+            <option value="">All Statuses</option>
+            <option value="new">New</option>
+            <option value="contacted">Contacted</option>
+            <option value="hired">Hired</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <select id="appCityFilter"><option value="">All Cities</option></select>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Applied</th><th>Name</th><th>Phone / Address</th><th>City</th><th>Appliances</th><th>Education</th><th>Exp.</th><th>KYC</th><th>Notes</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="applicationsTable"></tbody>
+        </table></div>
+      </div>
+
+      <div class="card settings-card" style="border-left:4px solid var(--amber);">
+        <div class="card-head"><h3>🚦 Hiring Status</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Turn this on when you have enough technicians and want to pause new applications for a while — the public Careers page shows a friendly "not hiring" notice instead of the form, and the listing stops appearing in Google search results for jobs. Turn it back off any time to reopen hiring; nothing about your Career Cities/Appliances setup is lost while paused.</p>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;">
+          <input type="checkbox" id="hiringPausedToggle" onchange="toggleHiringPaused(this.checked)">
+          <span id="hiringStatusLabel">Loading…</span>
+        </label>
+        <div class="field" style="max-width:480px;">
+          <label>Message shown to visitors while paused (optional)</label>
+          <textarea id="hiringPausedMessageInput" rows="2" placeholder="e.g. We're fully staffed right now — check back next month!"></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveHiringPausedMessage()">Save Message</button>
+        <div class="msg-inline" id="hiringStatusMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Cities (shown in the Careers form dropdown)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Independent of the main service-area Cities list — add or remove cities here to control where you accept technician applications from.</p>
+        <form class="inline-form" id="careerCityForm">
+          <div class="field"><label>City Name</label><input type="text" id="newCareerCityName" placeholder="e.g. Pune" required></div>
+          <button class="btn btn-primary" type="submit">Add</button>
+        </form>
+        <div class="msg-inline" id="careerCityMsg"></div>
+        <div class="chip-list" id="careerCitiesList" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Appliances (shown in the Careers form checkboxes)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Independent of the main service Appliances list — add or remove appliances here to control which skills you accept technician applications for.</p>
+        <form class="inline-form" id="careerApplianceForm">
+          <div class="field"><label>Appliance Name</label><input type="text" id="newCareerApplianceName" placeholder="e.g. Microwave" required></div>
+          <button class="btn btn-primary" type="submit">Add</button>
+        </form>
+        <div class="msg-inline" id="careerApplianceMsg"></div>
+        <div class="chip-list" id="careerAppliancesList" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Education Levels (shown in the Careers form dropdown)</h3></div>
+        <form class="inline-form" id="educationForm">
+          <div class="field"><label>Education Level Name</label><input type="text" id="newEducationName" placeholder="e.g. Diploma" required></div>
+          <button class="btn btn-primary" type="submit">Add</button>
+        </form>
+        <div class="msg-inline" id="educationMsg"></div>
+        <div class="chip-list" id="educationLevelsList" style="margin-top:12px;"></div>
+      </div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section class="panel-view" id="view-customers">
+      <div class="topbar">
+        <div><h1>Customers</h1><div class="sub">Customer's past record and booking history</div></div>
+      </div>
+      <p style="font-size:0.85rem;color:var(--slate);margin-top:-10px;">A customer is added here automatically once they take a service — via the website or a phone booking from the Orders page (their address &amp; city get confirmed as part of that booking).</p>
+      <div class="card">
+        <input type="text" id="customerSearch" placeholder="Search by name or phone" style="padding:10px 14px;border:1.5px solid var(--line);border-radius:8px;width:100%;max-width:340px;margin-bottom:16px;">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Name</th><th>Phone</th><th>Total Orders</th><th>Total Spent</th><th>Action</th></tr></thead>
+          <tbody id="customersTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- SUB-ADMINS -->
+    <section class="panel-view" id="view-subadmins">
+      <div class="topbar"><div><h1>Admins</h1><div class="sub">Limited staff logins — can assign technicians, control time slots, and create phone bookings only</div></div></div>
+      <p style="font-size:0.85rem;color:var(--slate);margin-top:-10px;">Admins log in separately at <b>/admin</b>. They cannot see or change pricing, technician records, maintenance mode, or delete bookings — only the Super Admin can.</p>
+      <div class="card">
+        <div class="card-head"><h3>All Admins</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Name</th><th>Username</th><th>Cities</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="subAdminsTable"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Add New Admin</h3></div>
+        <form id="subAdminForm">
+          <div class="two-col">
+            <div class="field"><label>Name</label><input type="text" id="saName" required></div>
+            <div class="field"><label>Username (Login ID)</label><input type="text" id="saUsername" required></div>
+          </div>
+          <div class="field"><label>Password</label><input type="text" id="saPassword" required></div>
+          <div class="field">
+            <label>Cities This Admin Can Manage</label>
+            <p style="font-size:0.8rem;color:var(--slate);margin:0 0 8px;">Leave all unchecked to give access to every city (default). Check specific cities to limit this Admin to only those — they won't see bookings, customers or time slots for any other city.</p>
+            <div id="saCityPicker" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          </div>
+          <button class="btn btn-primary" type="submit">Add Admin</button>
+          <div class="msg-inline" id="subAdminMsg"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="panel-view" id="view-reports">
+      <div class="topbar"><div><h1>Daily Report</h1><div class="sub">Today's full breakdown of repairs and services</div></div></div>
+      <div class="card">
+        <div class="filters" style="justify-content:space-between;">
+          <input type="date" id="reportDate">
+          <a class="btn btn-outline btn-sm" id="exportReportBtn" href="#" target="_blank">⬇ Export to Excel (CSV)</a>
+        </div>
+        <div class="stat-row" id="reportStats"></div>
+        <div class="card-head"><h3>Services Completed Today</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Customer</th><th>Items</th><th>City</th><th>Technician</th><th>Rating</th><th>Total</th></tr></thead>
+          <tbody id="reportCompletedTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- COMMISSION -->
+    <section class="panel-view" id="view-commission">
+      <div class="topbar"><div><h1>Technician Commission</h1><div class="sub">Per-completed-service amount owed by each technician, waived where a Google review was brought in</div></div></div>
+
+      <div class="card">
+        <div class="card-head"><h3>Technician Work Report</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Search across every completed job — by technician, city, and date range — showing what each technician actually did, alongside earnings and commission for that job.</p>
+        <div class="filters" style="flex-wrap:wrap;gap:10px;">
+          <div class="field" style="margin:0;"><label>Technician</label><select id="commissionSearchTech"><option value="">All Technicians</option></select></div>
+          <div class="field" style="margin:0;"><label>City</label><select id="commissionSearchCity"><option value="">All Cities</option></select></div>
+          <div class="field" style="margin:0;"><label>From Date</label><input type="date" id="commissionSearchFrom"></div>
+          <div class="field" style="margin:0;"><label>To Date</label><input type="date" id="commissionSearchTo"></div>
+          <button class="btn btn-primary" type="button" id="commissionSearchBtn" style="align-self:flex-end;">Search</button>
+          <a class="btn btn-outline" id="commissionSearchExportBtn" href="#" target="_blank" style="align-self:flex-end;">⬇ Download Excel (with logo)</a>
+        </div>
+        <div class="stat-row" id="commissionSearchStats" style="margin-top:14px;"></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Technician</th><th>City</th><th>Item</th><th>Total Earning</th><th>Technician Earning</th><th>Commission</th><th>Payment</th><th>Work Report</th></tr></thead>
+          <tbody id="commissionSearchTable"></tbody>
+        </table></div>
+      </div>
+
+      <div class="section-divider"><span>Commission Settings</span></div>
+
+      <div class="card settings-card">
+        <div class="card-head"><h3>Commission Rate</h3></div>
+        <details style="margin:-4px 0 8px;">
+          <summary style="font-size:0.72rem;color:var(--blue-600);cursor:pointer;">What does this do?</summary>
+          <p style="font-size:0.72rem;color:var(--slate);margin:6px 0 0;">The shared default, charged per completed order. Waived entirely once Admin/Sub-Admin confirms the customer left a Google review for that order (a technician's own claim alone does not waive it — see the Commission report below).</p>
+        </details>
+        <form class="inline-form" id="commissionRateForm">
+          <div class="field">
+            <label>Rate type</label>
+            <select id="commissionRateMode" onchange="toggleCommissionRateInputs()">
+              <option value="flat">Fixed ₹ amount</option>
+              <option value="percent">Percentage of job price</option>
+            </select>
+          </div>
+          <div class="field" id="commissionRateFlatField"><label>Amount per service (₹)</label><input type="number" id="commissionRateInput" min="0" step="1"></div>
+          <div class="field" id="commissionRatePercentField" style="display:none;"><label>Percentage (%)</label><input type="number" id="commissionRatePercentInput" min="0" max="100" step="0.5"></div>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </form>
+        <p style="font-size:0.78rem;color:var(--slate);margin:6px 0 0;">💡 A fixed ₹ amount is a much bigger cut on a low-price job (e.g. RO service) than a high-price one (e.g. AC). Percentage mode keeps the cut proportional — use whichever fits how you think about it.</p>
+        <div class="msg-inline" id="commissionRateMsg"></div>
+      </div>
+
+      <div class="card settings-card">
+        <div class="card-head"><h3>Per-Appliance Rates <small style="font-weight:400;color:var(--slate);">(optional)</small></h3></div>
+        <details style="margin:-4px 0 8px;">
+          <summary style="font-size:0.72rem;color:var(--blue-600);cursor:pointer;">What does this do?</summary>
+          <p style="font-size:0.72rem;color:var(--slate);margin:6px 0 0;">Give a specific appliance its own commission rate (flat ₹ or %) — e.g. an AC repair might reasonably carry a different rate than a quick RO filter change. Leave a field blank to use the shared default above for that appliance. (A technician's own personal rate below still takes priority over this.)</p>
+        </details>
+        <div id="commissionApplianceRatesList"></div>
+      </div>
+
+      <div class="card settings-card">
+        <div class="card-head"><h3>Per-Technician Rates <small style="font-weight:400;color:var(--slate);">(optional)</small></h3></div>
+        <details style="margin:-4px 0 8px;">
+          <summary style="font-size:0.72rem;color:var(--blue-600);cursor:pointer;">What does this do?</summary>
+          <p style="font-size:0.72rem;color:var(--slate);margin:6px 0 0;">Give a specific technician their own commission rate (flat ₹ or %) — takes priority over everything above, for every job they do. Leave a field blank to use the appliance rate (or the shared default) for that technician instead. Enter 0 specifically to mean they never owe commission, ever.</p>
+        </details>
+        <div id="commissionTechRatesList"></div>
+      </div>
+
+      <div class="card settings-card">
+        <div class="card-head"><h3>🔒 Payment Action PIN</h3></div>
+        <details style="margin:-4px 0 8px;">
+          <summary style="font-size:0.72rem;color:var(--blue-600);cursor:pointer;">What does this do?</summary>
+          <p style="font-size:0.72rem;color:var(--slate);margin:6px 0 0;">Require a 4-digit PIN before "Mark Paid" or "Undo" below can be used — protects real payment records from an accidental tap or from anyone with Admin access who shouldn't be touching them. Separate from your Admin login password.</p>
+        </details>
+        <div id="paymentPinStatus" style="font-size:0.85rem;margin-bottom:10px;">Loading…</div>
+        <form class="inline-form" id="paymentPinForm">
+          <div class="field" id="paymentPinCurrentField" style="display:none;">
+            <label id="paymentPinCurrentLabel">Current PIN</label>
+            <input type="password" id="paymentPinCurrent" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••">
+            <a href="#" id="forgotPinLink" style="font-size:0.72rem;display:block;margin-top:4px;">Forgot PIN? Use Admin password instead</a>
+          </div>
+          <div class="field"><label id="paymentPinNewLabel">Set 4-digit PIN</label><input type="password" id="paymentPinNew" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required></div>
+          <button class="btn btn-primary" type="submit">Save PIN</button>
+        </form>
+        <div class="msg-inline" id="paymentPinMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Payment Status</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Mark the date up to which a technician has actually settled their commission with you (cash/UPI, weekly or however often you collect). Everything on or before that date counts as paid; anything after piles up as pending until you mark a new date.</p>
+        <div id="commissionPaymentStatusList"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>📆 Today's Commission, City by City</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">A quick daily snapshot — pick any single date to see what's owed, broken down by city. Tap a city to see its technicians; tap a technician to see their individual jobs that day. (For a searchable report across a date range, use Technician Work Report above instead.)</p>
+        <div class="filters" style="justify-content:space-between;">
+          <input type="date" id="commissionDate">
+          <div class="stat-card" style="margin:0;"><div class="val" id="commissionGrandTotal">₹0</div><div class="lbl">Total Commission — All Cities</div></div>
+        </div>
+        <div id="commissionCityList" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <!-- SITE CONTENT -->
+    <section class="panel-view" id="view-sitecontent">
+      <div class="topbar"><div><h1>Site Content</h1><div class="sub">Homepage footer text and FAQ section — shown on the public website</div></div></div>
+      <div class="card settings-card" style="border-left:4px solid #5b5bd6;">
+        <div class="card-head"><h3>🤖 Bella AI — Custom Instructions</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Teach Bella new behaviors, tone preferences, or things to always say/avoid — write it here in plain language (Hindi or English, either works). No code needed — this gets added to Bella's instructions on every chat, and takes effect for the very next message a customer sends. Leave it blank if you don't need anything extra right now.</p>
+        <div class="field">
+          <label>Additional Instructions</label>
+          <textarea id="aiInstructionsInput" rows="6" placeholder="Example: Jab koi customer AMC ke baare mein poochhe, hamesha yearly plan ka discount bhi mention karo. / Never suggest DIY repair for gas leak issues — always say a technician visit is required."></textarea>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button class="btn btn-primary btn-sm" id="saveAiInstructionsBtn">Save Instructions</button>
+          <span class="msg-inline" id="aiInstructionsMsg" style="margin:0;"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Footer Description</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Shown under the logo in the website footer. Use <code>{{APPLIANCE_LIST_TEXT}}</code> and <code>{{CITY_LIST_TEXT}}</code> anywhere in the text to automatically insert your current appliance/city list.</p>
+        <div class="field">
+          <label>Slogan (short, trust-related line — shown just above the description)</label>
+          <input type="text" id="footerSloganInput" placeholder="e.g. Trusted Service. Verified Technicians. Every Time.">
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="footerDescriptionInput" rows="5"></textarea>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button class="btn btn-primary btn-sm" id="saveFooterBtn">Save Footer Text</button>
+          <span class="msg-inline" id="footerMsg" style="margin:0;"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Add FAQ</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Shown in the FAQ section on the homepage, in the order added. Use <code>{{CITY_LIST_TEXT}}</code> and <code>{{APPLIANCE_LIST_TEXT}}</code> anywhere in the answer to automatically insert your current city/appliance list.</p>
+        <form class="inline-form" id="faqForm" style="flex-direction:column;align-items:stretch;">
+          <div class="field"><label>Question</label><input type="text" id="newFaqQ" placeholder="e.g. Do you service RO purifiers?" required></div>
+          <div class="field"><label>Answer</label><textarea id="newFaqA" rows="3" required></textarea></div>
+          <button class="btn btn-primary" type="submit" style="align-self:flex-start;">Add FAQ</button>
+        </form>
+        <div class="msg-inline" id="faqMsg"></div>
+      </div>
+      <div id="faqList"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- CUSTOMER HISTORY MODAL -->
+<div class="modal-backdrop" id="customerModal">
+  <div class="modal">
+    <h3 id="customerModalName">Customer History</h3>
+    <div id="customerModalBody"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('customerModal')">Close</button></div>
+  </div>
+</div>
+
+<!-- ASSIGN TECHNICIAN MODAL -->
+<div class="modal-backdrop" id="assignModal">
+  <div class="modal">
+    <h3>Assign Technician</h3>
+    <div class="msg-inline" style="display:block;background:var(--mist);color:var(--slate);margin-bottom:14px;" id="assignBookingInfo"></div>
+    <div class="msg-inline" style="display:none;background:var(--amber-bg);color:var(--amber);margin-bottom:14px;font-weight:700;" id="assignRepeatWarning"></div>
+    <div class="field"><label>Select Technician</label><select id="assignTechSelect"></select></div>
+    <div class="msg-inline error" id="assignWarning" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('assignModal')">Cancel</button>
+      <button class="btn btn-primary" id="assignConfirmBtn">Assign</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TYPE MODAL -->
+<div class="modal-backdrop" id="typeModal">
+  <div class="modal">
+    <h3>Add New Type</h3>
+    <div class="field"><label>Type Name</label><input type="text" id="newTypeName" placeholder="e.g. Convection"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('typeModal')">Cancel</button>
+      <button class="btn btn-primary" id="typeConfirmBtn">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ADMIN CITIES MODAL -->
+<div class="modal-backdrop" id="subAdminCitiesModal">
+  <div class="modal">
+    <h3>Cities Access — <span id="subAdminCitiesName"></span></h3>
+    <p style="font-size:0.82rem;color:var(--slate);margin:-8px 0 14px;">Leave all unchecked for access to every city.</p>
+    <div id="subAdminCitiesPicker" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('subAdminCitiesModal')">Cancel</button>
+      <button class="btn btn-primary" id="subAdminCitiesConfirmBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW BOOKING (PHONE CALL) MODAL -->
+<div class="modal-backdrop" id="newBookingModal">
+  <div class="modal" style="max-width:560px;">
+    <h3>New Booking (Phone Call)</h3>
+    <p style="font-size:0.85rem;color:var(--slate);margin:-8px 0 16px;">For customers who called or messaged you directly. No OTP needed — this booking is created by you as Admin, and stays findable later by the customer's phone number.</p>
+
+    <div class="two-col">
+      <div class="field"><label>Customer Name</label><input type="text" id="nbName" required></div>
+      <div class="field"><label>Mobile Number</label><input type="text" id="nbPhone" required maxlength="10" pattern="[0-9]{10}"></div>
+    </div>
+    <div class="field"><label>Address</label><input type="text" id="nbAddress" required placeholder="House no., street, landmark, pincode"></div>
+    <div class="field"><label>City</label><select id="nbCity"></select></div>
+
+    <div class="card" style="background:var(--mist);padding:14px;margin:14px 0;">
+      <div class="two-col">
+        <div class="field"><label>Appliance</label><select id="nbAppliance"></select></div>
+        <div class="field"><label>Type</label><select id="nbType"></select></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Service / Repair</label>
+          <select id="nbServiceType">
+            <option value="service">Service / AMC</option>
+            <option value="repair">Repair</option>
+          </select>
+        </div>
+        <div class="field"><label>Quantity</label><input type="number" id="nbQty" min="1" max="10" value="1"></div>
+      </div>
+      <div class="field"><label>Problem (optional)</label><input type="text" id="nbProblem" placeholder="e.g. Not cooling properly"></div>
+      <button type="button" class="btn btn-outline btn-block" id="nbAddItemBtn">+ Add to Booking</button>
+    </div>
+
+    <div id="nbCartList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+    <div id="nbCartEmpty" style="font-size:0.85rem;color:var(--slate);text-align:center;padding:6px 0 14px;">No appliances added yet.</div>
+
+    <div class="two-col">
+      <div class="field"><label>Visit Date</label><input type="date" id="nbDate" required></div>
+      <div class="field"><label>Time Slot</label>
+        <select id="nbSlotId" required>
+          <option value="">Select a time slot</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="msg-inline" id="nbMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('newBookingModal')">Cancel</button>
+      <button class="btn btn-primary" id="nbSubmitBtn">Create Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT TECHNICIAN MODAL -->
+<div class="modal-backdrop" id="editTechModal">
+  <div class="modal">
+    <h3>Edit Technician</h3>
+    <div class="field"><label>Name</label><input type="text" id="editTechName"></div>
+    <div class="field"><label>Phone (Login ID)</label><input type="text" id="editTechPhone" maxlength="10"></div>
+    <div class="field"><label>Email (optional)</label><input type="email" id="editTechEmail"></div>
+    <div class="field"><label>City</label><select id="editTechCity"></select></div>
+    <div class="field"><label>Specialities</label><div class="chip-list" id="editTechSpecialityPicker"></div></div>
+    <div class="two-col">
+      <div class="field"><label>Experience (years)</label><input type="number" id="editTechExperience" min="0" max="50"></div>
+      <div class="field"><label>ID Type (KYC)</label>
+        <select id="editTechIdType">
+          <option value="">Not provided</option>
+          <option value="Aadhar">Aadhar Card</option>
+          <option value="PAN">PAN Card</option>
+          <option value="Driving License">Driving License</option>
+          <option value="Voter ID">Voter ID</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>ID Number</label><input type="text" id="editTechIdNumber" placeholder="e.g. XXXX-XXXX-1234"></div>
+    <div class="field"><label>Max Jobs Per Day (override, optional)</label><input type="number" id="editTechDailyLimit" min="1" max="50" placeholder="Use site-wide default"></div>
+    <p style="font-size:0.78rem;color:var(--slate);margin:0 0 4px;">Commission rate is set from the <b>Commission</b> tab → Per-Technician Rates.</p>
+    <div class="field"><label>New Password (leave blank to keep unchanged)</label><input type="text" id="editTechPassword"></div>
+    <div class="msg-inline" id="editTechMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('editTechModal')">Cancel</button>
+      <button class="btn btn-primary" id="editTechConfirmBtn">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW TECHNICIAN PASSWORD MODAL -->
+<div class="modal-backdrop" id="viewPasswordModal">
+  <div class="modal">
+    <h3>Technician Login Password</h3>
+    <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;" id="viewPasswordTechName"></p>
+    <div class="field">
+      <label>Password</label>
+      <div class="inline-form" style="align-items:stretch;">
+        <input type="text" id="viewPasswordValue" readonly style="flex:1;font-weight:600;letter-spacing:0.5px;">
+        <button class="btn btn-outline" id="copyPasswordBtn" type="button">📋 Copy</button>
+      </div>
+    </div>
+    <div class="msg-inline" id="viewPasswordMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeModal('viewPasswordModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="/js/admin.js?v=202609010c"></script>
+</body>
+</html>

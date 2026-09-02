@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>{{CAREERS_TITLE}}</title>
+<meta name="description" content="{{CAREERS_META_DESCRIPTION}}">
+<meta name="keywords" content="{{CAREERS_KEYWORDS}}">
+<link rel="canonical" href="https://www.seerua.com/careers">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{CAREERS_TITLE}}">
+<meta property="og:description" content="{{CAREERS_META_DESCRIPTION}}">
+<meta property="og:url" content="https://www.seerua.com/careers">
+<meta property="og:image" content="https://www.seerua.com/images/logo.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  /* Prevents the mobile browser's pull-to-refresh from triggering while
+     scrolling up inside the application form — without this, dragging
+     down once you hit the top of the form reloads the whole page and
+     wipes out whatever the applicant had already typed. */
+  html, body { overscroll-behavior-y: contain; }
+</style>
+{{JOB_POSTING_SCHEMA_JSON}}
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="/" class="brand">
+      <img src="/images/logo.png" alt="Seerua Appliance Care Logo">
+      <span class="brand-name">Seerua Appliance Care</span>
+    </a>
+    {{HEADER_NAV_HTML}}
+    <div class="header-actions">
+      {{HEADER_CALL_HTML}}
+      <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<section id="apply">
+  <div class="container">
+    <div class="section-head" style="position:relative;">
+      <span class="eyebrow">{{APPLY_EYEBROW}}</span>
+      <h1>{{APPLY_HEADING}}</h1>
+      <p>{{APPLY_SUBTEXT}}</p>
+    </div>
+
+    {{HIRING_PAUSED_NOTICE}}
+    <div style="max-width:600px;margin:0 auto;{{FORM_DISPLAY_STYLE}}">
+      <form class="booking-form" id="careerForm">
+        <button type="button" id="careerFormClose" aria-label="Close and go back" title="Close and go back" style="position:absolute;top:-14px;right:-14px;background:var(--white);border:1px solid var(--line);box-shadow:var(--shadow-sm);width:34px;height:34px;border-radius:50%;font-size:1.1rem;line-height:1;cursor:pointer;color:var(--slate);z-index:2;">✕</button>
+        <div class="form-row">
+          <div class="field">
+            <label for="capName">Full Name *</label>
+            <input type="text" id="capName" required placeholder="Your name">
+          </div>
+          <div class="field">
+            <label for="capPhone">Mobile Number *</label>
+            <input type="tel" id="capPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="capAddress">Full Address *</label>
+          <textarea id="capAddress" rows="2" required placeholder="House no., street, landmark, pincode"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="capCity">City You Can Work In *</label>
+            <select id="capCity" required></select>
+          </div>
+          <div class="field">
+            <label for="capExperience">Experience (years) *</label>
+            <input type="number" id="capExperience" required min="0" max="50" placeholder="e.g. 3">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="capEducation">Highest Education *</label>
+          <select id="capEducation" required></select>
+        </div>
+
+        <div class="field">
+          <label>Appliances You Can Repair / Service *</label>
+          <div class="chip-list" id="capAppliancePicker" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="capIdType">ID Type (optional, for verification)</label>
+            <select id="capIdType">
+              <option value="">Prefer not to share yet</option>
+              <option value="Aadhar">Aadhar Card</option>
+              <option value="PAN">PAN Card</option>
+              <option value="Driving License">Driving License</option>
+              <option value="Voter ID">Voter ID</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="capIdNumber">ID Number (optional)</label>
+            <input type="text" id="capIdNumber" placeholder="e.g. XXXX-XXXX-1234">
+          </div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--slate);margin:-10px 0 4px;">⚠️ For your privacy, please share only masked digits (e.g. the last 4) — not your full Aadhar number.</p>
+
+        <div class="field">
+          <label for="capNotes">Anything else you'd like to share? (optional)</label>
+          <textarea id="capNotes" rows="2" placeholder="Certifications, brands you specialize in, past experience, etc."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Submit Application</button>
+        <div class="form-msg" id="capMsg"></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container footer-bottom">
+    <span>© <span id="year"></span> Seerua Appliance Care. All rights reserved.</span>
+    <span><a href="/">Home</a> · <a href="/terms">Terms &amp; Conditions</a></span>
+  </div>
+</footer>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+document.getElementById('navToggle').addEventListener('click', () => document.getElementById('navLinks').classList.toggle('open'));
+
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
+
+async function init() {
+  const cities = await fetchJSON('/api/career-cities');
+  const appliances = await fetchJSON('/api/career-appliances');
+  const educationLevels = await fetchJSON('/api/education-levels');
+
+  const citySel = document.getElementById('capCity');
+  citySel.innerHTML = '<option value="" disabled selected>Select city</option>' + cities.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  const educationSel = document.getElementById('capEducation');
+  educationSel.innerHTML = '<option value="" disabled selected>Select education</option>' + educationLevels.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+
+  document.getElementById('capAppliancePicker').innerHTML = appliances.map(a => `
+    <label class="chip" style="cursor:pointer;">
+      <input type="checkbox" value="${a.id}" name="capAppliance" style="margin-right:5px;">${a.name}
+    </label>
+  `).join('');
+}
+
+// "X" button on the form — leaves the Careers page and goes back to the
+// homepage, same idea as closing out of an application flow. During
+// Maintenance Mode this correctly lands on the maintenance notice
+// (since that's what the homepage shows then) rather than leaving the
+// applicant stuck on this page with no way back. Only confirms first if
+// they've actually typed something that would be lost.
+document.getElementById('careerFormClose').addEventListener('click', () => {
+  const hasInput = document.getElementById('capName').value.trim()
+    || document.getElementById('capPhone').value.trim()
+    || document.getElementById('capAddress').value.trim()
+    || document.querySelector('input[name="capAppliance"]:checked');
+  if (hasInput && !confirm('Leave this form? Anything you\'ve entered will be lost.')) return;
+  window.location.href = '/';
+});
+
+document.getElementById('careerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('capMsg');
+  msg.className = 'form-msg';
+
+  const applianceIds = Array.from(document.querySelectorAll('input[name="capAppliance"]:checked')).map(i => i.value);
+  const phone = document.getElementById('capPhone').value.trim();
+
+  if (!/^[0-9]{10}$/.test(phone)) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please enter a valid 10 digit mobile number.';
+    return;
+  }
+  if (!applianceIds.length) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please select at least one appliance you can work on.';
+    return;
+  }
+  if (!document.getElementById('capEducation').value) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please select your highest education level.';
+    return;
+  }
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting...';
+
+  try {
+    await fetchJSON('/api/technician-applications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: document.getElementById('capName').value.trim(),
+        phone,
+        address: document.getElementById('capAddress').value.trim(),
+        cityId: document.getElementById('capCity').value,
+        applianceIds,
+        educationId: document.getElementById('capEducation').value,
+        experienceYears: document.getElementById('capExperience').value,
+        idType: document.getElementById('capIdType').value,
+        idNumber: document.getElementById('capIdNumber').value.trim(),
+        notes: document.getElementById('capNotes').value.trim()
+      })
+    });
+    msg.className = 'form-msg success';
+    msg.textContent = "Application submitted! Our team will contact you when there's an opening in your city.";
+    e.target.reset();
+    submitBtn.textContent = '✓ Submitted';
+    msg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } catch (err) {
+    msg.className = 'form-msg error';
+    msg.textContent = err.message || 'Could not submit your application. Please try again.';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Application';
+  }
+});
+
+init();
+</script>
+</body>
+</html>

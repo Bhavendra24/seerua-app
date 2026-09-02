@@ -1,0 +1,48 @@
+[
+  {
+    "id": "cp1",
+    "code": "SAVE50",
+    "discountType": "flat",
+    "discountValue": 50,
+    "minOrderValue": 200,
+    "maxUses": null,
+    "usedCount": 0,
+    "usedByPhones": [],
+    "oncePerCustomer": true,
+    "active": true,
+    "expiryDate": "",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "cp_mtb3gmwd3874",
+    "code": "THANKSOW8MS",
+    "discountType": "flat",
+    "discountValue": 100,
+    "minOrderValue": 0,
+    "maxUses": 1,
+    "usedCount": 0,
+    "usedByPhones": [],
+    "oncePerCustomer": true,
+    "restrictedToPhone": "9887766001",
+    "active": true,
+    "expiryDate": "2026-11-25",
+    "note": "Referral reward",
+    "createdAt": "2026-08-27T05:40:40.813Z"
+  },
+  {
+    "id": "cp_mtbnz8083202",
+    "code": "THANKSSSN98",
+    "discountType": "flat",
+    "discountValue": 100,
+    "minOrderValue": 0,
+    "maxUses": 1,
+    "usedCount": 0,
+    "usedByPhones": [],
+    "oncePerCustomer": true,
+    "restrictedToPhone": "9001100001",
+    "active": true,
+    "expiryDate": "2026-11-25",
+    "note": "Referral reward",
+    "createdAt": "2026-08-27T15:15:00.296Z"
+  }
+]

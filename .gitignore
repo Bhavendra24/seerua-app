@@ -1,0 +1,24 @@
+node_modules/
+.DS_Store
+*.log
+
+# All of these hold real secrets or personal data once the site is live
+# (admin/technician passwords, MSG91 API keys, real customer bookings,
+# phone numbers) — none of it belongs in git history, which is permanent
+# and hard to fully scrub even after deleting a file. Matching .example
+# files are committed instead with placeholder values — after cloning,
+# copy each one to its real name (e.g. data/admin.json.example →
+# data/admin.json) and fill in your real values there.
+data/admin.json
+data/sub-admins.json
+data/technicians.json
+data/customers.json
+data/bookings.json
+data/referrals.json
+data/referral-uses.json
+data/verified-phones.json
+data/technician-applications.json
+data/otp-config.json
+data/notification-config.json
+data/sessions/
+public/uploads/

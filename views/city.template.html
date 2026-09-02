@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>{{CITY_NAME}} Appliance Repair - AC, Washer, RO, Fridge | Seerua</title>
+<meta name="description" content="AC, washing machine, RO and fridge repair in {{CITY_NAME}}. Verified technicians, transparent pricing, same-day doorstep visit.">
+<meta name="keywords" content="AC repair {{CITY_NAME}}, washing machine repair {{CITY_NAME}}, RO service {{CITY_NAME}}, fridge repair {{CITY_NAME}}, appliance service near me, doorstep appliance service {{CITY_NAME}}">
+<link rel="canonical" href="{{CANONICAL_URL}}">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Seerua Appliance Care">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{CANONICAL_URL}}">
+<meta property="og:title" content="AC, Washing Machine, RO &amp; Fridge Repair in {{CITY_NAME}} | Seerua Appliance Care">
+<meta property="og:description" content="Verified technicians, transparent {{CITY_NAME}} pricing, same day doorstep appliance repair and service.">
+<meta property="og:image" content="/images/logo.png">
+<meta property="og:locale" content="en_IN">
+
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Seerua Appliance Care - {{CITY_NAME}}",
+  "image": "/images/logo.png",
+  "description": "Doorstep AC, washing machine, RO and fridge repair and service in {{CITY_NAME}} - verified technicians, transparent pricing.",
+  "telephone": "+91-9389585479",
+  "email": "b4india@gmail.com",
+  "priceRange": "₹₹",
+  "areaServed": {
+    "@type": "City",
+    "name": "{{CITY_NAME}}"
+  },
+  "url": "{{CANONICAL_URL}}",
+  "sameAs": {{SAME_AS_JSON}}{{AGGREGATE_RATING_JSON}},
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Appliance Repair & Service in {{CITY_NAME}}",
+    "itemListElement": {{OFFER_CATALOG_JSON}}
+  }
+}
+</script>
+{{BREADCRUMB_SCHEMA_JSON}}
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="/" class="brand">
+      <img src="/images/logo.png" alt="Seerua Appliance Care Logo">
+      <span class="brand-name">Seerua Appliance Care</span>
+    </a>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#services">Services</a>
+      <a href="/#track">Track</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/careers">👷 Careers</a>
+    </nav>
+    <div class="header-actions">
+      <a class="call-link" href="tel:+919389585479">
+        📞 <span class="call-text">9389585479</span>
+      </a>
+      <a class="btn btn-primary btn-sm" href="/?city={{CITY_ID}}#book">Book Now</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding-bottom:44px;">
+  <div class="container">
+    <span class="eyebrow">Doorstep appliance service in {{CITY_NAME}}</span>
+    <h1 style="max-width:760px;">AC, Washing Machine, RO &amp; Fridge Repair in <span class="highlight">{{CITY_NAME}}</span></h1>
+    <p class="hero-sub" style="max-width:640px;">Verified technicians, transparent {{CITY_NAME}} pricing, and same day doorstep visits.</p>
+    <div class="hero-cta-row">
+      <a href="/?city={{CITY_ID}}#book" class="btn btn-primary">Book Service in {{CITY_NAME}}</a>
+    </div>
+  </div>
+</section>
+
+<section class="bg-mist">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">{{CITY_NAME}} pricing</span>
+      <h2>Transparent Prices for {{CITY_NAME}}</h2>
+      <p>Exact visit charges for every appliance in {{CITY_NAME}} — no surprises, no hidden fees.</p>
+    </div>
+    <div class="table-wrap reveal" style="max-width:920px;margin:0 auto;background:var(--white);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);padding:8px 20px;">
+      <table>
+        <thead><tr><th>Appliance</th><th>Type</th><th>Service / AMC</th><th>Repair</th></tr></thead>
+        <tbody>
+          {{PRICING_ROWS_HTML}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="services">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Services in {{CITY_NAME}}</span>
+      <h2>Every appliance, serviced in {{CITY_NAME}}</h2>
+    </div>
+    <div class="services-grid reveal" id="servicesGrid">
+      {{SERVICES_GRID_HTML}}
+    </div>
+  </div>
+</section>
+
+<section class="bg-mist">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Why {{CITY_NAME}} chooses us</span>
+      <h2>Trusted appliance repair in {{CITY_NAME}}</h2>
+    </div>
+    <div class="why-grid reveal">
+      <div class="why-item">
+        <div class="why-icon">✔</div>
+        <h4>Verified {{CITY_NAME}} Technicians</h4>
+        <p>Every technician serving {{CITY_NAME}} is trained and background verified.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">₹</div>
+        <h4>Fixed {{CITY_NAME}} Pricing</h4>
+        <p>No hidden charges — see the exact {{CITY_NAME}} price before you book.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">⏱</div>
+        <h4>Same Day Visit</h4>
+        <p>Most {{CITY_NAME}} bookings are completed the same day or the next.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">🛡</div>
+        <h4>30-Day Warranty</h4>
+        <p>Every repair and service in {{CITY_NAME}} is covered for 30 days.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="section-head reveal" style="max-width:820px;">
+      <h2>Searching for appliance service near me in {{CITY_NAME}}?</h2>
+      <p>Seerua's verified technicians already work across {{CITY_NAME}} — so "near me" isn't a search result that leads nowhere, it's a real technician who can be at your door the same day. Book online or call, and we'll match you with a technician already close to your address in {{CITY_NAME}}.</p>
+    </div>
+  </div>
+</section>
+
+<section class="bg-mist">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Learn more</span>
+      <h2>Appliance Care Tips for {{CITY_NAME}}</h2>
+      <p>Free troubleshooting guides and maintenance advice, written by our own technicians.</p>
+    </div>
+    <div style="text-align:center;">
+      <a href="/appliance-repair/{{CITY_SLUG}}/blog" class="btn btn-primary">📖 Read {{CITY_NAME}} Appliance Care Tips</a>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="cta-banner reveal">
+      <div>
+        <h2>Appliance not working in {{CITY_NAME}}?</h2>
+        <p>Book now, or message us on WhatsApp for a quick response.</p>
+      </div>
+      <div class="hero-cta-row" style="margin:0;">
+        <a href="/?city={{CITY_ID}}#book" class="btn btn-white">Book Service</a>
+        <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="btn btn-primary">WhatsApp Us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bg-mist">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Other locations</span>
+      <h2>We also serve these cities</h2>
+    </div>
+    <div class="city-chip-row reveal">
+      {{OTHER_CITIES_HTML}}
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">
+          <img src="/images/logo.png" alt="Seerua Appliance Care">
+          <span>Seerua Appliance Care</span>
+        </div>
+        <p>Seerua Appliance Care is {{CITY_NAME}}'s trusted platform for AC, washing machine, RO and fridge repair &amp; service — verified technicians, transparent pricing, every time. Beyond appliances, we're driven by a bigger purpose: training underprivileged children for real employment, and setting aside a share of our earnings for the medicine and food of voiceless street animals.</p>
+      </div>
+      <div>
+        <h5>Quick Links</h5>
+        <ul>
+          <li><a href="/#services">Services</a></li>
+          <li><a href="/#track">My Booking</a></li>
+          <li><a href="/careers">Careers</a></li>
+          <li><a href="/terms">Terms &amp; Conditions</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Services</h5>
+        <ul>
+          {{FOOTER_SERVICES_HTML}}
+        </ul>
+      </div>
+      <div>
+        <h5>Contact</h5>
+        <ul>
+          <li><a href="tel:+919389585479">📞 9389585479</a></li>
+          <li><a href="https://wa.me/919389585479" target="_blank" rel="noopener">💬 WhatsApp: 9389585479</a></li>
+          <li><a href="mailto:b4india@gmail.com">✉️ b4india@gmail.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© {{YEAR}} Seerua Appliance Care. All rights reserved.</span>
+      <span><a href="/terms">Terms &amp; Conditions</a></span>
+    </div>
+  </div>
+</footer>
+
+<!-- Simple menu-driven chat assistant (own site code, no external AI/API cost) — see public/js/chatbot.js -->
+<div id="chatWidgetRoot"></div>
+
+<!-- Unified bottom navigation (Home / City / Support / Cart / Menu) — see
+     views/index.template.html for the fuller write-up of why this
+     replaced the separate floating WhatsApp button + mobile CTA bar.
+     Support/City/Menu are wired universally by chatbot.js; Cart here is
+     a plain link since this page has no cart of its own (only the
+     homepage does). -->
+<nav class="bottom-nav" id="bottomNav">
+  <a href="/" class="bottom-nav-item">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+    <span>Home</span>
+  </a>
+  <button type="button" class="bottom-nav-item" id="bottomNavCityBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+    <span>City</span>
+  </button>
+  <button type="button" class="bottom-nav-support" id="bottomNavSupportBtn" aria-label="Contact us">
+    <svg class="support-icon-default" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+    <svg class="support-icon-close" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  </button>
+  <div class="support-fan-out" id="supportFanOut">
+    <a href="tel:+919389585479" class="support-fan-btn support-fan-call" aria-label="Call">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2z"></path></svg>
+    </a>
+    <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="support-fan-btn support-fan-whatsapp" aria-label="WhatsApp">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm5.8 14.1c-.24.68-1.4 1.3-1.93 1.38-.5.08-1.11.11-1.79-.11-.41-.13-.94-.31-1.61-.6-2.85-1.23-4.71-4.1-4.85-4.29-.14-.19-1.16-1.54-1.16-2.94s.73-2.09.99-2.38c.26-.28.56-.35.75-.35s.38 0 .54.01c.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.15.12.32.02.51-.09.19-.14.31-.28.48-.14.16-.29.36-.42.48-.14.13-.28.28-.12.55.16.28.7 1.16 1.51 1.88 1.04.92 1.91 1.21 2.19 1.35.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.28.36-.23.6-.14.24.1 1.53.72 1.79.85.26.13.44.19.5.3.06.11.06.63-.18 1.31z"></path></svg>
+    </a>
+    <button type="button" class="support-fan-btn support-fan-ai" id="supportFanAiBtn" aria-label="Chat with Bella AI">🤖</button>
+  </div>
+  <button type="button" class="bottom-nav-item" id="bottomNavCartBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+    <span>Cart</span>
+  </button>
+  <button type="button" class="bottom-nav-item" id="bottomNavMenuBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+    <span>Menu</span>
+  </button>
+</nav>
+
+<div class="bottom-sheet-backdrop" id="supportSheetBackdrop">
+  <div class="bottom-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <h3>Humse Judein</h3>
+    <button type="button" class="bottom-sheet-option" id="supportSheetChatBtn">
+      <span class="bottom-sheet-icon" style="background:#eef0ff;color:#5b5bd6;">🤖</span>
+      <span><strong>Bella AI Seerua Assistant</strong></span>
+    </button>
+    <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e6f9ed;color:#1aa251;">💬</span>
+      <span><strong>WhatsApp</strong></span>
+    </a>
+    <a href="tel:+919389585479" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e8f4ff;color:#0d6efd;">📞</span>
+      <span><strong>Call</strong></span>
+    </a>
+  </div>
+</div>
+
+<div class="bottom-sheet-backdrop" id="citySheetBackdrop">
+  <div class="bottom-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <h3>Apna Shehar Chunein</h3>
+    <div class="bottom-sheet-city-grid" id="bottomSheetCityGrid"></div>
+  </div>
+</div>
+
+<div class="bottom-sheet-backdrop" id="menuSheetBackdrop">
+  <div class="bottom-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <h3>Menu</h3>
+    <a href="/#services" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e8f4ff;color:#0d6efd;">🔧</span>
+      <span><strong>Our Services</strong><br><small>AC, Washing Machine, RO, Fridge</small></span>
+    </a>
+    <a href="/#serviceDetails" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fff8e1;color:#d97706;">💡</span>
+      <span><strong>Know Your Appliance</strong><br><small>Guides and tips</small></span>
+    </a>
+    <a href="/#testimonialsSection" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fde8f0;color:#d6336c;">⭐</span>
+      <span><strong>Reviews</strong><br><small>What customers say</small></span>
+    </a>
+    <a href="/#whyUs" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e6f9ed;color:#1aa251;">🛡️</span>
+      <span><strong>Why Seerua Appliance Care</strong><br><small>Trust points</small></span>
+    </a>
+    <a href="/#cities" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fdeee6;color:#e8590c;">📍</span>
+      <span><strong>Service Area</strong><br><small>Cities covered</small></span>
+    </a>
+    <a href="/#brands" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#f0edff;color:#6741d9;">🏷️</span>
+      <span><strong>All Brands</strong><br><small>Supported brand logos</small></span>
+    </a>
+    <a href="/#faq" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#f3e8ff;color:#9333ea;">❓</span>
+      <span><strong>FAQ</strong><br><small>Common questions</small></span>
+    </a>
+  </div>
+</div>
+
+<script>
+document.getElementById('navToggle').addEventListener('click', () => document.getElementById('navLinks').classList.toggle('open'));
+
+// Fade/slide each ".reveal" element into place the first time it scrolls into view.
+(function () {
+  var targets = document.querySelectorAll('.reveal');
+  if (!targets.length) return;
+  if (!('IntersectionObserver' in window)) {
+    targets.forEach(function (el) { el.classList.add('in-view'); });
+    return;
+  }
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  targets.forEach(function (el) { observer.observe(el); });
+})();
+</script>
+<script src="/js/chatbot.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>We'll be right back | Seerua Appliance Care</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, var(--blue-100) 0%, var(--white) 78%); padding: 24px; }
+  .maint-card { max-width: 520px; text-align: center; background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: 44px 36px; }
+  .maint-card img { height: 56px; width: 56px; margin: 0 auto 20px; }
+  .maint-icon { font-size: 2.6rem; margin-bottom: 14px; }
+  .maint-card h1 { font-size: 1.5rem; margin-bottom: 12px; }
+  .maint-card p { color: var(--slate); margin-bottom: 26px; }
+  .maint-careers { margin: 0 !important; font-size: 0.88rem; }
+  .maint-careers a { color: var(--blue-600); font-weight: 700; text-decoration: none; }
+  .maint-careers a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="maint-card">
+    <img src="/images/logo.png" alt="Seerua Appliance Care">
+    <div class="maint-icon">🛠️</div>
+    <h1>We'll be right back</h1>
+    <p>{{MAINTENANCE_MESSAGE}}</p>
+    <p class="maint-careers"><a href="/careers">👷 Want to join us as a Technician Partner? Apply here →</a></p>
+  </div>
+</body>
+</html>

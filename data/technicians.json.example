@@ -1,0 +1,20 @@
+[
+  {
+    "id": "tech1",
+    "name": "Ramesh Kumar",
+    "phone": "9389585479",
+    "email": "ramesh.tech@seerua.com",
+    "password": "tech123",
+    "city": "c1",
+    "specialities": [
+      "a1",
+      "a2"
+    ],
+    "active": true,
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "lastSeenAt": "2026-08-17T08:47:47.467Z",
+    "rejectedJobs": 4,
+    "variableAmount": null,
+    "commissionPaidUpTo": null
+  }
+]

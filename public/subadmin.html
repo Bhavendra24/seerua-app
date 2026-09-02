@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>Admin Panel | Seerua Appliance Care</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/panel.css">
+</head>
+<body class="compact">
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="brand-row">
+      <img src="/images/logo.png" alt="Seerua Appliance Care">
+      <span>Seerua Appliance Care</span>
+    </div>
+    <h2>Admin Login</h2>
+    <p class="sub">Assign technicians, manage time slots, and register new customers.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="saUser">Username</label>
+        <input type="text" id="saUser" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="saPass">Password</label>
+        <input type="password" id="saPass" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Login</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+    <div class="demo-hint">Admin accounts are created by the Super Admin from Super Admin Panel → Admins.</div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="app-shell" id="appShell">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <img src="/images/logo.png" alt="Seerua Appliance Care">
+      <span>Admin Panel</span>
+    </div>
+    <nav class="side-nav" id="sideNav">
+      <button data-view="orders" class="active">🧾 Assign Technicians</button>
+      <button data-view="slots">🕒 Time Slots</button>
+      <button data-view="customers">🧑‍🤝‍🧑 Customers</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="who" id="whoAmI">Logged in</div>
+      <button class="btn btn-outline btn-block btn-sm" id="logoutBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main-area">
+
+    <!-- ORDERS / ASSIGN -->
+    <section class="panel-view active" id="view-orders">
+      <div class="topbar">
+        <div><h1>Assign Technicians</h1><div class="sub">Pick an order and assign the right technician to each appliance</div></div>
+        <button class="btn btn-primary btn-sm" id="newBookingBtn">📞 New Booking (Phone Call)</button>
+      </div>
+      <div class="card" style="border-left:4px solid #b45309;">
+        <div class="card-head"><h3>🔒 Day Lock</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-4px 0 0;">Bookings from before today are locked and protected — you can't reassign, reactivate, rate, or delete anything from a past date here. If a genuine correction is needed for an old booking, ask the Super Admin to unlock that date first.</p>
+      </div>
+      <div class="card important">
+        <div class="card-head"><h3>🧾 Customer Bookings <span class="badge-important">Important</span></h3></div>
+        <div class="filters">
+          <select id="orderStatusFilter">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="assigned">Assigned</option>
+            <option value="accepted">Accepted</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <input type="text" id="orderSearch" placeholder="Search by name or phone">
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Customer</th><th>Items (status &amp; technician)</th><th>City</th><th>Total</th></tr></thead>
+          <tbody id="ordersTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- TIME SLOTS -->
+    <section class="panel-view" id="view-slots">
+      <div class="topbar"><div><h1>Time Slots</h1><div class="sub">Control which visit slots customers can book</div></div></div>
+
+      <div class="card">
+        <div class="card-head"><h3>Slot Capacity (auto-control)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Once this many bookings fill a slot on a given date and city, it automatically shows as "Full" to customers.</p>
+        <div class="inline-form">
+          <div class="field"><label>Max bookings per slot</label><input type="number" id="slotCapacity" min="1" max="50" style="max-width:140px;"></div>
+          <button class="btn btn-primary" id="saveCapacityBtn">Save</button>
+        </div>
+        <div class="msg-inline" id="capacityMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Max Jobs Per Technician Per Day (auto-control)</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Site-wide cap on how many bookings one technician can be assigned on the same date. Leave blank for no limit. Technicians at their limit are pushed to the bottom of Assign / Auto-Assign.</p>
+        <div class="inline-form">
+          <div class="field"><label>Max jobs per technician per day</label><input type="number" id="dailyJobLimit" min="1" max="50" style="max-width:140px;" placeholder="No limit"></div>
+          <button class="btn btn-primary" id="saveDailyLimitBtn">Save</button>
+        </div>
+        <div class="msg-inline" id="dailyLimitMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Manually Block a Slot</h3></div>
+        <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Close a specific date + slot + city (and, optionally, just one appliance) — useful for holidays or when a technician is unavailable.</p>
+        <div class="inline-form">
+          <div class="field"><label>Date</label><input type="date" id="blockDate"></div>
+          <div class="field"><label>City</label><select id="blockCity"></select></div>
+          <div class="field"><label>Appliance</label><select id="blockAppliance"></select></div>
+          <div class="field"><label>Slot</label><select id="blockSlotId"></select></div>
+          <button class="btn btn-outline" id="blockSlotBtn">Block This Slot</button>
+        </div>
+        <div class="msg-inline" id="blockMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Currently Blocked Slots</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>City</th><th>Appliance</th><th>Slot</th><th>Action</th></tr></thead>
+          <tbody id="blockedSlotsTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section class="panel-view" id="view-customers">
+      <div class="topbar">
+        <div><h1>Customers</h1><div class="sub">Customer's past record and booking history</div></div>
+        <button class="btn btn-primary btn-sm" id="newBookingBtnFromCustomers">📞 New Booking (Phone Call)</button>
+      </div>
+      <p style="font-size:0.85rem;color:var(--slate);margin-top:-10px;">A customer is added here automatically once they take a service — via the website or a phone booking (their address &amp; city get confirmed as part of that booking).</p>
+      <div class="card">
+        <input type="text" id="customerSearch" placeholder="Search by name or phone" style="padding:10px 14px;border:1.5px solid var(--line);border-radius:8px;width:100%;max-width:340px;margin-bottom:16px;">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Name</th><th>Phone</th><th>Total Orders</th><th>Total Spent</th><th>Action</th></tr></thead>
+          <tbody id="customersTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- NEW BOOKING (PHONE CALL) MODAL -->
+<div class="modal-backdrop" id="newBookingModal">
+  <div class="modal" style="max-width:560px;">
+    <h3>New Booking (Phone Call)</h3>
+    <p style="font-size:0.85rem;color:var(--slate);margin:-8px 0 16px;">For customers who called or messaged you directly. No OTP needed — this booking is created by you as Admin, and stays findable later by the customer's phone number.</p>
+
+    <div class="two-col">
+      <div class="field"><label>Customer Name</label><input type="text" id="nbName" required></div>
+      <div class="field"><label>Mobile Number</label><input type="text" id="nbPhone" required maxlength="10" pattern="[0-9]{10}"></div>
+    </div>
+    <div class="field"><label>Address</label><input type="text" id="nbAddress" required placeholder="House no., street, landmark, pincode"></div>
+    <div class="field"><label>City</label><select id="nbCity"></select></div>
+
+    <div class="card" style="background:var(--mist);padding:14px;margin:14px 0;">
+      <div class="two-col">
+        <div class="field"><label>Appliance</label><select id="nbAppliance"></select></div>
+        <div class="field"><label>Type</label><select id="nbType"></select></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Service / Repair</label>
+          <select id="nbServiceType">
+            <option value="service">Service / AMC</option>
+            <option value="repair">Repair</option>
+          </select>
+        </div>
+        <div class="field"><label>Quantity</label><input type="number" id="nbQty" min="1" max="10" value="1"></div>
+      </div>
+      <div class="field"><label>Problem (optional)</label><input type="text" id="nbProblem" placeholder="e.g. Not cooling properly"></div>
+      <button type="button" class="btn btn-outline btn-block" id="nbAddItemBtn">+ Add to Booking</button>
+    </div>
+
+    <div id="nbCartList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+    <div id="nbCartEmpty" style="font-size:0.85rem;color:var(--slate);text-align:center;padding:6px 0 14px;">No appliances added yet.</div>
+
+    <div class="two-col">
+      <div class="field"><label>Visit Date</label><input type="date" id="nbDate" required></div>
+      <div class="field"><label>Time Slot</label>
+        <select id="nbSlotId" required>
+          <option value="">Select a time slot</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="msg-inline" id="nbMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('newBookingModal')">Cancel</button>
+      <button class="btn btn-primary" id="nbSubmitBtn">Create Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOMER HISTORY MODAL -->
+<div class="modal-backdrop" id="customerModal">
+  <div class="modal">
+    <h3 id="customerModalName">Customer History</h3>
+    <div id="customerModalBody"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('customerModal')">Close</button></div>
+  </div>
+</div>
+
+
+<!-- ASSIGN TECHNICIAN MODAL -->
+<div class="modal-backdrop" id="assignModal">
+  <div class="modal">
+    <h3>Assign Technician</h3>
+    <div class="msg-inline" style="display:block;background:var(--mist);color:var(--slate);margin-bottom:14px;" id="assignBookingInfo"></div>
+    <div class="field"><label>Select Technician</label><select id="assignTechSelect"></select></div>
+    <div class="msg-inline error" id="assignWarning" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('assignModal')">Cancel</button>
+      <button class="btn btn-primary" id="assignConfirmBtn">Assign</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/subadmin.js?v=202609010c"></script>
+</body>
+</html>

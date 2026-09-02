@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>Technician Panel | Seerua Appliance Care</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/panel.css">
+<style>
+  .order-card { background: var(--white); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 18px 20px; margin-bottom: 14px; }
+  .order-card .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+  .order-card h4 { margin: 0 0 4px; font-size: 1.02rem; }
+  .order-card .meta { font-size: 0.84rem; color: var(--slate); margin-bottom: 4px; }
+  .order-card .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .order-card textarea { width: 100%; padding: 10px; border: 1.5px solid var(--line); border-radius: 8px; margin-top: 10px; font-family: inherit; }
+</style>
+</head>
+<body class="compact">
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="brand-row">
+      <img src="/images/logo.png" alt="Seerua Appliance Care">
+      <span>Seerua Appliance Care</span>
+    </div>
+    <h2>Technician Login</h2>
+    <p class="sub">View your assigned orders and update progress.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="techPhoneLogin">Phone Number</label>
+        <input type="text" id="techPhoneLogin" required maxlength="10">
+      </div>
+      <div class="field">
+        <label for="techPassLogin">Password</label>
+        <input type="password" id="techPassLogin" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Login</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+    <div class="demo-hint">Demo login — Phone: <b>9389585479</b> · Password: <b>tech123</b><br>(New technicians can be added from the Super Admin Panel.)</div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="app-shell" id="appShell">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <img src="/images/logo.png" alt="Seerua Appliance Care">
+      <span>Technician Panel</span>
+    </div>
+    <nav class="side-nav" id="sideNav">
+      <button data-view="orders" class="active">🧾 My Orders</button>
+      <button data-view="reports">📊 Today's Summary</button>
+      <button data-view="rating">⭐ My Rating</button>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="btn btn-outline btn-block btn-sm" id="enableAlertsBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);margin-bottom:10px;">🔔 Enable Job Alerts</button>
+      <div class="who" id="whoAmI">Logged in</div>
+      <button class="btn btn-outline btn-block btn-sm" id="logoutBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main-area">
+
+    <!-- ORDERS -->
+    <section class="panel-view active" id="view-orders">
+      <div class="topbar"><div><h1>My Orders</h1><div class="sub">Accept assigned orders and update their progress</div></div></div>
+      <div class="filters">
+        <select id="techOrderFilter">
+          <option value="">All Statuses</option>
+          <option value="assigned">Newly Assigned</option>
+          <option value="accepted">Accepted</option>
+          <option value="in-progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div id="ordersList"></div>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="panel-view" id="view-reports">
+      <div class="topbar"><div><h1>Today's Summary</h1><div class="sub">Report of the work completed today</div></div></div>
+      <p style="font-size:0.85rem;color:var(--slate);margin-top:-6px;">A company commission applies per completed order (shown per order below — the rate can vary by appliance). If the customer leaves a Google review, tick "Google review liya" — this is sent to Admin for confirmation, and the commission is waived once Admin verifies it.</p>
+      <div class="filters" style="justify-content:space-between;">
+        <input type="date" id="techReportDate">
+        <a class="btn btn-outline btn-sm" id="techExportBtn" href="#" target="_blank">⬇ Export to Excel (CSV)</a>
+      </div>
+      <div class="stat-row" id="techReportStats"></div>
+      <div class="card">
+        <div class="card-head"><h3>Today's Orders</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Customer</th><th>Appliance</th><th>Status</th><th>Price</th><th>Commission</th><th>Review</th></tr></thead>
+          <tbody id="techReportTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- MY RATING -->
+    <section class="panel-view" id="view-rating">
+      <div class="topbar"><div><h1>My Rating</h1><div class="sub">How customers have rated your completed jobs — overall and per appliance</div></div></div>
+      <div class="stat-row" id="techRatingStats"></div>
+
+      <div class="card">
+        <div class="card-head"><h3>💰 My Earnings</h3></div>
+        <div class="stat-row" id="techEarningsStats"></div>
+        <p style="font-size:0.82rem;color:var(--slate);margin-top:12px;" id="techEarningsNote"></p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Rating by Appliance</h3></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Appliance</th><th>Rating</th><th>Rated Jobs</th><th>Completed Jobs</th></tr></thead>
+          <tbody id="techRatingByApplianceTable"></tbody>
+        </table></div>
+        <p style="font-size:0.82rem;color:var(--slate);margin-top:12px;">This is the same appliance-wise rating Super Admin sees when assigning new jobs — the better you're rated on an appliance, the more likely you are to be picked for that kind of job.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/js/technician.js?v=202609010c"></script>
+</body>
+</html>

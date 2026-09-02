@@ -1,0 +1,34 @@
+[
+  {
+    "id": "cc1",
+    "name": "Delhi"
+  },
+  {
+    "id": "cc2",
+    "name": "Noida"
+  },
+  {
+    "id": "cc3",
+    "name": "Gurugram"
+  },
+  {
+    "id": "cc4",
+    "name": "Ghaziabad"
+  },
+  {
+    "id": "cc5",
+    "name": "Faridabad"
+  },
+  {
+    "id": "cc6",
+    "name": "Lucknow"
+  },
+  {
+    "id": "cc7",
+    "name": "Jaipur"
+  },
+  {
+    "id": "cc8",
+    "name": "Mumbai"
+  }
+]

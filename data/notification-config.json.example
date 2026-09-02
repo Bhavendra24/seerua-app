@@ -1,0 +1,11 @@
+{
+  "smsEnabled": false,
+  "whatsappEnabled": false,
+  "authkey": "",
+  "smsTemplateId": "",
+  "smsSenderId": "",
+  "whatsappIntegratedNumber": "",
+  "whatsappTemplateName": "",
+  "completionSmsTemplateId": "",
+  "completionWhatsappTemplateName": ""
+}
