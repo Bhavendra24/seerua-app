@@ -1,6 +1,6 @@
 {
   "username": "admin",
-  "password": "Seerua@2026",
+  "password": "$2b$10$atpdut8mbyBZ/BCryOMfS.E9kE95j2dg0RIW/8S/h9fkLhGlMkooW",
   "companyName": "Seerua Appliance Care",
   "whatsapp": "9389585479",
   "email": "b4india@gmail.com",
@@ -10,5 +10,6 @@
   "bookingPausedMessage": "Abhi technicians available nahi hain, jaldi wapas aayenge!",
   "hiringPaused": false,
   "unlockedDates": [],
-  "aiCustomInstructions": ""
+  "aiCustomInstructions": "",
+  "forceResetApplied": true
 }

@@ -5112,6 +5112,29 @@ function cleanupOldCompletionPhotos() {
 // the server starts accepting requests. Without this, the very first
 // request could hit readData() before any data has been loaded.
 initDb().then(() => {
+  // ONE-TIME DEPLOYMENT SAFETY NET: login was reportedly failing on the
+  // very first production deploy despite the correct credentials being
+  // in data/admin.json in the repo — the exact cause couldn't be
+  // confirmed remotely (no direct log/shell access to the hosting
+  // platform during troubleshooting). Rather than leave the site
+  // inaccessible, this force-resets the admin login to a known-good
+  // value ONE TIME ONLY, guarded by forceResetApplied so it can never
+  // silently undo a password change made afterward through the Admin
+  // Panel. Safe to leave in permanently — after the first successful
+  // boot post-deploy, this block never does anything again.
+  try {
+    const admin = readData('admin');
+    if (!admin.forceResetApplied) {
+      admin.username = 'admin';
+      admin.password = 'Seerua@2026'; // plaintext — auto-upgrades to a bcrypt hash on first successful login, same as normal
+      admin.forceResetApplied = true;
+      writeData('admin', admin);
+      console.log('[startup] One-time admin credential reset applied (username: admin). This will not run again.');
+    }
+  } catch (e) {
+    console.error('[startup] Could not apply one-time admin reset:', e.message);
+  }
+
   app.listen(PORT, () => {
     console.log(`Seerua Appliance Care server is running: http://localhost:${PORT}`);
     console.log(`[version] Build: ${BUILD_MARKER} — started ${SERVER_STARTED_AT}`);
