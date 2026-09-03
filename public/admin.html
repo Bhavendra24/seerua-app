@@ -137,6 +137,21 @@
           </label>
         </div>
         <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 0;">When enabled, a customer's mobile number must be OTP-verified the first time they book. Turn this off to let customers book without OTP verification — useful while MSG91 credentials aren't set up yet, or for testing.</p>
+        <!-- ADDED: there was previously no way to actually set/update these
+             two values anywhere in the Admin Panel — whoever configured
+             them originally had to do it by hand, directly in the data
+             file. Get these from MSG91 Dashboard → OTP → your widget →
+             Show Details. -->
+        <div class="field" style="margin-top:12px;">
+          <label>MSG91 Widget ID</label>
+          <input type="text" id="otpWidgetId" placeholder="e.g. 396541xxxxxxxxxxxxxxx" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>MSG91 Token Auth</label>
+          <input type="text" id="otpTokenAuth" placeholder="e.g. 51995Txxxxxxxxxxxxxxxx" autocomplete="off">
+        </div>
+        <button class="btn btn-primary btn-sm" id="saveOtpCredsBtn">Save Widget ID &amp; Token</button>
+        <div class="msg-inline" id="otpCredsMsg"></div>
         <div class="msg-inline" id="otpMsg"></div>
       </div>
     </section>

@@ -243,6 +243,13 @@ async function renderOtpCard() {
   const label = document.getElementById('otpStatusLabel');
   const card = document.getElementById('otpCard');
   toggle.checked = data.enabled;
+  // ADDED: pre-fill the Widget ID / Token Auth fields with whatever is
+  // currently saved, so opening this page shows the real current state
+  // instead of always looking blank/unset.
+  const widgetIdInput = document.getElementById('otpWidgetId');
+  const tokenAuthInput = document.getElementById('otpTokenAuth');
+  if (widgetIdInput) widgetIdInput.value = data.widgetId || '';
+  if (tokenAuthInput) tokenAuthInput.value = data.tokenAuth || '';
   if (data.enabled) {
     label.textContent = '🟢 OTP Enabled';
     card.style.borderLeftColor = 'var(--green)';
@@ -251,6 +258,31 @@ async function renderOtpCard() {
     card.style.borderLeftColor = 'var(--red)';
   }
 }
+
+// ADDED: previously there was no way to actually set/update the MSG91
+// Widget ID or Token Auth anywhere in the Admin Panel — this is what was
+// silently breaking OTP verification (it was stuck on old/wrong values
+// with no way to fix them without editing the server's data file by
+// hand). Get the current values from MSG91 Dashboard → OTP → your widget.
+document.getElementById('saveOtpCredsBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('otpCredsMsg');
+  msg.className = 'msg-inline';
+  const widgetId = document.getElementById('otpWidgetId').value.trim();
+  const tokenAuth = document.getElementById('otpTokenAuth').value.trim();
+  if (!widgetId || !tokenAuth) {
+    msg.className = 'msg-inline error';
+    msg.textContent = 'Both Widget ID and Token Auth are required.';
+    return;
+  }
+  try {
+    await api('/api/admin/otp-config', { method: 'PUT', body: JSON.stringify({ widgetId, tokenAuth }) });
+    msg.className = 'msg-inline success';
+    msg.textContent = 'Saved! New OTP attempts will use these credentials right away — no restart needed.';
+  } catch (err) {
+    msg.className = 'msg-inline error';
+    msg.textContent = err.message;
+  }
+});
 
 document.getElementById('otpToggle').addEventListener('change', async (e) => {
   const msg = document.getElementById('otpMsg');

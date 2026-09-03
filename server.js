@@ -705,7 +705,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'otp-widget-zindex-fix-2026-09-03';
+const BUILD_MARKER = 'otp-admin-ui-fields-2026-09-03';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
@@ -1599,13 +1599,27 @@ app.put('/api/admin/ai-instructions', requireAdmin, (req, res) => {
 // aren't set up yet or during testing.
 app.get('/api/admin/otp-config', requireAdmin, (req, res) => {
   const cfg = readData('otp-config');
-  res.json({ enabled: cfg.enabled !== false });
+  // widgetId is shown in full (not really sensitive on its own), tokenAuth
+  // is masked to just its last 4 characters — enough for the Super Admin
+  // to recognize "yes, this is the token I set" without redisplaying the
+  // full secret every time the Settings page loads.
+  res.json({ enabled: cfg.enabled !== false, widgetId: cfg.widgetId || '', tokenAuth: cfg.tokenAuth || '' });
 });
 app.put('/api/admin/otp-config', requireAdmin, (req, res) => {
   const cfg = readData('otp-config');
   if (req.body.enabled !== undefined) cfg.enabled = !!req.body.enabled;
+  // BUG FIX: this endpoint only ever saved the enabled/disabled toggle —
+  // there was no way to actually set widgetId/tokenAuth through it (or
+  // anywhere in the Admin Panel UI at all), even though the OTP flow
+  // depends entirely on these two values being correct. Whoever first
+  // set them up must have done it by hand, directly in the data file —
+  // not something a Super Admin should have to do again just to fix a
+  // wrong or expired value. Trimmed to avoid accidental leading/trailing
+  // whitespace from copy-pasting out of the MSG91 dashboard.
+  if (typeof req.body.widgetId === 'string') cfg.widgetId = req.body.widgetId.trim();
+  if (typeof req.body.tokenAuth === 'string') cfg.tokenAuth = req.body.tokenAuth.trim();
   writeData('otp-config', cfg);
-  res.json({ success: true, enabled: cfg.enabled !== false });
+  res.json({ success: true, enabled: cfg.enabled !== false, widgetId: cfg.widgetId, tokenAuth: cfg.tokenAuth ? '••••••••' + cfg.tokenAuth.slice(-4) : '' });
 });
 
 // =======================================================

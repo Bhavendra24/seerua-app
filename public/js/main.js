@@ -1633,21 +1633,21 @@ async function ensureOtpConfig() {
 // Opens the MSG91 OTP widget for the given phone number and resolves with
 // the verified access-token once the customer completes the OTP step.
 function verifyPhoneWithOtp(phone) {
+  // TEMPORARY DIAGNOSTIC — visible on-screen status banner so the exact
+  // stuck step is obvious without needing browser dev tools (hard to
+  // reach on mobile). Remove once the "Book stays on Verifying forever"
+  // issue is confirmed fixed.
+  let diagBanner = document.getElementById('otpDiagBanner');
+  if (!diagBanner) {
+    diagBanner = document.createElement('div');
+    diagBanner.id = 'otpDiagBanner';
+    diagBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#111;color:#0f0;font:12px monospace;padding:8px;text-align:center;';
+    document.body.appendChild(diagBanner);
+  }
+  const diag = (text) => { diagBanner.textContent = '[OTP DIAGNOSTIC] ' + text; console.log('[OTP DIAGNOSTIC]', text); };
+  diag('Starting verification for ' + phone + '...');
+
   return new Promise(async (resolve, reject) => {
-    // BUG FIX: MSG91's OTP popup is injected by their own third-party
-    // script, with its own z-index that this site has no control over.
-    // When it's triggered from INSIDE one of our own modals (e.g. the
-    // Quick Book "Add"/"Book" flow, which turned out to be exactly where
-    // this was reported), our modal could end up sitting on top of it —
-    // the OTP popup is technically there, just invisible and
-    // unclickable behind our own overlay, so the customer has no way to
-    // actually enter the code. The button then sits on "Verifying
-    // number…" forever, since the promise only resolves/rejects once the
-    // customer interacts with a popup they can never see. Temporarily
-    // dropping our own modal overlays' z-index for the duration of OTP
-    // verification (restored in `finally`, success or failure either
-    // way) guarantees MSG91's popup is always the topmost, reachable
-    // thing on screen while this is happening.
     const ownOverlays = document.querySelectorAll('.modal-backdrop.open, .bottom-sheet-backdrop.open');
     ownOverlays.forEach(el => { el.dataset.prevZIndex = el.style.zIndex || ''; el.style.zIndex = '1'; });
     const restoreOwnOverlays = () => {
@@ -1657,14 +1657,19 @@ function verifyPhoneWithOtp(phone) {
       });
     };
     try {
+      diag('Fetching OTP config from server...');
       const cfg = await ensureOtpConfig();
+      diag('Config received: widgetId=' + (cfg.widgetId ? cfg.widgetId.slice(0,6) + '...' : 'MISSING') + ' tokenAuth=' + (cfg.tokenAuth ? 'present' : 'MISSING'));
+      diag('Loading MSG91 script...');
       await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
+      diag('Script loaded OK. Calling initSendOTP...');
       const configuration = {
         widgetId: cfg.widgetId,
         tokenAuth: cfg.tokenAuth,
         identifier: '91' + phone, // MSG91 requires country code, no '+' or spaces
         exposeMethods: false,
         success: (data) => {
+          diag('SUCCESS callback fired!');
           restoreOwnOverlays();
           const accessToken = data && (data.message || data.token || data['access-token']);
           if (!accessToken) {
@@ -1674,13 +1679,16 @@ function verifyPhoneWithOtp(phone) {
           resolve(accessToken);
         },
         failure: (error) => {
+          diag('FAILURE callback fired: ' + JSON.stringify(error));
           restoreOwnOverlays();
           console.log('OTP failure:', error);
           reject(new Error('OTP verification failed or was cancelled.'));
         }
       };
       window.initSendOTP(configuration);
+      diag('initSendOTP called — widget should be visible now. Waiting for you to complete it...');
     } catch (err) {
+      diag('ERROR: ' + err.message);
       restoreOwnOverlays();
       reject(err);
     }
