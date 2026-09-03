@@ -1634,6 +1634,28 @@ async function ensureOtpConfig() {
 // the verified access-token once the customer completes the OTP step.
 function verifyPhoneWithOtp(phone) {
   return new Promise(async (resolve, reject) => {
+    // BUG FIX: MSG91's OTP popup is injected by their own third-party
+    // script, with its own z-index that this site has no control over.
+    // When it's triggered from INSIDE one of our own modals (e.g. the
+    // Quick Book "Add"/"Book" flow, which turned out to be exactly where
+    // this was reported), our modal could end up sitting on top of it —
+    // the OTP popup is technically there, just invisible and
+    // unclickable behind our own overlay, so the customer has no way to
+    // actually enter the code. The button then sits on "Verifying
+    // number…" forever, since the promise only resolves/rejects once the
+    // customer interacts with a popup they can never see. Temporarily
+    // dropping our own modal overlays' z-index for the duration of OTP
+    // verification (restored in `finally`, success or failure either
+    // way) guarantees MSG91's popup is always the topmost, reachable
+    // thing on screen while this is happening.
+    const ownOverlays = document.querySelectorAll('.modal-backdrop.open, .bottom-sheet-backdrop.open');
+    ownOverlays.forEach(el => { el.dataset.prevZIndex = el.style.zIndex || ''; el.style.zIndex = '1'; });
+    const restoreOwnOverlays = () => {
+      ownOverlays.forEach(el => {
+        el.style.zIndex = el.dataset.prevZIndex || '';
+        delete el.dataset.prevZIndex;
+      });
+    };
     try {
       const cfg = await ensureOtpConfig();
       await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
@@ -1643,6 +1665,7 @@ function verifyPhoneWithOtp(phone) {
         identifier: '91' + phone, // MSG91 requires country code, no '+' or spaces
         exposeMethods: false,
         success: (data) => {
+          restoreOwnOverlays();
           const accessToken = data && (data.message || data.token || data['access-token']);
           if (!accessToken) {
             reject(new Error('Verification succeeded but no token was received. Please try again.'));
@@ -1651,12 +1674,14 @@ function verifyPhoneWithOtp(phone) {
           resolve(accessToken);
         },
         failure: (error) => {
+          restoreOwnOverlays();
           console.log('OTP failure:', error);
           reject(new Error('OTP verification failed or was cancelled.'));
         }
       };
       window.initSendOTP(configuration);
     } catch (err) {
+      restoreOwnOverlays();
       reject(err);
     }
   });
