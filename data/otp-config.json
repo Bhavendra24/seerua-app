@@ -1,8 +1,8 @@
 {
-  "enabled": false,
+  "enabled": true,
   "provider": "msg91",
-  "authkey": "",
-  "widgetId": "",
-  "tokenAuth": "",
+  "authkey": "519975AeuFqVMH46a729a96P1",
+  "widgetId": "366541716949353532313330",
+  "tokenAuth": "519975T4ca63zyW8X6a56e35dP1",
   "verifyUrl": "https://control.msg91.com/api/v5/widget/verifyAccessToken"
 }

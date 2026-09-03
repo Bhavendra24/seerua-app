@@ -733,7 +733,30 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609010z"></script>
+<!-- Our own OTP-entry box — replaced relying on MSG91's built-in popup UI,
+     which was reliably sending real SMS OTPs (confirmed) but never
+     rendering ANY visible popup on screen, on any device or environment
+     tested. Using MSG91's "exposeMethods" mode instead: it sends the OTP
+     the same way, but leaves showing the actual entry UI up to us — this
+     is that UI, guaranteed to render since it's just a normal part of
+     this page, not a third-party widget's own (mysteriously invisible)
+     overlay. -->
+<div class="modal-backdrop" id="otpEntryModal">
+  <div class="modal" style="max-width:360px;">
+    <button type="button" class="modal-close" id="otpEntryClose" aria-label="Close">✕</button>
+    <h3>Verify Your Number</h3>
+    <p class="modal-sub">We've sent a code by SMS to <strong id="otpEntryPhone"></strong>.</p>
+    <div class="field">
+      <label for="otpEntryCode">Enter OTP</label>
+      <input type="tel" id="otpEntryCode" inputmode="numeric" maxlength="6" placeholder="Enter the code" autocomplete="one-time-code" style="letter-spacing:0.3em;font-size:1.2rem;text-align:center;">
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="otpEntrySubmit">Verify</button>
+    <div class="form-msg" id="otpEntryMsg"></div>
+    <button type="button" class="btn btn-outline btn-block" id="otpEntryResend" style="margin-top:8px;">Resend Code</button>
+  </div>
+</div>
+
+<script src="/js/main.js?v=202609030a"></script>
 <script src="/js/i18n.js?v=202609010a"></script>
 <script src="/js/chatbot.js?v=202609010u"></script>
 </body>

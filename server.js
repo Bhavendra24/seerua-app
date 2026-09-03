@@ -705,7 +705,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'otp-admin-ui-fields-2026-09-03';
+const BUILD_MARKER = 'otp-final-working-2026-09-03';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
