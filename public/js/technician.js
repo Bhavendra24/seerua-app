@@ -3,6 +3,7 @@
 // ------------------------------------------------------------------
 let ORDERS = [];
 let CURRENT_TECH = null;
+let PHOTO_UPLOAD_DISABLED = false; // fetched once at login — see checkLogin()
 let GOOGLE_REVIEW_URL = null; // Admin's verified Google Business profile link (Admin Panel > Site Rating) — null until loaded, or if Admin hasn't set one up
 
 // SECURITY: customer-supplied text (name, address, problem description)
@@ -61,6 +62,15 @@ async function checkLogin() {
     document.getElementById('loginWrap').style.display = 'none';
     document.getElementById('appShell').classList.add('active');
     document.getElementById('whoAmI').textContent = `Logged in as ${CURRENT_TECH.name}`;
+    // ADDED: fetched once here so setProgress()'s completion-photo check
+    // (below) knows whether the admin has turned photo uploads off —
+    // without this, the requirement stayed hardcoded on client-side even
+    // after the toggle was switched off, making it impossible to ever
+    // mark a job complete while photos were disabled.
+    try {
+      const toggleData = await api('/api/technician/photo-toggle');
+      PHOTO_UPLOAD_DISABLED = !!toggleData.technicianPhotoUploadDisabled;
+    } catch (e) { /* default false is a safe fallback either way */ }
     await Promise.all([loadOrders(true), loadGoogleReviewUrl()]);
     switchView('orders');
     sendHeartbeat();
@@ -262,10 +272,12 @@ function renderOrders() {
       ${o.itemStatus === 'in-progress' ? `
         <textarea id="report-${o.taskId}" placeholder="Progress report (e.g. gas refill done, part replaced, etc.)">${o.technicianReport || ''}</textarea>
         <div class="meta" style="margin-top:8px;">
+          ${!PHOTO_UPLOAD_DISABLED ? `
           <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--blue-600);font-weight:600;">
             📷 <span id="photoLabel-${o.taskId}">${o.completionPhotoUrl ? 'Photo attached ✓ — tap to replace' : 'Add photo of completed work (required)'}</span>
             <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="uploadCompletionPhoto('${o.bookingId}','${o.itemId}', this)">
           </label>
+          ` : ''}
         </div>
         <div class="actions">
           <button class="btn btn-outline btn-sm" onclick="saveReport('${o.bookingId}','${o.itemId}')">Save Report</button>
@@ -333,7 +345,10 @@ async function setProgress(bookingId, itemId, status) {
   // can be marked done — see the matching check in server.js. Checked
   // here too (not just server-side) so the technician gets an immediate,
   // clear nudge instead of a generic failed-request error.
-  if (status === 'completed') {
+  // BUG FIX: this stayed required even after the admin turned photo
+  // uploads off — which, since uploading was also blocked, made it
+  // impossible to ever complete a job. Skipped when uploads are off.
+  if (status === 'completed' && !PHOTO_UPLOAD_DISABLED) {
     if (!pendingCompletionPhotos[taskId]) {
       alert('Please add a photo of the completed work first — tap "Add photo of completed work" above.');
       return;

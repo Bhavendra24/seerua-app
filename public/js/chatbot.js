@@ -750,6 +750,18 @@
     const menuBtn = document.getElementById('bottomNavMenuBtn');
     if (menuBtn) menuBtn.addEventListener('click', () => { closeSupportFan(); closeAllSheets(); openSheet('menuSheetBackdrop'); });
 
+    // BUG FIX: these are all #anchor links to sections on the same page
+    // (Our Services, FAQ, etc.) — clicking one correctly scrolled to that
+    // section, but the sheet itself just stayed open on top of it, so
+    // the customer had to separately tap the backdrop or the handle to
+    // dismiss it before they could actually see what they'd just picked.
+    const menuSheet = document.getElementById('menuSheetBackdrop');
+    if (menuSheet) {
+      menuSheet.querySelectorAll('a.bottom-sheet-option').forEach(link => {
+        link.addEventListener('click', () => closeSheet('menuSheetBackdrop'));
+      });
+    }
+
     const chatBtn = document.getElementById('supportSheetChatBtn');
     if (chatBtn) chatBtn.addEventListener('click', () => { closeAllSheets(); openChatPanel(); });
 

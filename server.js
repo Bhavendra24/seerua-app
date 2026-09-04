@@ -725,7 +725,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'section-subtext-size-fix-2026-09-04';
+const BUILD_MARKER = 'photo-toggle-completion-fix-2026-09-04';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
@@ -4269,6 +4269,7 @@ const PROGRESS_ALLOWED_FROM = {
 };
 app.put('/api/technician/orders/:bookingId/items/:itemId/progress', requireTechnician, (req, res) => {
   const { status, report, completionPhotoUrl } = req.body;
+  const admin = readData('admin');
   const { bookings, booking, item } = findOwnItem(req.params.bookingId, req.params.itemId, req.session.technicianId);
   if (!item) return res.status(404).json({ error: 'Task not found' });
   if (status) {
@@ -4285,7 +4286,13 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/progress', requireTechn
     // later. Accepts either a URL already on the item (uploaded via
     // /api/technician/upload-completion-photo in an earlier request) or
     // one included right in this request.
-    if (status === 'completed') {
+    // BUG FIX: this requirement was hardcoded — turning the "Technician
+    // Photo Upload" toggle OFF in Admin Panel disabled the upload
+    // endpoint itself, but this check still demanded a photo anyway,
+    // making it literally impossible for a technician to ever complete
+    // a job while the toggle was off. Now skipped when the admin has
+    // disabled photo uploads.
+    if (status === 'completed' && !admin.technicianPhotoUploadDisabled) {
       const photoUrl = completionPhotoUrl || item.completionPhotoUrl;
       if (!photoUrl || !/^\/uploads\/completion-photos\/[a-zA-Z0-9_.]+$/.test(photoUrl)) {
         return res.status(400).json({ error: 'Please upload a photo of the completed work before marking this job as done.' });
