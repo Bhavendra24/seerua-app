@@ -320,7 +320,21 @@ body.compact .btn { padding: 7px 12px; }
   .side-nav::-webkit-scrollbar { display: none; }
   .side-nav button { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; border-left: none; border-bottom: 3px solid transparent; }
   .side-nav button.active { border-left: none; border-bottom-color: var(--accent-500); }
-  .sidebar-foot { display: none; }
+  /* BUG FIX: this used to be display:none on mobile — which meant the
+     Logout button (along with Enable Alerts and the "who am I" line)
+     was completely unreachable on a phone, not just visually
+     de-emphasized. On a technician handing their phone to a colleague to
+     log in as themselves, this made it look like logout simply didn't
+     exist. Now shown as its own compact row instead of hidden, sized to
+     fit the same sticky top bar instead of the old full sidebar layout. */
+  .sidebar-foot {
+    display: flex; align-items: center; gap: 8px;
+    border-top: none; border-bottom: 1px solid rgba(255,255,255,0.12);
+    padding: 6px 10px; margin: 0;
+  }
+  .sidebar-foot .who { display: none; } /* redundant on a small screen — the panel itself already makes clear who's logged in */
+  .sidebar-foot #enableAlertsBtn { flex: 1; font-size: 0.72rem; padding: 6px 8px; margin-bottom: 0 !important; }
+  .sidebar-foot #logoutBtn { flex: 0 0 auto; font-size: 0.72rem; padding: 6px 12px; }
   .main-area { padding: 16px; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .two-col { grid-template-columns: 1fr; }

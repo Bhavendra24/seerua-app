@@ -777,9 +777,14 @@ document.getElementById('assignConfirmBtn').addEventListener('click', async () =
 
 async function deleteBooking(id) {
   if (!confirm('Are you sure you want to delete this booking?')) return;
-  await api(`/api/admin/bookings/${id}`, { method: 'DELETE' });
-  BOOKINGS = await api('/api/admin/bookings');
-  renderOrders(); renderDashboard();
+  try {
+    await api(`/api/admin/bookings/${id}`, { method: 'DELETE' });
+    BOOKINGS = await api('/api/admin/bookings');
+    renderOrders(); renderDashboard();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 function cityName(id) { const c = CITIES.find(x => x.id === id); return c ? c.name : '-'; }
@@ -1126,13 +1131,23 @@ document.getElementById('cityForm').addEventListener('submit', async (e) => {
 });
 
 async function toggleCity(id, active) {
-  await api(`/api/admin/cities/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
-  await loadAll(); renderCities();
+  try {
+    await api(`/api/admin/cities/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
+    await loadAll(); renderCities();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 async function deleteCity(id) {
   if (!confirm('Deleting this city will also delete all its pricing. Continue?')) return;
-  await api(`/api/admin/cities/${id}`, { method: 'DELETE' });
-  await loadAll(); renderCities();
+  try {
+    await api(`/api/admin/cities/${id}`, { method: 'DELETE' });
+    await loadAll(); renderCities();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // ---------------- APPLIANCES ----------------
@@ -1267,8 +1282,13 @@ document.getElementById('applianceForm').addEventListener('submit', async (e) =>
 
 async function deleteAppliance(id) {
   if (!confirm('Deleting this appliance will also delete all its types and pricing. Continue?')) return;
-  await api(`/api/admin/appliances/${id}`, { method: 'DELETE' });
-  await loadAll(); renderAppliances();
+  try {
+    await api(`/api/admin/appliances/${id}`, { method: 'DELETE' });
+    await loadAll(); renderAppliances();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 function openTypeModal(applianceId) {
@@ -1295,8 +1315,13 @@ document.getElementById('typeConfirmBtn').addEventListener('click', async () => 
 });
 async function deleteType(applianceId, typeId) {
   if (!confirm('Delete this type?')) return;
-  await api(`/api/admin/appliances/${applianceId}/types/${typeId}`, { method: 'DELETE' });
-  await loadAll(); renderAppliances();
+  try {
+    await api(`/api/admin/appliances/${applianceId}/types/${typeId}`, { method: 'DELETE' });
+    await loadAll(); renderAppliances();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // ---------------- PRICING ----------------
@@ -1364,27 +1389,32 @@ document.getElementById('priceCityFilter').addEventListener('change', renderPric
 document.getElementById('priceApplianceFilter').addEventListener('change', renderPricing);
 
 async function savePrice(id, skuIdsCsv) {
-  if (skuIdsCsv) {
-    // Multi-service appliance — collect each SKU's input and send them all
-    // as the servicePrices object (merged server-side, so this never wipes
-    // out prices for services from a DIFFERENT type sharing the same row).
-    // skuIdsCsv is a plain comma-separated string (not JSON) specifically
-    // so it's safe to embed directly in the onclick="..." HTML attribute
-    // above without any quote-escaping conflicts.
-    const skuIds = skuIdsCsv.split(',');
-    const servicePrices = {};
-    skuIds.forEach(skuId => {
-      const el = document.getElementById(`sku-${id}-${skuId}`);
-      if (el && el.value !== '') servicePrices[skuId] = Number(el.value);
-    });
-    await api(`/api/admin/pricing/${id}`, { method: 'PUT', body: JSON.stringify({ servicePrices }) });
-  } else {
-    const servicePrice = document.getElementById(`svc-${id}`).value;
-    const repairPrice = document.getElementById(`rep-${id}`).value;
-    await api(`/api/admin/pricing/${id}`, { method: 'PUT', body: JSON.stringify({ servicePrice, repairPrice }) });
+  try {
+    if (skuIdsCsv) {
+      // Multi-service appliance — collect each SKU's input and send them all
+      // as the servicePrices object (merged server-side, so this never wipes
+      // out prices for services from a DIFFERENT type sharing the same row).
+      // skuIdsCsv is a plain comma-separated string (not JSON) specifically
+      // so it's safe to embed directly in the onclick="..." HTML attribute
+      // above without any quote-escaping conflicts.
+      const skuIds = skuIdsCsv.split(',');
+      const servicePrices = {};
+      skuIds.forEach(skuId => {
+        const el = document.getElementById(`sku-${id}-${skuId}`);
+        if (el && el.value !== '') servicePrices[skuId] = Number(el.value);
+      });
+      await api(`/api/admin/pricing/${id}`, { method: 'PUT', body: JSON.stringify({ servicePrices }) });
+    } else {
+      const servicePrice = document.getElementById(`svc-${id}`).value;
+      const repairPrice = document.getElementById(`rep-${id}`).value;
+      await api(`/api/admin/pricing/${id}`, { method: 'PUT', body: JSON.stringify({ servicePrice, repairPrice }) });
+    }
+    await loadAll();
+    alert('Price updated successfully!');
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
   }
-  await loadAll();
-  alert('Price updated successfully!');
 }
 
 // ---------------- TIME SLOTS ----------------
@@ -1665,8 +1695,13 @@ document.getElementById('blockSlotBtn').addEventListener('click', async () => {
 });
 
 async function unblockSlot(date, slotId, cityId, applianceId) {
-  await api('/api/admin/slots-config/blocked', { method: 'DELETE', body: JSON.stringify({ date, slotId, cityId, applianceId: applianceId || '' }) });
-  await renderSlots();
+  try {
+    await api('/api/admin/slots-config/blocked', { method: 'DELETE', body: JSON.stringify({ date, slotId, cityId, applianceId: applianceId || '' }) });
+    await renderSlots();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // ---------------- TECHNICIANS ----------------
@@ -1781,13 +1816,23 @@ document.getElementById('techForm').addEventListener('submit', async (e) => {
 });
 
 async function toggleTech(id, active) {
-  await api(`/api/admin/technicians/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
-  await loadAll(); renderTechnicians();
+  try {
+    await api(`/api/admin/technicians/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
+    await loadAll(); renderTechnicians();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 async function deleteTech(id) {
   if (!confirm('Delete this technician?')) return;
-  await api(`/api/admin/technicians/${id}`, { method: 'DELETE' });
-  await loadAll(); renderTechnicians();
+  try {
+    await api(`/api/admin/technicians/${id}`, { method: 'DELETE' });
+    await loadAll(); renderTechnicians();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // Fetches a technician's current login password on demand (a dedicated
@@ -1917,8 +1962,13 @@ document.getElementById('careerCityForm').addEventListener('submit', async (e) =
 
 async function deleteCareerCity(id) {
   if (!confirm('Delete this city? It will no longer appear as a Careers form option.')) return;
-  await api(`/api/admin/career-cities/${id}`, { method: 'DELETE' });
-  await loadAll(); renderCareerCities();
+  try {
+    await api(`/api/admin/career-cities/${id}`, { method: 'DELETE' });
+    await loadAll(); renderCareerCities();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // ---------------- CAREER APPLIANCES (Careers form checkboxes, admin-managed, ----------------
@@ -1954,8 +2004,13 @@ document.getElementById('careerApplianceForm').addEventListener('submit', async 
 
 async function deleteCareerAppliance(id) {
   if (!confirm('Delete this appliance? It will no longer appear as a Careers form option.')) return;
-  await api(`/api/admin/career-appliances/${id}`, { method: 'DELETE' });
-  await loadAll(); renderCareerAppliances();
+  try {
+    await api(`/api/admin/career-appliances/${id}`, { method: 'DELETE' });
+    await loadAll(); renderCareerAppliances();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // ---------------- EDUCATION LEVELS (Careers form dropdown, admin-managed) ----------------
@@ -1990,8 +2045,13 @@ document.getElementById('educationForm').addEventListener('submit', async (e) =>
 
 async function deleteEducationLevel(id) {
   if (!confirm('Delete this education level? It will no longer appear as a Careers form option.')) return;
-  await api(`/api/admin/education-levels/${id}`, { method: 'DELETE' });
-  await loadAll(); renderEducationLevels();
+  try {
+    await api(`/api/admin/education-levels/${id}`, { method: 'DELETE' });
+    await loadAll(); renderEducationLevels();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // ---------------- CAREER APPLICATIONS ----------------
@@ -2095,15 +2155,25 @@ document.getElementById('appStatusFilter').addEventListener('change', drawApplic
 document.getElementById('appCityFilter').addEventListener('change', drawApplications);
 
 async function updateApplicationStatus(id, status) {
-  await api(`/api/admin/technician-applications/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
-  const app = APPLICATIONS.find(a => a.id === id);
-  if (app) app.status = status;
-  drawApplications(); // re-render immediately so a newly-"hired" applicant disappears from the default view right away
+  try {
+    await api(`/api/admin/technician-applications/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+    const app = APPLICATIONS.find(a => a.id === id);
+    if (app) app.status = status;
+    drawApplications(); // re-render immediately so a newly-"hired" applicant disappears from the default view right away
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 async function deleteApplication(id) {
   if (!confirm('Delete this application?')) return;
-  await api(`/api/admin/technician-applications/${id}`, { method: 'DELETE' });
-  await renderApplications();
+  try {
+    await api(`/api/admin/technician-applications/${id}`, { method: 'DELETE' });
+    await renderApplications();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // "Make Partner" — jumps to the Technicians tab and pre-fills the Add
@@ -2239,8 +2309,13 @@ document.getElementById('subAdminForm').addEventListener('submit', async (e) => 
 });
 
 async function toggleSubAdmin(id, active) {
-  await api(`/api/admin/subadmins/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
-  await renderSubAdmins();
+  try {
+    await api(`/api/admin/subadmins/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
+    await renderSubAdmins();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 let subAdminCitiesEditId = null;
@@ -2259,14 +2334,22 @@ function openSubAdminCitiesModal(id) {
 }
 document.getElementById('subAdminCitiesConfirmBtn').addEventListener('click', async () => {
   const cityIds = Array.from(document.querySelectorAll('input[name="subAdminCity"]:checked')).map(i => i.value);
-  await api(`/api/admin/subadmins/${subAdminCitiesEditId}`, { method: 'PUT', body: JSON.stringify({ cityIds }) });
-  closeModal('subAdminCitiesModal');
-  await renderSubAdmins();
+  try {
+    await api(`/api/admin/subadmins/${subAdminCitiesEditId}`, { method: 'PUT', body: JSON.stringify({ cityIds }) });
+    closeModal('subAdminCitiesModal');
+    await renderSubAdmins();
+  } catch (err) {
+    alert(err.message || 'Could not save. Please try again.');
+  }
 });
 async function deleteSubAdmin(id) {
   if (!confirm('Delete this sub-admin?')) return;
-  await api(`/api/admin/subadmins/${id}`, { method: 'DELETE' });
-  await renderSubAdmins();
+  try {
+    await api(`/api/admin/subadmins/${id}`, { method: 'DELETE' });
+    await renderSubAdmins();
+  } catch (err) {
+    alert(err.message || 'Could not delete. Please try again.');
+  }
 }
 
 // ---------------- REPORTS ----------------
@@ -2841,8 +2924,13 @@ async function saveFaq(id) {
 
 async function deleteFaq(id) {
   if (!confirm('Delete this FAQ?')) return;
-  await api(`/api/admin/site-content/faqs/${id}`, { method: 'DELETE' });
-  await renderSiteContent();
+  try {
+    await api(`/api/admin/site-content/faqs/${id}`, { method: 'DELETE' });
+    await renderSiteContent();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 let addingFaq = false;

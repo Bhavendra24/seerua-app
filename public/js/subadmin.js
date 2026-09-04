@@ -464,8 +464,13 @@ document.getElementById('blockSlotBtn').addEventListener('click', async () => {
 });
 
 async function unblockSlot(date, slotId, cityId, applianceId) {
-  await api('/api/admin/slots-config/blocked', { method: 'DELETE', body: JSON.stringify({ date, slotId, cityId, applianceId: applianceId || '' }) });
-  await renderSlots();
+  try {
+    await api('/api/admin/slots-config/blocked', { method: 'DELETE', body: JSON.stringify({ date, slotId, cityId, applianceId: applianceId || '' }) });
+    await renderSlots();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // ---------------- CUSTOMERS ----------------

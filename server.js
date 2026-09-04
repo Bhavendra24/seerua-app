@@ -725,7 +725,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'photo-toggle-completion-fix-2026-09-04';
+const BUILD_MARKER = 'deep-audit-multifix-2026-09-04';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
@@ -987,13 +987,19 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   // continuing the conversation anyway.
   if (!mentionedCity) {
     const OTHER_MAJOR_INDIAN_CITIES = [
+      // Cities Seerua used to serve, before switching to Moradabad/Kasganj/
+      // Jalesar — kept here (not removed) so a customer who still expects
+      // service in, say, Delhi gets a clear "we don't serve there anymore"
+      // instead of the AI silently not recognizing the city at all.
+      'delhi', 'noida', 'gurugram', 'gurgaon', 'ghaziabad', 'faridabad',
+      'lucknow', 'jaipur', 'mumbai',
       'bangalore', 'bengaluru', 'chennai', 'kolkata', 'hyderabad', 'pune',
       'ahmedabad', 'surat', 'kanpur', 'nagpur', 'indore', 'bhopal', 'patna',
       'vadodara', 'ludhiana', 'agra', 'nashik', 'meerut', 'rajkot', 'varanasi',
       'amritsar', 'chandigarh', 'coimbatore', 'kochi', 'cochin', 'guwahati',
       'thane', 'visakhapatnam', 'vizag', 'bhubaneswar', 'jodhpur', 'ranchi',
       'raipur', 'jabalpur', 'gwalior', 'vijayawada', 'madurai', 'jamshedpur',
-      'allahabad', 'prayagraj', 'aligarh', 'moradabad', 'bareilly', 'mysore',
+      'allahabad', 'prayagraj', 'aligarh', 'bareilly', 'mysore',
       'mysuru', 'salem', 'tiruchirappalli', 'trichy', 'dehradun', 'shimla',
       'srinagar', 'jammu', 'panipat', 'ambala', 'karnal', 'rohtak', 'gaya',
       'muzaffarpur', 'bikaner', 'ajmer', 'udaipur', 'kota', 'siliguri', 'howrah',

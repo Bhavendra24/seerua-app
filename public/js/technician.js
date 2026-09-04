@@ -301,13 +301,23 @@ function renderOrders() {
 document.getElementById('techOrderFilter').addEventListener('change', renderOrders);
 
 async function acceptOrder(bookingId, itemId) {
-  await api(`/api/technician/orders/${bookingId}/items/${itemId}/accept`, { method: 'PUT' });
-  await loadOrders(); renderOrders();
+  try {
+    await api(`/api/technician/orders/${bookingId}/items/${itemId}/accept`, { method: 'PUT' });
+    await loadOrders(); renderOrders();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 async function rejectOrder(bookingId, itemId) {
   if (!confirm('Are you sure you want to reject this order?')) return;
-  await api(`/api/technician/orders/${bookingId}/items/${itemId}/reject`, { method: 'PUT' });
-  await loadOrders(); renderOrders();
+  try {
+    await api(`/api/technician/orders/${bookingId}/items/${itemId}/reject`, { method: 'PUT' });
+    await loadOrders(); renderOrders();
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 // Per-task cache of the uploaded completion photo URL, keyed by
 // "bookingId__itemId" — filled in by uploadCompletionPhoto() below, read
@@ -365,11 +375,16 @@ async function setProgress(bookingId, itemId, status) {
   await loadOrders(); renderOrders();
 }
 async function saveReport(bookingId, itemId) {
-  const taskId = `${bookingId}__${itemId}`;
-  const report = document.getElementById(`report-${taskId}`).value;
-  await api(`/api/technician/orders/${bookingId}/items/${itemId}/progress`, { method: 'PUT', body: JSON.stringify({ report }) });
-  await loadOrders(); renderOrders();
-  alert('Report saved successfully!');
+  try {
+    const taskId = `${bookingId}__${itemId}`;
+    const report = document.getElementById(`report-${taskId}`).value;
+    await api(`/api/technician/orders/${bookingId}/items/${itemId}/progress`, { method: 'PUT', body: JSON.stringify({ report }) });
+    await loadOrders(); renderOrders();
+    alert('Report saved successfully!');
+
+  } catch (err) {
+    alert(err.message || 'Something went wrong. Please try again.');
+  }
 }
 
 // Opens WhatsApp (app or web) with a ready-to-send message to the customer,
