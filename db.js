@@ -197,4 +197,16 @@ function withLock(name, fn) {
   return result;
 }
 
-module.exports = { readData, writeData, genId, withLock, initDb };
+// ADDED: needed for the Admin Panel's "Download Backup" feature — since
+// this app's storage (whether local JSON files or the MySQL fallback) has
+// no built-in backup/export tool of its own, and Render's free tier wipes
+// the local filesystem back to whatever's in the git repo on every
+// redeploy, real customer/booking data that only ever lived in the live
+// site's data files had no way to survive a deploy. Returns everything
+// currently in the in-memory cache (a plain copy, not a live reference,
+// so the caller can't accidentally mutate the actual cache).
+function getAllData() {
+  return JSON.parse(JSON.stringify(cache));
+}
+
+module.exports = { readData, writeData, genId, withLock, initDb, getAllData };

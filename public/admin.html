@@ -109,6 +109,22 @@
         <div class="msg-inline" id="bookingStatusMsg"></div>
       </div>
 
+      <div class="card settings-card" id="backupCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>💾 Data Backup</h3>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Downloads every booking, customer, technician, and other data on the site right now, as one file. <b>Important on the current hosting plan:</b> redeploying the site resets its data back to what's in the code repository — any real bookings taken since the last deploy only exist here, on the live site, until you download a backup. Do this before every deploy.</p>
+        <a href="/api/admin/backup" class="btn btn-primary btn-sm" download>Download Backup</a>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
+          <label style="font-size:0.85rem;font-weight:700;display:block;margin-bottom:6px;">Restore from a backup file</label>
+          <p style="font-size:0.8rem;color:var(--slate);margin:0 0 8px;">Use this right after a redeploy to bring back the data from your last backup.</p>
+          <input type="file" id="restoreFileInput" accept="application/json" style="margin-bottom:8px;">
+          <br>
+          <button class="btn btn-outline btn-sm" id="restoreBackupBtn">Restore This File</button>
+          <div class="msg-inline" id="restoreMsg"></div>
+        </div>
+      </div>
+
       <div class="card settings-card" id="maintenanceCard" style="border-left:4px solid var(--line);">
         <div class="card-head">
           <h3>🛠️ Site Maintenance Mode</h3>

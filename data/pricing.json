@@ -1,7 +1,7 @@
 [
   {
-    "id": "p1",
-    "cityId": "c1",
+    "id": "p169",
+    "cityId": "c9",
     "applianceId": "a1",
     "typeId": "t1",
     "servicePrice": 440,
@@ -15,8 +15,8 @@
     }
   },
   {
-    "id": "p2",
-    "cityId": "c1",
+    "id": "p170",
+    "cityId": "c9",
     "applianceId": "a1",
     "typeId": "t2",
     "servicePrice": 550,
@@ -30,8 +30,8 @@
     }
   },
   {
-    "id": "p3",
-    "cityId": "c1",
+    "id": "p171",
+    "cityId": "c9",
     "applianceId": "a1",
     "typeId": "t3",
     "servicePrice": 660,
@@ -45,8 +45,8 @@
     }
   },
   {
-    "id": "p4",
-    "cityId": "c1",
+    "id": "p172",
+    "cityId": "c9",
     "applianceId": "a2",
     "typeId": "t4",
     "servicePrice": 330,
@@ -57,8 +57,8 @@
     }
   },
   {
-    "id": "p5",
-    "cityId": "c1",
+    "id": "p173",
+    "cityId": "c9",
     "applianceId": "a2",
     "typeId": "t5",
     "servicePrice": 380,
@@ -69,8 +69,8 @@
     }
   },
   {
-    "id": "p6",
-    "cityId": "c1",
+    "id": "p174",
+    "cityId": "c9",
     "applianceId": "a2",
     "typeId": "t6",
     "servicePrice": 270,
@@ -81,8 +81,8 @@
     }
   },
   {
-    "id": "p10",
-    "cityId": "c1",
+    "id": "p175",
+    "cityId": "c9",
     "applianceId": "a4",
     "typeId": "t10",
     "servicePrice": 330,
@@ -94,8 +94,8 @@
     }
   },
   {
-    "id": "p11",
-    "cityId": "c1",
+    "id": "p176",
+    "cityId": "c9",
     "applianceId": "a4",
     "typeId": "t11",
     "servicePrice": 380,
@@ -107,8 +107,8 @@
     }
   },
   {
-    "id": "p12",
-    "cityId": "c1",
+    "id": "p177",
+    "cityId": "c9",
     "applianceId": "a4",
     "typeId": "t12",
     "servicePrice": 490,
@@ -120,1088 +120,462 @@
     }
   },
   {
-    "id": "p13",
-    "cityId": "c2",
-    "applianceId": "a1",
-    "typeId": "t1",
-    "servicePrice": 420,
-    "repairPrice": 680,
-    "servicePrices": {
-      "svc-service": 420,
-      "svc-repair": 680,
-      "svc-install": 480,
-      "svc-uninstall": 340,
-      "svc-gasfill": 2730
-    }
-  },
-  {
-    "id": "p14",
-    "cityId": "c2",
-    "applianceId": "a1",
-    "typeId": "t2",
-    "servicePrice": 520,
-    "repairPrice": 840,
-    "servicePrices": {
-      "svc-service": 520,
-      "svc-repair": 840,
-      "svc-install": 600,
-      "svc-uninstall": 420,
-      "svc-gasfill": 3380
-    }
-  },
-  {
-    "id": "p15",
-    "cityId": "c2",
-    "applianceId": "a1",
-    "typeId": "t3",
-    "servicePrice": 630,
-    "repairPrice": 1050,
-    "servicePrices": {
-      "svc-service": 630,
-      "svc-repair": 1050,
-      "svc-install": 720,
-      "svc-uninstall": 500,
-      "svc-gasfill": 4100
-    }
-  },
-  {
-    "id": "p16",
-    "cityId": "c2",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 310,
-    "repairPrice": 520,
-    "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 520
-    }
-  },
-  {
-    "id": "p17",
-    "cityId": "c2",
-    "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 370,
-    "repairPrice": 630,
-    "servicePrices": {
-      "svc-service": 370,
-      "svc-repair": 630
-    }
-  },
-  {
-    "id": "p18",
-    "cityId": "c2",
-    "applianceId": "a2",
-    "typeId": "t6",
-    "servicePrice": 260,
-    "repairPrice": 450,
-    "servicePrices": {
-      "svc-service": 260,
-      "svc-repair": 450
-    }
-  },
-  {
-    "id": "p22",
-    "cityId": "c2",
-    "applianceId": "a4",
-    "typeId": "t10",
-    "servicePrice": 310,
-    "repairPrice": 520,
-    "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 520,
-      "svc-gasfill": 1050
-    }
-  },
-  {
-    "id": "p23",
-    "cityId": "c2",
-    "applianceId": "a4",
-    "typeId": "t11",
-    "servicePrice": 370,
-    "repairPrice": 630,
-    "servicePrices": {
-      "svc-service": 370,
-      "svc-repair": 630,
-      "svc-gasfill": 1260
-    }
-  },
-  {
-    "id": "p24",
-    "cityId": "c2",
-    "applianceId": "a4",
-    "typeId": "t12",
-    "servicePrice": 470,
-    "repairPrice": 840,
-    "servicePrices": {
-      "svc-service": 470,
-      "svc-repair": 840,
-      "svc-gasfill": 1600
-    }
-  },
-  {
-    "id": "p25",
-    "cityId": "c3",
-    "applianceId": "a1",
-    "typeId": "t1",
-    "servicePrice": 460,
-    "repairPrice": 750,
-    "servicePrices": {
-      "svc-service": 460,
-      "svc-repair": 750,
-      "svc-install": 530,
-      "svc-uninstall": 370,
-      "svc-gasfill": 2990
-    }
-  },
-  {
-    "id": "p26",
-    "cityId": "c3",
-    "applianceId": "a1",
-    "typeId": "t2",
-    "servicePrice": 570,
-    "repairPrice": 920,
-    "servicePrices": {
-      "svc-service": 570,
-      "svc-repair": 920,
-      "svc-install": 660,
-      "svc-uninstall": 460,
-      "svc-gasfill": 3700
-    }
-  },
-  {
-    "id": "p27",
-    "cityId": "c3",
-    "applianceId": "a1",
-    "typeId": "t3",
-    "servicePrice": 690,
-    "repairPrice": 1150,
-    "servicePrices": {
-      "svc-service": 690,
-      "svc-repair": 1150,
-      "svc-install": 790,
-      "svc-uninstall": 550,
-      "svc-gasfill": 4480
-    }
-  },
-  {
-    "id": "p28",
-    "cityId": "c3",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 340,
-    "repairPrice": 570,
-    "servicePrices": {
-      "svc-service": 340,
-      "svc-repair": 570
-    }
-  },
-  {
-    "id": "p29",
-    "cityId": "c3",
-    "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 400,
-    "repairPrice": 690,
-    "servicePrices": {
-      "svc-service": 400,
-      "svc-repair": 690
-    }
-  },
-  {
-    "id": "p30",
-    "cityId": "c3",
-    "applianceId": "a2",
-    "typeId": "t6",
-    "servicePrice": 290,
-    "repairPrice": 490,
-    "servicePrices": {
-      "svc-service": 290,
-      "svc-repair": 490
-    }
-  },
-  {
-    "id": "p34",
-    "cityId": "c3",
-    "applianceId": "a4",
-    "typeId": "t10",
-    "servicePrice": 340,
-    "repairPrice": 570,
-    "servicePrices": {
-      "svc-service": 340,
-      "svc-repair": 570,
-      "svc-gasfill": 1160
-    }
-  },
-  {
-    "id": "p35",
-    "cityId": "c3",
-    "applianceId": "a4",
-    "typeId": "t11",
-    "servicePrice": 400,
-    "repairPrice": 690,
-    "servicePrices": {
-      "svc-service": 400,
-      "svc-repair": 690,
-      "svc-gasfill": 1360
-    }
-  },
-  {
-    "id": "p36",
-    "cityId": "c3",
-    "applianceId": "a4",
-    "typeId": "t12",
-    "servicePrice": 520,
-    "repairPrice": 920,
-    "servicePrices": {
-      "svc-service": 520,
-      "svc-repair": 920,
-      "svc-gasfill": 1770
-    }
-  },
-  {
-    "id": "p37",
-    "cityId": "c4",
-    "applianceId": "a1",
-    "typeId": "t1",
-    "servicePrice": 400,
-    "repairPrice": 650,
-    "servicePrices": {
-      "svc-service": 400,
-      "svc-repair": 650,
-      "svc-install": 460,
-      "svc-uninstall": 320,
-      "svc-gasfill": 2600
-    }
-  },
-  {
-    "id": "p38",
-    "cityId": "c4",
-    "applianceId": "a1",
-    "typeId": "t2",
-    "servicePrice": 500,
-    "repairPrice": 800,
-    "servicePrices": {
-      "svc-service": 500,
-      "svc-repair": 800,
-      "svc-install": 580,
-      "svc-uninstall": 400,
-      "svc-gasfill": 3250
-    }
-  },
-  {
-    "id": "p39",
-    "cityId": "c4",
-    "applianceId": "a1",
-    "typeId": "t3",
-    "servicePrice": 600,
-    "repairPrice": 1000,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-repair": 1000,
-      "svc-install": 690,
-      "svc-uninstall": 480,
-      "svc-gasfill": 3900
-    }
-  },
-  {
-    "id": "p40",
-    "cityId": "c4",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 300,
-    "repairPrice": 500,
-    "servicePrices": {
-      "svc-service": 300,
-      "svc-repair": 500
-    }
-  },
-  {
-    "id": "p41",
-    "cityId": "c4",
-    "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 350,
-    "repairPrice": 600,
-    "servicePrices": {
-      "svc-service": 350,
-      "svc-repair": 600
-    }
-  },
-  {
-    "id": "p42",
-    "cityId": "c4",
-    "applianceId": "a2",
-    "typeId": "t6",
+    "id": "p178",
+    "cityId": "c9",
+    "applianceId": "a6",
+    "typeId": "t14",
     "servicePrice": 250,
-    "repairPrice": 430,
+    "repairPrice": 250,
     "servicePrices": {
       "svc-service": 250,
-      "svc-repair": 430
+      "svc-repair": 250,
+      "svc-install": 350,
+      "svc-uninstall": 250
     }
   },
   {
-    "id": "p46",
-    "cityId": "c4",
-    "applianceId": "a4",
-    "typeId": "t10",
-    "servicePrice": 300,
-    "repairPrice": 500,
-    "servicePrices": {
-      "svc-service": 300,
-      "svc-repair": 500,
-      "svc-gasfill": 1020
-    }
-  },
-  {
-    "id": "p47",
-    "cityId": "c4",
-    "applianceId": "a4",
-    "typeId": "t11",
-    "servicePrice": 350,
-    "repairPrice": 600,
-    "servicePrices": {
-      "svc-service": 350,
-      "svc-repair": 600,
-      "svc-gasfill": 1190
-    }
-  },
-  {
-    "id": "p48",
-    "cityId": "c4",
-    "applianceId": "a4",
-    "typeId": "t12",
-    "servicePrice": 450,
-    "repairPrice": 800,
-    "servicePrices": {
-      "svc-service": 450,
-      "svc-repair": 800,
-      "svc-gasfill": 1530
-    }
-  },
-  {
-    "id": "p49",
-    "cityId": "c5",
-    "applianceId": "a1",
-    "typeId": "t1",
-    "servicePrice": 400,
-    "repairPrice": 650,
-    "servicePrices": {
-      "svc-service": 400,
-      "svc-repair": 650,
-      "svc-install": 460,
-      "svc-uninstall": 320,
-      "svc-gasfill": 2600
-    }
-  },
-  {
-    "id": "p50",
-    "cityId": "c5",
-    "applianceId": "a1",
-    "typeId": "t2",
-    "servicePrice": 500,
-    "repairPrice": 800,
-    "servicePrices": {
-      "svc-service": 500,
-      "svc-repair": 800,
-      "svc-install": 580,
-      "svc-uninstall": 400,
-      "svc-gasfill": 3250
-    }
-  },
-  {
-    "id": "p51",
-    "cityId": "c5",
-    "applianceId": "a1",
-    "typeId": "t3",
-    "servicePrice": 600,
-    "repairPrice": 1000,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-repair": 1000,
-      "svc-install": 690,
-      "svc-uninstall": 480,
-      "svc-gasfill": 3900
-    }
-  },
-  {
-    "id": "p52",
-    "cityId": "c5",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 300,
-    "repairPrice": 500,
-    "servicePrices": {
-      "svc-service": 300,
-      "svc-repair": 500
-    }
-  },
-  {
-    "id": "p53",
-    "cityId": "c5",
-    "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 350,
-    "repairPrice": 600,
-    "servicePrices": {
-      "svc-service": 350,
-      "svc-repair": 600
-    }
-  },
-  {
-    "id": "p54",
-    "cityId": "c5",
-    "applianceId": "a2",
-    "typeId": "t6",
+    "id": "p179",
+    "cityId": "c9",
+    "applianceId": "a6",
+    "typeId": "t15",
     "servicePrice": 250,
-    "repairPrice": 430,
+    "repairPrice": 250,
     "servicePrices": {
       "svc-service": 250,
-      "svc-repair": 430
+      "svc-repair": 250,
+      "svc-install": 350,
+      "svc-uninstall": 250
     }
   },
   {
-    "id": "p58",
-    "cityId": "c5",
-    "applianceId": "a4",
-    "typeId": "t10",
-    "servicePrice": 300,
-    "repairPrice": 500,
-    "servicePrices": {
-      "svc-service": 300,
-      "svc-repair": 500,
-      "svc-gasfill": 1020
-    }
-  },
-  {
-    "id": "p59",
-    "cityId": "c5",
-    "applianceId": "a4",
-    "typeId": "t11",
+    "id": "p180",
+    "cityId": "c9",
+    "applianceId": "a7",
+    "typeId": "t16",
     "servicePrice": 350,
-    "repairPrice": 600,
+    "repairPrice": 350,
     "servicePrices": {
-      "svc-service": 350,
-      "svc-repair": 600,
-      "svc-gasfill": 1190
+      "svc-repair": 350,
+      "svc-deepclean": 450
     }
   },
   {
-    "id": "p60",
-    "cityId": "c5",
-    "applianceId": "a4",
-    "typeId": "t12",
-    "servicePrice": 450,
-    "repairPrice": 800,
+    "id": "p181",
+    "cityId": "c9",
+    "applianceId": "a7",
+    "typeId": "t17",
+    "servicePrice": 350,
+    "repairPrice": 350,
     "servicePrices": {
-      "svc-service": 450,
-      "svc-repair": 800,
-      "svc-gasfill": 1530
+      "svc-repair": 350,
+      "svc-deepclean": 450
     }
   },
   {
-    "id": "p61",
-    "cityId": "c6",
-    "applianceId": "a1",
-    "typeId": "t1",
-    "servicePrice": 360,
-    "repairPrice": 580,
+    "id": "p182",
+    "cityId": "c9",
+    "applianceId": "a7",
+    "typeId": "t18",
+    "servicePrice": 400,
+    "repairPrice": 400,
     "servicePrices": {
-      "svc-service": 360,
-      "svc-repair": 580,
-      "svc-install": 410,
-      "svc-uninstall": 290,
-      "svc-gasfill": 2340
+      "svc-repair": 400,
+      "svc-deepclean": 450
     }
   },
   {
-    "id": "p62",
-    "cityId": "c6",
-    "applianceId": "a1",
-    "typeId": "t2",
-    "servicePrice": 450,
-    "repairPrice": 720,
+    "id": "p183",
+    "cityId": "c9",
+    "applianceId": "a3",
+    "typeId": "t19",
+    "servicePrice": 270,
+    "repairPrice": 440,
     "servicePrices": {
-      "svc-service": 450,
-      "svc-repair": 720,
-      "svc-install": 520,
-      "svc-uninstall": 360,
-      "svc-gasfill": 2920
+      "svc-service": 270,
+      "svc-repair": 440,
+      "svc-install": 340,
+      "svc-uninstall": 230
     }
   },
   {
-    "id": "p63",
-    "cityId": "c6",
-    "applianceId": "a1",
-    "typeId": "t3",
-    "servicePrice": 540,
+    "id": "p184",
+    "cityId": "c9",
+    "applianceId": "a3",
+    "typeId": "t20",
+    "servicePrice": 550,
     "repairPrice": 900,
     "servicePrices": {
-      "svc-service": 540,
+      "svc-service": 550,
       "svc-repair": 900,
-      "svc-install": 620,
-      "svc-uninstall": 430,
-      "svc-gasfill": 3510
+      "svc-install": 700,
+      "svc-uninstall": 480
     }
   },
   {
-    "id": "p64",
-    "cityId": "c6",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 270,
-    "repairPrice": 450,
+    "id": "p185",
+    "cityId": "c9",
+    "applianceId": "a5",
+    "typeId": "t13",
+    "servicePrice": 600,
+    "repairPrice": 300,
     "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 450
+      "svc-service": 600,
+      "svc-special-service": 1200,
+      "svc-repair": 300,
+      "svc-install": 700,
+      "svc-uninstall": 400
     }
   },
   {
-    "id": "p65",
-    "cityId": "c6",
-    "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 310,
-    "repairPrice": 540,
-    "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 540
-    }
-  },
-  {
-    "id": "p66",
-    "cityId": "c6",
-    "applianceId": "a2",
-    "typeId": "t6",
-    "servicePrice": 220,
-    "repairPrice": 390,
-    "servicePrices": {
-      "svc-service": 220,
-      "svc-repair": 390
-    }
-  },
-  {
-    "id": "p70",
-    "cityId": "c6",
-    "applianceId": "a4",
-    "typeId": "t10",
-    "servicePrice": 270,
-    "repairPrice": 450,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 450,
-      "svc-gasfill": 920
-    }
-  },
-  {
-    "id": "p71",
-    "cityId": "c6",
-    "applianceId": "a4",
-    "typeId": "t11",
-    "servicePrice": 310,
-    "repairPrice": 540,
-    "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 540,
-      "svc-gasfill": 1050
-    }
-  },
-  {
-    "id": "p72",
-    "cityId": "c6",
-    "applianceId": "a4",
-    "typeId": "t12",
-    "servicePrice": 400,
-    "repairPrice": 720,
-    "servicePrices": {
-      "svc-service": 400,
-      "svc-repair": 720,
-      "svc-gasfill": 1360
-    }
-  },
-  {
-    "id": "p73",
-    "cityId": "c7",
+    "id": "p186",
+    "cityId": "c10",
     "applianceId": "a1",
     "typeId": "t1",
-    "servicePrice": 370,
-    "repairPrice": 600,
+    "servicePrice": 440,
+    "repairPrice": 710,
     "servicePrices": {
-      "svc-service": 370,
-      "svc-repair": 600,
-      "svc-install": 430,
-      "svc-uninstall": 300,
-      "svc-gasfill": 2400
+      "svc-service": 440,
+      "svc-repair": 710,
+      "svc-install": 510,
+      "svc-uninstall": 350,
+      "svc-gasfill": 2860
     }
   },
   {
-    "id": "p74",
-    "cityId": "c7",
+    "id": "p187",
+    "cityId": "c10",
     "applianceId": "a1",
     "typeId": "t2",
-    "servicePrice": 460,
-    "repairPrice": 740,
-    "servicePrices": {
-      "svc-service": 460,
-      "svc-repair": 740,
-      "svc-install": 530,
-      "svc-uninstall": 370,
-      "svc-gasfill": 2990
-    }
-  },
-  {
-    "id": "p75",
-    "cityId": "c7",
-    "applianceId": "a1",
-    "typeId": "t3",
     "servicePrice": 550,
-    "repairPrice": 920,
+    "repairPrice": 880,
     "servicePrices": {
       "svc-service": 550,
-      "svc-repair": 920,
+      "svc-repair": 880,
       "svc-install": 630,
       "svc-uninstall": 440,
       "svc-gasfill": 3580
     }
   },
   {
-    "id": "p76",
-    "cityId": "c7",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 280,
-    "repairPrice": 460,
+    "id": "p188",
+    "cityId": "c10",
+    "applianceId": "a1",
+    "typeId": "t3",
+    "servicePrice": 660,
+    "repairPrice": 1100,
     "servicePrices": {
-      "svc-service": 280,
-      "svc-repair": 460
+      "svc-service": 660,
+      "svc-repair": 1100,
+      "svc-install": 760,
+      "svc-uninstall": 530,
+      "svc-gasfill": 4290
     }
   },
   {
-    "id": "p77",
-    "cityId": "c7",
+    "id": "p189",
+    "cityId": "c10",
     "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 320,
+    "typeId": "t4",
+    "servicePrice": 330,
     "repairPrice": 550,
     "servicePrices": {
-      "svc-service": 320,
+      "svc-service": 330,
       "svc-repair": 550
     }
   },
   {
-    "id": "p78",
-    "cityId": "c7",
+    "id": "p190",
+    "cityId": "c10",
+    "applianceId": "a2",
+    "typeId": "t5",
+    "servicePrice": 380,
+    "repairPrice": 660,
+    "servicePrices": {
+      "svc-service": 380,
+      "svc-repair": 660
+    }
+  },
+  {
+    "id": "p191",
+    "cityId": "c10",
     "applianceId": "a2",
     "typeId": "t6",
-    "servicePrice": 230,
-    "repairPrice": 390,
+    "servicePrice": 270,
+    "repairPrice": 470,
     "servicePrices": {
-      "svc-service": 230,
-      "svc-repair": 390
+      "svc-service": 270,
+      "svc-repair": 470
     }
   },
   {
-    "id": "p82",
-    "cityId": "c7",
+    "id": "p192",
+    "cityId": "c10",
     "applianceId": "a4",
     "typeId": "t10",
-    "servicePrice": 280,
-    "repairPrice": 460,
-    "servicePrices": {
-      "svc-service": 280,
-      "svc-repair": 460,
-      "svc-gasfill": 950
-    }
-  },
-  {
-    "id": "p83",
-    "cityId": "c7",
-    "applianceId": "a4",
-    "typeId": "t11",
-    "servicePrice": 320,
+    "servicePrice": 330,
     "repairPrice": 550,
     "servicePrices": {
-      "svc-service": 320,
+      "svc-service": 330,
       "svc-repair": 550,
-      "svc-gasfill": 1090
+      "svc-gasfill": 1120
     }
   },
   {
-    "id": "p84",
-    "cityId": "c7",
-    "applianceId": "a4",
-    "typeId": "t12",
-    "servicePrice": 410,
-    "repairPrice": 740,
-    "servicePrices": {
-      "svc-service": 410,
-      "svc-repair": 740,
-      "svc-gasfill": 1390
-    }
-  },
-  {
-    "id": "p85",
-    "cityId": "c8",
-    "applianceId": "a1",
-    "typeId": "t1",
-    "servicePrice": 480,
-    "repairPrice": 780,
-    "servicePrices": {
-      "svc-service": 480,
-      "svc-repair": 780,
-      "svc-install": 550,
-      "svc-uninstall": 380,
-      "svc-gasfill": 3120
-    }
-  },
-  {
-    "id": "p86",
-    "cityId": "c8",
-    "applianceId": "a1",
-    "typeId": "t2",
-    "servicePrice": 600,
-    "repairPrice": 960,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-repair": 960,
-      "svc-install": 690,
-      "svc-uninstall": 480,
-      "svc-gasfill": 3900
-    }
-  },
-  {
-    "id": "p87",
-    "cityId": "c8",
-    "applianceId": "a1",
-    "typeId": "t3",
-    "servicePrice": 720,
-    "repairPrice": 1200,
-    "servicePrices": {
-      "svc-service": 720,
-      "svc-repair": 1200,
-      "svc-install": 830,
-      "svc-uninstall": 580,
-      "svc-gasfill": 4680
-    }
-  },
-  {
-    "id": "p88",
-    "cityId": "c8",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 360,
-    "repairPrice": 600,
-    "servicePrices": {
-      "svc-service": 360,
-      "svc-repair": 600
-    }
-  },
-  {
-    "id": "p89",
-    "cityId": "c8",
-    "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 420,
-    "repairPrice": 720,
-    "servicePrices": {
-      "svc-service": 420,
-      "svc-repair": 720
-    }
-  },
-  {
-    "id": "p90",
-    "cityId": "c8",
-    "applianceId": "a2",
-    "typeId": "t6",
-    "servicePrice": 300,
-    "repairPrice": 510,
-    "servicePrices": {
-      "svc-service": 300,
-      "svc-repair": 510
-    }
-  },
-  {
-    "id": "p94",
-    "cityId": "c8",
-    "applianceId": "a4",
-    "typeId": "t10",
-    "servicePrice": 360,
-    "repairPrice": 600,
-    "servicePrices": {
-      "svc-service": 360,
-      "svc-repair": 600,
-      "svc-gasfill": 1220
-    }
-  },
-  {
-    "id": "p95",
-    "cityId": "c8",
+    "id": "p193",
+    "cityId": "c10",
     "applianceId": "a4",
     "typeId": "t11",
-    "servicePrice": 420,
-    "repairPrice": 720,
+    "servicePrice": 380,
+    "repairPrice": 660,
     "servicePrices": {
-      "svc-service": 420,
-      "svc-repair": 720,
-      "svc-gasfill": 1430
+      "svc-service": 380,
+      "svc-repair": 660,
+      "svc-gasfill": 1290
     }
   },
   {
-    "id": "p96",
-    "cityId": "c8",
+    "id": "p194",
+    "cityId": "c10",
     "applianceId": "a4",
     "typeId": "t12",
-    "servicePrice": 540,
-    "repairPrice": 960,
+    "servicePrice": 490,
+    "repairPrice": 880,
     "servicePrices": {
-      "svc-service": 540,
-      "svc-repair": 960,
-      "svc-gasfill": 1840
+      "svc-service": 490,
+      "svc-repair": 880,
+      "svc-gasfill": 1670
     }
   },
   {
-    "id": "p_msyflsio1477",
-    "cityId": "c_msyflsin6",
+    "id": "p195",
+    "cityId": "c10",
+    "applianceId": "a6",
+    "typeId": "t14",
+    "servicePrice": 250,
+    "repairPrice": 250,
+    "servicePrices": {
+      "svc-service": 250,
+      "svc-repair": 250,
+      "svc-install": 350,
+      "svc-uninstall": 250
+    }
+  },
+  {
+    "id": "p196",
+    "cityId": "c10",
+    "applianceId": "a6",
+    "typeId": "t15",
+    "servicePrice": 250,
+    "repairPrice": 250,
+    "servicePrices": {
+      "svc-service": 250,
+      "svc-repair": 250,
+      "svc-install": 350,
+      "svc-uninstall": 250
+    }
+  },
+  {
+    "id": "p197",
+    "cityId": "c10",
+    "applianceId": "a7",
+    "typeId": "t16",
+    "servicePrice": 350,
+    "repairPrice": 350,
+    "servicePrices": {
+      "svc-repair": 350,
+      "svc-deepclean": 450
+    }
+  },
+  {
+    "id": "p198",
+    "cityId": "c10",
+    "applianceId": "a7",
+    "typeId": "t17",
+    "servicePrice": 350,
+    "repairPrice": 350,
+    "servicePrices": {
+      "svc-repair": 350,
+      "svc-deepclean": 450
+    }
+  },
+  {
+    "id": "p199",
+    "cityId": "c10",
+    "applianceId": "a7",
+    "typeId": "t18",
+    "servicePrice": 400,
+    "repairPrice": 400,
+    "servicePrices": {
+      "svc-repair": 400,
+      "svc-deepclean": 450
+    }
+  },
+  {
+    "id": "p200",
+    "cityId": "c10",
+    "applianceId": "a3",
+    "typeId": "t19",
+    "servicePrice": 270,
+    "repairPrice": 440,
+    "servicePrices": {
+      "svc-service": 270,
+      "svc-repair": 440,
+      "svc-install": 340,
+      "svc-uninstall": 230
+    }
+  },
+  {
+    "id": "p201",
+    "cityId": "c10",
+    "applianceId": "a3",
+    "typeId": "t20",
+    "servicePrice": 550,
+    "repairPrice": 900,
+    "servicePrices": {
+      "svc-service": 550,
+      "svc-repair": 900,
+      "svc-install": 700,
+      "svc-uninstall": 480
+    }
+  },
+  {
+    "id": "p202",
+    "cityId": "c10",
+    "applianceId": "a5",
+    "typeId": "t13",
+    "servicePrice": 600,
+    "repairPrice": 300,
+    "servicePrices": {
+      "svc-service": 600,
+      "svc-special-service": 1200,
+      "svc-repair": 300,
+      "svc-install": 700,
+      "svc-uninstall": 400
+    }
+  },
+  {
+    "id": "p203",
+    "cityId": "c11",
     "applianceId": "a1",
     "typeId": "t1",
-    "servicePrice": 420,
-    "repairPrice": 680,
+    "servicePrice": 440,
+    "repairPrice": 710,
     "servicePrices": {
-      "svc-service": 420,
-      "svc-repair": 680,
-      "svc-install": 480,
-      "svc-uninstall": 340,
-      "svc-gasfill": 2730
+      "svc-service": 440,
+      "svc-repair": 710,
+      "svc-install": 510,
+      "svc-uninstall": 350,
+      "svc-gasfill": 2860
     }
   },
   {
-    "id": "p_msyflsio5422",
-    "cityId": "c_msyflsin6",
+    "id": "p204",
+    "cityId": "c11",
     "applianceId": "a1",
     "typeId": "t2",
-    "servicePrice": 520,
-    "repairPrice": 830,
+    "servicePrice": 550,
+    "repairPrice": 880,
     "servicePrices": {
-      "svc-service": 520,
-      "svc-repair": 830,
-      "svc-install": 600,
-      "svc-uninstall": 420,
-      "svc-gasfill": 3380
+      "svc-service": 550,
+      "svc-repair": 880,
+      "svc-install": 630,
+      "svc-uninstall": 440,
+      "svc-gasfill": 3580
     }
   },
   {
-    "id": "p_msyflsio9654",
-    "cityId": "c_msyflsin6",
+    "id": "p205",
+    "cityId": "c11",
     "applianceId": "a1",
     "typeId": "t3",
-    "servicePrice": 620,
-    "repairPrice": 1040,
+    "servicePrice": 660,
+    "repairPrice": 1100,
     "servicePrices": {
-      "svc-service": 620,
-      "svc-repair": 1040,
-      "svc-install": 710,
-      "svc-uninstall": 500,
-      "svc-gasfill": 4030
+      "svc-service": 660,
+      "svc-repair": 1100,
+      "svc-install": 760,
+      "svc-uninstall": 530,
+      "svc-gasfill": 4290
     }
   },
   {
-    "id": "p_msyflsio8377",
-    "cityId": "c_msyflsin6",
+    "id": "p206",
+    "cityId": "c11",
     "applianceId": "a2",
     "typeId": "t4",
-    "servicePrice": 310,
-    "repairPrice": 520,
+    "servicePrice": 330,
+    "repairPrice": 550,
     "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 520
+      "svc-service": 330,
+      "svc-repair": 550
     }
   },
   {
-    "id": "p_msyflsio7650",
-    "cityId": "c_msyflsin6",
+    "id": "p207",
+    "cityId": "c11",
     "applianceId": "a2",
     "typeId": "t5",
-    "servicePrice": 360,
-    "repairPrice": 620,
+    "servicePrice": 380,
+    "repairPrice": 660,
     "servicePrices": {
-      "svc-service": 360,
-      "svc-repair": 620
+      "svc-service": 380,
+      "svc-repair": 660
     }
   },
   {
-    "id": "p_msyflsio2594",
-    "cityId": "c_msyflsin6",
+    "id": "p208",
+    "cityId": "c11",
     "applianceId": "a2",
     "typeId": "t6",
-    "servicePrice": 260,
-    "repairPrice": 450,
+    "servicePrice": 270,
+    "repairPrice": 470,
     "servicePrices": {
-      "svc-service": 260,
-      "svc-repair": 450
+      "svc-service": 270,
+      "svc-repair": 470
     }
   },
   {
-    "id": "p_msyflsio9826",
-    "cityId": "c_msyflsin6",
+    "id": "p209",
+    "cityId": "c11",
     "applianceId": "a4",
     "typeId": "t10",
-    "servicePrice": 310,
-    "repairPrice": 520,
+    "servicePrice": 330,
+    "repairPrice": 550,
     "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 520,
-      "svc-gasfill": 1050
+      "svc-service": 330,
+      "svc-repair": 550,
+      "svc-gasfill": 1120
     }
   },
   {
-    "id": "p_msyflsio8049",
-    "cityId": "c_msyflsin6",
+    "id": "p210",
+    "cityId": "c11",
     "applianceId": "a4",
     "typeId": "t11",
-    "servicePrice": 360,
-    "repairPrice": 620,
+    "servicePrice": 380,
+    "repairPrice": 660,
     "servicePrices": {
-      "svc-service": 360,
-      "svc-repair": 620,
-      "svc-gasfill": 1220
+      "svc-service": 380,
+      "svc-repair": 660,
+      "svc-gasfill": 1290
     }
   },
   {
-    "id": "p_msyflsio240",
-    "cityId": "c_msyflsin6",
+    "id": "p211",
+    "cityId": "c11",
     "applianceId": "a4",
     "typeId": "t12",
-    "servicePrice": 470,
-    "repairPrice": 830,
+    "servicePrice": 490,
+    "repairPrice": 880,
     "servicePrices": {
-      "svc-service": 470,
-      "svc-repair": 830,
-      "svc-gasfill": 1600
+      "svc-service": 490,
+      "svc-repair": 880,
+      "svc-gasfill": 1670
     }
   },
   {
-    "id": "p_msyfvwn09191",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a1",
-    "typeId": "t1",
-    "servicePrice": 420,
-    "repairPrice": 680,
-    "servicePrices": {
-      "svc-service": 420,
-      "svc-repair": 680,
-      "svc-install": 480,
-      "svc-uninstall": 340,
-      "svc-gasfill": 2730
-    }
-  },
-  {
-    "id": "p_msyfvwn08168",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a1",
-    "typeId": "t2",
-    "servicePrice": 520,
-    "repairPrice": 830,
-    "servicePrices": {
-      "svc-service": 520,
-      "svc-repair": 830,
-      "svc-install": 600,
-      "svc-uninstall": 420,
-      "svc-gasfill": 3380
-    }
-  },
-  {
-    "id": "p_msyfvwn18092",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a1",
-    "typeId": "t3",
-    "servicePrice": 620,
-    "repairPrice": 1040,
-    "servicePrices": {
-      "svc-service": 620,
-      "svc-repair": 1040,
-      "svc-install": 710,
-      "svc-uninstall": 500,
-      "svc-gasfill": 4030
-    }
-  },
-  {
-    "id": "p_msyfvwn12456",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a2",
-    "typeId": "t4",
-    "servicePrice": 310,
-    "repairPrice": 520,
-    "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 520
-    }
-  },
-  {
-    "id": "p_msyfvwn19276",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a2",
-    "typeId": "t5",
-    "servicePrice": 360,
-    "repairPrice": 620,
-    "servicePrices": {
-      "svc-service": 360,
-      "svc-repair": 620
-    }
-  },
-  {
-    "id": "p_msyfvwn13231",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a2",
-    "typeId": "t6",
-    "servicePrice": 260,
-    "repairPrice": 450,
-    "servicePrices": {
-      "svc-service": 260,
-      "svc-repair": 450
-    }
-  },
-  {
-    "id": "p_msyfvwn1593",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a4",
-    "typeId": "t10",
-    "servicePrice": 310,
-    "repairPrice": 520,
-    "servicePrices": {
-      "svc-service": 310,
-      "svc-repair": 520,
-      "svc-gasfill": 1050
-    }
-  },
-  {
-    "id": "p_msyfvwn1933",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a4",
-    "typeId": "t11",
-    "servicePrice": 360,
-    "repairPrice": 620,
-    "servicePrices": {
-      "svc-service": 360,
-      "svc-repair": 620,
-      "svc-gasfill": 1220
-    }
-  },
-  {
-    "id": "p_msyfvwn12125",
-    "cityId": "c_msyfvwmy8333",
-    "applianceId": "a4",
-    "typeId": "t12",
-    "servicePrice": 470,
-    "repairPrice": 830,
-    "servicePrices": {
-      "svc-service": 470,
-      "svc-repair": 830,
-      "svc-gasfill": 1600
-    }
-  },
-  {
-    "id": "p98",
-    "cityId": "c1",
+    "id": "p212",
+    "cityId": "c11",
     "applianceId": "a6",
     "typeId": "t14",
     "servicePrice": 250,
@@ -1214,8 +588,8 @@
     }
   },
   {
-    "id": "p99",
-    "cityId": "c1",
+    "id": "p213",
+    "cityId": "c11",
     "applianceId": "a6",
     "typeId": "t15",
     "servicePrice": 250,
@@ -1228,8 +602,8 @@
     }
   },
   {
-    "id": "p100",
-    "cityId": "c1",
+    "id": "p214",
+    "cityId": "c11",
     "applianceId": "a7",
     "typeId": "t16",
     "servicePrice": 350,
@@ -1240,8 +614,8 @@
     }
   },
   {
-    "id": "p101",
-    "cityId": "c1",
+    "id": "p215",
+    "cityId": "c11",
     "applianceId": "a7",
     "typeId": "t17",
     "servicePrice": 350,
@@ -1252,8 +626,8 @@
     }
   },
   {
-    "id": "p102",
-    "cityId": "c1",
+    "id": "p216",
+    "cityId": "c11",
     "applianceId": "a7",
     "typeId": "t18",
     "servicePrice": 400,
@@ -1264,456 +638,8 @@
     }
   },
   {
-    "id": "p104",
-    "cityId": "c2",
-    "applianceId": "a6",
-    "typeId": "t14",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p105",
-    "cityId": "c2",
-    "applianceId": "a6",
-    "typeId": "t15",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p106",
-    "cityId": "c2",
-    "applianceId": "a7",
-    "typeId": "t16",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p107",
-    "cityId": "c2",
-    "applianceId": "a7",
-    "typeId": "t17",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p108",
-    "cityId": "c2",
-    "applianceId": "a7",
-    "typeId": "t18",
-    "servicePrice": 400,
-    "repairPrice": 400,
-    "servicePrices": {
-      "svc-repair": 400,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p110",
-    "cityId": "c3",
-    "applianceId": "a6",
-    "typeId": "t14",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p111",
-    "cityId": "c3",
-    "applianceId": "a6",
-    "typeId": "t15",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p112",
-    "cityId": "c3",
-    "applianceId": "a7",
-    "typeId": "t16",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p113",
-    "cityId": "c3",
-    "applianceId": "a7",
-    "typeId": "t17",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p114",
-    "cityId": "c3",
-    "applianceId": "a7",
-    "typeId": "t18",
-    "servicePrice": 400,
-    "repairPrice": 400,
-    "servicePrices": {
-      "svc-repair": 400,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p116",
-    "cityId": "c4",
-    "applianceId": "a6",
-    "typeId": "t14",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p117",
-    "cityId": "c4",
-    "applianceId": "a6",
-    "typeId": "t15",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p118",
-    "cityId": "c4",
-    "applianceId": "a7",
-    "typeId": "t16",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p119",
-    "cityId": "c4",
-    "applianceId": "a7",
-    "typeId": "t17",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p120",
-    "cityId": "c4",
-    "applianceId": "a7",
-    "typeId": "t18",
-    "servicePrice": 400,
-    "repairPrice": 400,
-    "servicePrices": {
-      "svc-repair": 400,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p122",
-    "cityId": "c5",
-    "applianceId": "a6",
-    "typeId": "t14",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p123",
-    "cityId": "c5",
-    "applianceId": "a6",
-    "typeId": "t15",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p124",
-    "cityId": "c5",
-    "applianceId": "a7",
-    "typeId": "t16",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p125",
-    "cityId": "c5",
-    "applianceId": "a7",
-    "typeId": "t17",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p126",
-    "cityId": "c5",
-    "applianceId": "a7",
-    "typeId": "t18",
-    "servicePrice": 400,
-    "repairPrice": 400,
-    "servicePrices": {
-      "svc-repair": 400,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p128",
-    "cityId": "c6",
-    "applianceId": "a6",
-    "typeId": "t14",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p129",
-    "cityId": "c6",
-    "applianceId": "a6",
-    "typeId": "t15",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p130",
-    "cityId": "c6",
-    "applianceId": "a7",
-    "typeId": "t16",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p131",
-    "cityId": "c6",
-    "applianceId": "a7",
-    "typeId": "t17",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p132",
-    "cityId": "c6",
-    "applianceId": "a7",
-    "typeId": "t18",
-    "servicePrice": 400,
-    "repairPrice": 400,
-    "servicePrices": {
-      "svc-repair": 400,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p134",
-    "cityId": "c7",
-    "applianceId": "a6",
-    "typeId": "t14",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p135",
-    "cityId": "c7",
-    "applianceId": "a6",
-    "typeId": "t15",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p136",
-    "cityId": "c7",
-    "applianceId": "a7",
-    "typeId": "t16",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p137",
-    "cityId": "c7",
-    "applianceId": "a7",
-    "typeId": "t17",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p138",
-    "cityId": "c7",
-    "applianceId": "a7",
-    "typeId": "t18",
-    "servicePrice": 400,
-    "repairPrice": 400,
-    "servicePrices": {
-      "svc-repair": 400,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p140",
-    "cityId": "c8",
-    "applianceId": "a6",
-    "typeId": "t14",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p141",
-    "cityId": "c8",
-    "applianceId": "a6",
-    "typeId": "t15",
-    "servicePrice": 250,
-    "repairPrice": 250,
-    "servicePrices": {
-      "svc-service": 250,
-      "svc-repair": 250,
-      "svc-install": 350,
-      "svc-uninstall": 250
-    }
-  },
-  {
-    "id": "p142",
-    "cityId": "c8",
-    "applianceId": "a7",
-    "typeId": "t16",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p143",
-    "cityId": "c8",
-    "applianceId": "a7",
-    "typeId": "t17",
-    "servicePrice": 350,
-    "repairPrice": 350,
-    "servicePrices": {
-      "svc-repair": 350,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p144",
-    "cityId": "c8",
-    "applianceId": "a7",
-    "typeId": "t18",
-    "servicePrice": 400,
-    "repairPrice": 400,
-    "servicePrices": {
-      "svc-repair": 400,
-      "svc-deepclean": 450
-    }
-  },
-  {
-    "id": "p145",
-    "cityId": "c1",
+    "id": "p217",
+    "cityId": "c11",
     "applianceId": "a3",
     "typeId": "t19",
     "servicePrice": 270,
@@ -1726,8 +652,8 @@
     }
   },
   {
-    "id": "p146",
-    "cityId": "c1",
+    "id": "p218",
+    "cityId": "c11",
     "applianceId": "a3",
     "typeId": "t20",
     "servicePrice": 550,
@@ -1740,309 +666,8 @@
     }
   },
   {
-    "id": "p147",
-    "cityId": "c2",
-    "applianceId": "a3",
-    "typeId": "t19",
-    "servicePrice": 270,
-    "repairPrice": 440,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 440,
-      "svc-install": 340,
-      "svc-uninstall": 230
-    }
-  },
-  {
-    "id": "p148",
-    "cityId": "c2",
-    "applianceId": "a3",
-    "typeId": "t20",
-    "servicePrice": 550,
-    "repairPrice": 900,
-    "servicePrices": {
-      "svc-service": 550,
-      "svc-repair": 900,
-      "svc-install": 700,
-      "svc-uninstall": 480
-    }
-  },
-  {
-    "id": "p149",
-    "cityId": "c3",
-    "applianceId": "a3",
-    "typeId": "t19",
-    "servicePrice": 270,
-    "repairPrice": 440,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 440,
-      "svc-install": 340,
-      "svc-uninstall": 230
-    }
-  },
-  {
-    "id": "p150",
-    "cityId": "c3",
-    "applianceId": "a3",
-    "typeId": "t20",
-    "servicePrice": 550,
-    "repairPrice": 900,
-    "servicePrices": {
-      "svc-service": 550,
-      "svc-repair": 900,
-      "svc-install": 700,
-      "svc-uninstall": 480
-    }
-  },
-  {
-    "id": "p151",
-    "cityId": "c4",
-    "applianceId": "a3",
-    "typeId": "t19",
-    "servicePrice": 270,
-    "repairPrice": 440,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 440,
-      "svc-install": 340,
-      "svc-uninstall": 230
-    }
-  },
-  {
-    "id": "p152",
-    "cityId": "c4",
-    "applianceId": "a3",
-    "typeId": "t20",
-    "servicePrice": 550,
-    "repairPrice": 900,
-    "servicePrices": {
-      "svc-service": 550,
-      "svc-repair": 900,
-      "svc-install": 700,
-      "svc-uninstall": 480
-    }
-  },
-  {
-    "id": "p153",
-    "cityId": "c5",
-    "applianceId": "a3",
-    "typeId": "t19",
-    "servicePrice": 270,
-    "repairPrice": 440,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 440,
-      "svc-install": 340,
-      "svc-uninstall": 230
-    }
-  },
-  {
-    "id": "p154",
-    "cityId": "c5",
-    "applianceId": "a3",
-    "typeId": "t20",
-    "servicePrice": 550,
-    "repairPrice": 900,
-    "servicePrices": {
-      "svc-service": 550,
-      "svc-repair": 900,
-      "svc-install": 700,
-      "svc-uninstall": 480
-    }
-  },
-  {
-    "id": "p155",
-    "cityId": "c6",
-    "applianceId": "a3",
-    "typeId": "t19",
-    "servicePrice": 270,
-    "repairPrice": 440,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 440,
-      "svc-install": 340,
-      "svc-uninstall": 230
-    }
-  },
-  {
-    "id": "p156",
-    "cityId": "c6",
-    "applianceId": "a3",
-    "typeId": "t20",
-    "servicePrice": 550,
-    "repairPrice": 900,
-    "servicePrices": {
-      "svc-service": 550,
-      "svc-repair": 900,
-      "svc-install": 700,
-      "svc-uninstall": 480
-    }
-  },
-  {
-    "id": "p157",
-    "cityId": "c7",
-    "applianceId": "a3",
-    "typeId": "t19",
-    "servicePrice": 270,
-    "repairPrice": 440,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 440,
-      "svc-install": 340,
-      "svc-uninstall": 230
-    }
-  },
-  {
-    "id": "p158",
-    "cityId": "c7",
-    "applianceId": "a3",
-    "typeId": "t20",
-    "servicePrice": 550,
-    "repairPrice": 900,
-    "servicePrices": {
-      "svc-service": 550,
-      "svc-repair": 900,
-      "svc-install": 700,
-      "svc-uninstall": 480
-    }
-  },
-  {
-    "id": "p159",
-    "cityId": "c8",
-    "applianceId": "a3",
-    "typeId": "t19",
-    "servicePrice": 270,
-    "repairPrice": 440,
-    "servicePrices": {
-      "svc-service": 270,
-      "svc-repair": 440,
-      "svc-install": 340,
-      "svc-uninstall": 230
-    }
-  },
-  {
-    "id": "p160",
-    "cityId": "c8",
-    "applianceId": "a3",
-    "typeId": "t20",
-    "servicePrice": 550,
-    "repairPrice": 900,
-    "servicePrices": {
-      "svc-service": 550,
-      "svc-repair": 900,
-      "svc-install": 700,
-      "svc-uninstall": 480
-    }
-  },
-  {
-    "id": "p161",
-    "cityId": "c1",
-    "applianceId": "a5",
-    "typeId": "t13",
-    "servicePrice": 600,
-    "repairPrice": 300,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-special-service": 1200,
-      "svc-repair": 300,
-      "svc-install": 700,
-      "svc-uninstall": 400
-    }
-  },
-  {
-    "id": "p162",
-    "cityId": "c2",
-    "applianceId": "a5",
-    "typeId": "t13",
-    "servicePrice": 600,
-    "repairPrice": 300,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-special-service": 1200,
-      "svc-repair": 300,
-      "svc-install": 700,
-      "svc-uninstall": 400
-    }
-  },
-  {
-    "id": "p163",
-    "cityId": "c3",
-    "applianceId": "a5",
-    "typeId": "t13",
-    "servicePrice": 600,
-    "repairPrice": 300,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-special-service": 1200,
-      "svc-repair": 300,
-      "svc-install": 700,
-      "svc-uninstall": 400
-    }
-  },
-  {
-    "id": "p164",
-    "cityId": "c4",
-    "applianceId": "a5",
-    "typeId": "t13",
-    "servicePrice": 600,
-    "repairPrice": 300,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-special-service": 1200,
-      "svc-repair": 300,
-      "svc-install": 700,
-      "svc-uninstall": 400
-    }
-  },
-  {
-    "id": "p165",
-    "cityId": "c5",
-    "applianceId": "a5",
-    "typeId": "t13",
-    "servicePrice": 600,
-    "repairPrice": 300,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-special-service": 1200,
-      "svc-repair": 300,
-      "svc-install": 700,
-      "svc-uninstall": 400
-    }
-  },
-  {
-    "id": "p166",
-    "cityId": "c6",
-    "applianceId": "a5",
-    "typeId": "t13",
-    "servicePrice": 600,
-    "repairPrice": 300,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-special-service": 1200,
-      "svc-repair": 300,
-      "svc-install": 700,
-      "svc-uninstall": 400
-    }
-  },
-  {
-    "id": "p167",
-    "cityId": "c7",
-    "applianceId": "a5",
-    "typeId": "t13",
-    "servicePrice": 600,
-    "repairPrice": 300,
-    "servicePrices": {
-      "svc-service": 600,
-      "svc-special-service": 1200,
-      "svc-repair": 300,
-      "svc-install": 700,
-      "svc-uninstall": 400
-    }
-  },
-  {
-    "id": "p168",
-    "cityId": "c8",
+    "id": "p219",
+    "cityId": "c11",
     "applianceId": "a5",
     "typeId": "t13",
     "servicePrice": 600,

@@ -1,42 +1,17 @@
 [
   {
-    "id": "c1",
-    "name": "Delhi",
+    "id": "c9",
+    "name": "Moradabad",
     "active": true
   },
   {
-    "id": "c2",
-    "name": "Noida",
+    "id": "c10",
+    "name": "Kasganj",
     "active": true
   },
   {
-    "id": "c3",
-    "name": "Gurugram",
-    "active": true
-  },
-  {
-    "id": "c4",
-    "name": "Ghaziabad",
-    "active": true
-  },
-  {
-    "id": "c5",
-    "name": "Faridabad",
-    "active": true
-  },
-  {
-    "id": "c6",
-    "name": "Lucknow",
-    "active": true
-  },
-  {
-    "id": "c7",
-    "name": "Jaipur",
-    "active": true
-  },
-  {
-    "id": "c8",
-    "name": "Mumbai",
+    "id": "c11",
+    "name": "Jalesar",
     "active": true
   }
 ]

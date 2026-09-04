@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
-const { readData, writeData, genId, withLock, initDb } = require('./db');
+const { readData, writeData, genId, withLock, initDb, getAllData } = require('./db');
 const { istDateStr, istCurrentHour } = require('./lib/date');
 const { hashPassword, verifyAndUpgrade, isBcryptHash } = require('./lib/password');
 const { askAiAssistant } = require('./lib/ai-assistant');
@@ -105,7 +105,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10mb' })); // raised from the 100kb default — the backup/restore endpoint below can be a large payload once real booking history builds up
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // BUG FIX: the session secret used to be hardcoded right here in the source
@@ -725,7 +725,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'service-card-square-aspect-2026-09-04';
+const BUILD_MARKER = 'new-cities-and-appliances-visible-2026-09-04';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
@@ -1093,7 +1093,12 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
       if (draftAppliance && draftAppliance.hidden) {
         blockReason = `Maaf kijiye, ${draftAppliance.name} abhi Seerua par available nahi hai.`;
       } else if (draft.cityName && !draftCity) {
-        blockReason = `Maaf kijiye, hum abhi "${draft.cityName}" mein service nahi dete. Hum Delhi, Noida, Gurugram, Ghaziabad, Faridabad, Lucknow, Jaipur, aur Mumbai mein available hain.`;
+        // BUG FIX: this list was hardcoded to the original 8 cities —
+        // it kept naming them even after cities were changed via Admin
+        // Panel, telling customers the site serves places it no longer
+        // does. Now built fresh from the actual active cities list.
+        const servedCityNames = allCitiesFresh.map(c => c.name).join(', ');
+        blockReason = `Maaf kijiye, hum abhi "${draft.cityName}" mein service nahi dete. Hum ${servedCityNames} mein available hain.`;
       } else if (draftCity && draftAppliance) {
         const pricingFresh = readData('pricing');
         const hasPricing = pricingFresh.some(p => p.cityId === draftCity.id && p.applianceId === draftAppliance.id);
@@ -1602,6 +1607,41 @@ app.post('/api/admin/lock-date', requireAdmin, (req, res) => {
 // needed. Injected directly into the AI's system prompt (see
 // buildSystemPrompt in lib/ai-assistant.js) on every single chat request,
 // so a change here takes effect immediately for the very next message.
+// ADDED: "Download Backup" — Render's free tier wipes the local
+// filesystem back to whatever's in the git repo on every redeploy, and
+// real customer/booking/technician data only ever lives in the live
+// site's data files, never in git (deliberately — see .gitignore). Before
+// this, a redeploy could silently wipe out every real booking taken since
+// launch, with zero way to recover any of it. Super Admin only, since a
+// full data dump includes customer phone numbers, names, and addresses.
+// ADDED: the other half of the backup above — lets a Super Admin upload
+// a previously-downloaded backup file and restore every key from it. Only
+// accepts known, already-existing data keys (never arbitrary new ones) as
+// a safety guard against a malformed or tampered file silently creating
+// unexpected new data files.
+app.post('/api/admin/restore', requireAdmin, (req, res) => {
+  const incoming = req.body;
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+    return res.status(400).json({ error: 'Invalid backup file format.' });
+  }
+  const existingKeys = Object.keys(getAllData());
+  let restoredCount = 0;
+  for (const key of Object.keys(incoming)) {
+    if (!existingKeys.includes(key)) continue; // ignore unknown keys — safety guard
+    writeData(key, incoming[key]);
+    restoredCount++;
+  }
+  res.json({ success: true, restoredCount });
+});
+
+app.get('/api/admin/backup', requireAdmin, (req, res) => {
+  const all = getAllData();
+  const filename = `seerua-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(all, null, 2));
+});
+
 app.get('/api/admin/ai-instructions', requireAdmin, (req, res) => {
   const admin = readData('admin');
   res.json({ instructions: admin.aiCustomInstructions || '' });

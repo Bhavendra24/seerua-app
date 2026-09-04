@@ -236,6 +236,30 @@ document.getElementById('saveMaintenanceBtn').addEventListener('click', async ()
   }
 });
 
+// ---------------- DATA BACKUP / RESTORE ----------------
+document.getElementById('restoreBackupBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('restoreMsg');
+  const fileInput = document.getElementById('restoreFileInput');
+  const file = fileInput.files[0];
+  if (!file) {
+    msg.className = 'msg-inline error';
+    msg.textContent = 'Please choose a backup file first.';
+    return;
+  }
+  if (!confirm('This will overwrite current data with the contents of this backup file. Continue?')) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const result = await api('/api/admin/restore', { method: 'POST', body: JSON.stringify(parsed) });
+    msg.className = 'msg-inline success';
+    msg.textContent = `Restored ${result.restoredCount} data files. Reloading...`;
+    setTimeout(() => location.reload(), 1500);
+  } catch (err) {
+    msg.className = 'msg-inline error';
+    msg.textContent = 'Could not restore: ' + (err.message || 'invalid file');
+  }
+});
+
 // ---------------- OTP VERIFICATION TOGGLE ----------------
 async function renderOtpCard() {
   const data = await api('/api/admin/otp-config');
