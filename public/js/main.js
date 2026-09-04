@@ -9,6 +9,15 @@ const navToggle = document.getElementById('navToggle');
 const navLinks = document.getElementById('navLinks');
 navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
 navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
+// BUG FIX: the menu only ever closed by tapping the hamburger icon again
+// or a link inside it — tapping anywhere else on the page (which is the
+// natural instinct to dismiss a menu) did nothing, so it stayed open
+// sitting over the page. Closes on any click outside the menu itself.
+document.addEventListener('click', (e) => {
+  if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && !navToggle.contains(e.target)) {
+    navLinks.classList.remove('open');
+  }
+});
 
 // Custom line icons (white strokes, sit on the .service-icon's gradient
 // circle) instead of emoji — emoji render inconsistently across devices

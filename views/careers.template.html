@@ -136,7 +136,15 @@
 
 <script>
 document.getElementById('year').textContent = new Date().getFullYear();
-document.getElementById('navToggle').addEventListener('click', () => document.getElementById('navLinks').classList.toggle('open'));
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
+document.addEventListener('click', (e) => {
+  if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && !navToggle.contains(e.target)) {
+    navLinks.classList.remove('open');
+  }
+});
 
 async function fetchJSON(url, opts) {
   const res = await fetch(url, opts);

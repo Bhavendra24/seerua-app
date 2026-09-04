@@ -83,7 +83,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await api('/api/admin/logout', { method: 'POST' });
+  // BUG FIX: same issue as the technician panel — if the logout API call
+  // ever failed for any reason, the button did nothing visible at all.
+  // Now it always gets back to the login screen either way.
+  try {
+    await api('/api/admin/logout', { method: 'POST' });
+  } catch (err) {
+    console.log('Logout API call failed, reloading anyway:', err.message);
+  }
   location.reload();
 });
 
@@ -259,6 +266,30 @@ document.getElementById('restoreBackupBtn').addEventListener('click', async () =
     msg.textContent = 'Could not restore: ' + (err.message || 'invalid file');
   }
 });
+
+// ---------------- TECHNICIAN PHOTO UPLOAD TOGGLE ----------------
+async function renderTechPhotoCard() {
+  const data = await api('/api/admin/technician-photo-toggle');
+  const toggle = document.getElementById('techPhotoToggle');
+  const label = document.getElementById('techPhotoStatusLabel');
+  toggle.checked = !data.technicianPhotoUploadDisabled;
+  label.textContent = data.technicianPhotoUploadDisabled ? 'Off' : 'Allowed';
+}
+document.getElementById('techPhotoToggle').addEventListener('change', async (e) => {
+  const disabled = !e.target.checked;
+  const msg = document.getElementById('techPhotoMsg');
+  try {
+    await api('/api/admin/technician-photo-toggle', { method: 'PUT', body: JSON.stringify({ technicianPhotoUploadDisabled: disabled }) });
+    document.getElementById('techPhotoStatusLabel').textContent = disabled ? 'Off' : 'Allowed';
+    msg.className = 'msg-inline success';
+    msg.textContent = 'Saved.';
+  } catch (err) {
+    e.target.checked = !e.target.checked;
+    msg.className = 'msg-inline error';
+    msg.textContent = err.message;
+  }
+});
+renderTechPhotoCard();
 
 // ---------------- OTP VERIFICATION TOGGLE ----------------
 async function renderOtpCard() {
@@ -549,7 +580,7 @@ function renderOrders() {
                 ${it.technicianId ? `
                   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:0.8rem;cursor:pointer;">
                     <input type="checkbox" ${it.reviewVerifiedByStaff ? 'checked' : ''} onchange="toggleGoogleReview('${b.id}','${it.id}', this.checked)">
-                    📍 Google Review Received${it.reviewVerifiedByStaff ? ` <small style="color:var(--slate)">(confirmed by ${esc(it.reviewMarkedBy || 'staff')})</small>` : (it.reviewBrought ? ' <small style="color:var(--amber);">(technician claims one — tick to confirm and waive commission)</small>' : ' <small style="color:var(--slate)">(company commission waived once confirmed — also visible/editable in Commission tab)</small>')}
+                    📍 Google Review Received${it.reviewVerifiedByStaff ? ` <small style="color:var(--green);">(waived)</small>` : (it.reviewBrought ? ' <small style="color:var(--amber);">(pending)</small>' : '')}
                   </label>
                 ` : ''}
                 <button class="btn btn-outline btn-sm" style="margin-top:6px;" onclick="reactivateItem('${b.id}','${it.id}')" title="Reopens this job if it genuinely needs to be redone">🔓 Reactivate</button>

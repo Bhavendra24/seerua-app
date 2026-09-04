@@ -225,11 +225,17 @@
       </div>
       <div>
         <h5>Contact</h5>
-        <ul>
-          <li><a href="tel:+919389585479">📞 9389585479</a></li>
-          <li><a href="https://wa.me/919389585479" target="_blank" rel="noopener">💬 WhatsApp: 9389585479</a></li>
-          <li><a href="mailto:b4india@gmail.com">✉️ b4india@gmail.com</a></li>
-        </ul>
+        <div class="footer-contact-icons">
+          <a href="tel:+919389585479" class="footer-icon-link" aria-label="Call us" title="Call us">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.49a1 1 0 011 1 11.36 11.36 0 00.57 3.56 1 1 0 01-.25 1.02l-2.2 2.2z" fill="currentColor"/></svg>
+          </a>
+          <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="footer-icon-link footer-icon-whatsapp" aria-label="Chat on WhatsApp" title="WhatsApp">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.36-.53.05-1.05.24-3.52-.73-2.98-1.17-4.86-4.2-5.01-4.4-.15-.19-1.2-1.59-1.2-3.03 0-1.44.75-2.15 1.02-2.44.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.76 1.26 1.63 2.04 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.73-.85.92-1.14.19-.29.39-.24.65-.14.27.1 1.68.79 1.97.93.29.15.48.22.55.34.07.13.07.75-.17 1.43z" fill="currentColor"/></svg>
+          </a>
+          <a href="mailto:b4india@gmail.com" class="footer-icon-link" aria-label="Email us" title="Email us">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5.5A1.5 1.5 0 014.5 4h15A1.5 1.5 0 0121 5.5v13a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5v-13z" stroke="currentColor" stroke-width="1.6"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
       </div>
     </div>
     <div class="footer-bottom">
@@ -343,7 +349,15 @@
 </div>
 
 <script>
-document.getElementById('navToggle').addEventListener('click', () => document.getElementById('navLinks').classList.toggle('open'));
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
+document.addEventListener('click', (e) => {
+  if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && !navToggle.contains(e.target)) {
+    navLinks.classList.remove('open');
+  }
+});
 
 // Fade/slide each ".reveal" element into place the first time it scrolls into view.
 (function () {

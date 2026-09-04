@@ -125,6 +125,18 @@
         </div>
       </div>
 
+      <div class="card settings-card" id="techPhotoCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>📷 Technician Photo Upload</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="techPhotoToggle" style="width:18px;height:18px;">
+            <span id="techPhotoStatusLabel">Allowed</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 0;">When off, technicians can't upload a completion photo for a job — turn off if you don't want this feature active right now.</p>
+        <div class="msg-inline" id="techPhotoMsg"></div>
+      </div>
+
       <div class="card settings-card" id="maintenanceCard" style="border-left:4px solid var(--line);">
         <div class="card-head">
           <h3>🛠️ Site Maintenance Mode</h3>
@@ -1006,6 +1018,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609010c"></script>
+<script src="/js/admin.js?v=202609040b"></script>
 </body>
 </html>

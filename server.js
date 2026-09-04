@@ -725,7 +725,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'new-cities-and-appliances-visible-2026-09-04';
+const BUILD_MARKER = 'section-subtext-size-fix-2026-09-04';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
@@ -1177,6 +1177,14 @@ app.post('/api/upload-photo', uploadRateLimit('booking-photo'), (req, res) => {
 // done, rather than the whole completion silently failing on a slow photo
 // upload.
 app.post('/api/technician/upload-completion-photo', requireTechnician, uploadRateLimit('completion-photo'), (req, res) => {
+  // ADDED: lets Super Admin turn technician completion-photo uploads off
+  // entirely — checked here (not just hidden in the technician UI) so a
+  // technician can't just call this endpoint directly to bypass a
+  // disabled toggle.
+  const admin = readData('admin');
+  if (admin.technicianPhotoUploadDisabled) {
+    return res.status(403).json({ error: 'Photo upload is currently turned off by the admin.' });
+  }
   uploadCompletionPhoto.single('photo')(req, res, (err) => {
     if (err) {
       const message = err.code === 'LIMIT_FILE_SIZE'
@@ -1864,6 +1872,26 @@ app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
   }
   writeData('admin', admin);
   res.json({ success: true, maintenanceMode: admin.maintenanceMode, maintenanceMessage: admin.maintenanceMessage, maintenanceExpectedHours: admin.maintenanceExpectedHours });
+});
+
+// ADDED: Super Admin control over whether technicians can upload
+// completion photos at all — some businesses may not want this feature
+// active, or want to briefly turn it off. requireTechnician (not just
+// requireAdmin) can read this too, since the technician app needs to
+// know whether to show the upload button in the first place.
+app.get('/api/admin/technician-photo-toggle', requireStaff, (req, res) => {
+  const admin = readData('admin');
+  res.json({ technicianPhotoUploadDisabled: !!admin.technicianPhotoUploadDisabled });
+});
+app.get('/api/technician/photo-toggle', requireTechnician, (req, res) => {
+  const admin = readData('admin');
+  res.json({ technicianPhotoUploadDisabled: !!admin.technicianPhotoUploadDisabled });
+});
+app.put('/api/admin/technician-photo-toggle', requireAdmin, (req, res) => {
+  const admin = readData('admin');
+  admin.technicianPhotoUploadDisabled = !!req.body.technicianPhotoUploadDisabled;
+  writeData('admin', admin);
+  res.json({ success: true, technicianPhotoUploadDisabled: admin.technicianPhotoUploadDisabled });
 });
 
 // Lets Admin pause new technician applications (e.g. "we have enough

@@ -94,7 +94,17 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await api('/api/technician/logout', { method: 'POST' });
+  // BUG FIX: if the logout API call ever failed for any reason (network
+  // hiccup, session already gone, etc.), the button did nothing visible
+  // at all — no error, no reload, nothing — which looked exactly like a
+  // broken button. Now it always gets the technician back to the login
+  // screen either way, and only surfaces an error if the reload itself
+  // somehow doesn't happen.
+  try {
+    await api('/api/technician/logout', { method: 'POST' });
+  } catch (err) {
+    console.log('Logout API call failed, reloading anyway:', err.message);
+  }
   location.reload();
 });
 

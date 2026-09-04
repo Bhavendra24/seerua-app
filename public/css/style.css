@@ -472,6 +472,10 @@ section { padding: 40px 0; }
 .section-head { text-align: left; margin: 0 0 12px; }
 .section-head .eyebrow { margin-bottom: 8px; }
 .section-head h2 { letter-spacing: -0.01em; }
+/* BUG FIX: this subtext line had no explicit size, so it inherited the
+   page's base 1.05rem body text — noticeably larger than the similar
+   subtext under other section headings elsewhere on the page. */
+.section-head p { font-size: 0.95rem; }
 .bg-mist { background: var(--mist); }
 
 /* "Appliance care, explained" section — deliberately smaller than the
@@ -1059,6 +1063,18 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .site-footer ul li { margin-bottom: 10px; }
 .site-footer ul li a { font-size: 0.88rem; color: #a9c1d6; }
 .site-footer ul li a:hover { color: var(--accent-500); }
+/* Contact footer — icon-only row (no labels/numbers), all aligned on one
+   line, replacing the old emoji + text list. Real SVGs instead of emoji,
+   since emoji render inconsistently across devices/platforms —
+   particularly noticeable for something as recognizable as the WhatsApp
+   mark, which needs to actually look like WhatsApp's real icon (their
+   brand green, correct shape) to read as "original" rather than a
+   generic chat bubble. */
+.footer-contact-icons { display: flex; align-items: center; gap: 14px; }
+.footer-icon-link { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); color: var(--white); transition: background 0.2s var(--ease), transform 0.2s var(--ease); }
+.footer-icon-link:hover { background: rgba(255,255,255,0.16); transform: translateY(-2px); }
+.footer-icon-link svg { width: 18px; height: 18px; }
+.footer-icon-whatsapp { color: #25D366; }
 .footer-bottom { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.85rem; color: #8ba9c2; }
 .footer-bottom a { color: #8ba9c2; }
 .footer-bottom a:hover { color: var(--accent-500); }
@@ -1606,8 +1622,8 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
   .footer-col-links { grid-area: links; }
   .footer-col-contact { grid-area: contact; }
   .footer-col-links h5, .footer-col-contact h5 { font-size: 0.85rem; margin-bottom: 10px; }
-  .footer-col-links ul li, .footer-col-contact ul li { margin-bottom: 7px; }
-  .footer-col-links ul li a, .footer-col-contact ul li a { font-size: 0.85rem; }
+  .footer-col-links ul li { margin-bottom: 7px; }
+  .footer-col-links ul li a { font-size: 0.85rem; }
   .cta-banner { flex-direction: column; text-align: center; }
 
   /* Full-screen takeover, now paired with blur-on-send (see chatbot.js) —

@@ -100,7 +100,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await api('/api/subadmin/logout', { method: 'POST' });
+  // BUG FIX: same issue as the admin/technician panels — if the logout
+  // API call ever failed for any reason, the button did nothing visible
+  // at all. Now it always gets back to the login screen either way.
+  try {
+    await api('/api/subadmin/logout', { method: 'POST' });
+  } catch (err) {
+    console.log('Logout API call failed, reloading anyway:', err.message);
+  }
   location.reload();
 });
 
