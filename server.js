@@ -85,6 +85,36 @@ if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const SITE_URL = 'https://www.seerua.com';
 
+// SEO FIX: the site was reachable at 4 different URL forms —
+// http://seerua.com, https://seerua.com, http://www.seerua.com, and
+// https://www.seerua.com — with no redirect between them. Google Search
+// Console flagged this as duplicate content: it can't tell which one is
+// the "real" page, so it doesn't fully index any of them. This forces
+// every request onto exactly one canonical form (https + www, matching
+// SITE_URL above and what's already in sitemap.xml/robots.txt) before
+// anything else runs. Checks x-forwarded-proto directly (rather than
+// relying only on Express's req.secure / trust-proxy setting) since
+// that header is what Render's proxy actually sets, and is reliable
+// regardless of how trust-proxy ends up configured.
+app.use((req, res, next) => {
+  const host = req.headers.host || '';
+  // Skip entirely for local development — there's no HTTPS or "www."
+  // locally, and redirecting to https://www.localhost:3000 would just
+  // break every local/Termux test with a broken, non-existent domain.
+  if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) return next();
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const isHttps = forwardedProto ? forwardedProto === 'https' : req.secure;
+  const canonicalHost = 'www.seerua.com';
+  // Also folds Render's own onrender.com URL into the same canonical
+  // domain — leaving that reachable as a separate, crawlable domain
+  // would just recreate the same duplicate-content problem this whole
+  // fix is for.
+  if (!isHttps || host !== canonicalHost) {
+    return res.redirect(301, `https://${canonicalHost}${req.originalUrl}`);
+  }
+  next();
+});
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -705,7 +735,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'otp-final-working-2026-09-03';
+const BUILD_MARKER = 'canonical-url-redirect-fix-2026-09-04';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });

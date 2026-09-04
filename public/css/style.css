@@ -548,21 +548,36 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   .service-card:hover .service-card-photo { transform: scale(1.03); }
 }
 .service-card-photo { transition: transform 0.3s var(--ease); }
+/* BUG FIX: when an appliance has no photo uploaded (Admin Panel >
+   Appliances), it fell back to a small 60px floating icon sitting in an
+   otherwise-empty card — since every card here is designed around a
+   full-width, full-bleed photo header, an appliance without one looked
+   noticeably sparse/small next to its photo-having neighbors, not
+   intentionally different. Wrapping the icon in a full-width colored
+   block (matching the photo's own size/position exactly) makes a
+   photo-less card carry the same visual weight as one with a photo,
+   instead of looking like something's missing. */
+.service-icon-wrap {
+  width: calc(100% + 28px);
+  margin: -16px -14px 14px;
+  aspect-ratio: 16 / 11;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--icon-blue-bg);
+}
+.service-card:nth-child(4n+2) .service-icon-wrap { background: var(--icon-accent-bg); }
+.service-card:nth-child(4n+3) .service-icon-wrap { background: var(--icon-green-bg); }
+.service-card:nth-child(4n+4) .service-icon-wrap { background: var(--icon-navy-bg); }
 .service-icon {
   width: 60px; height: 60px;
   border-radius: 14px;
-  background: var(--icon-blue-bg);
+  background: rgba(255,255,255,0.18);
   color: var(--white);
   font-size: 1.7rem;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 10px;
-  box-shadow: 0 10px 20px rgba(27, 111, 176, 0.25);
   transition: transform 0.25s var(--ease);
 }
-.service-card:nth-child(4n+2) .service-icon { background: var(--icon-accent-bg); box-shadow: 0 10px 20px rgba(2, 132, 199, 0.25); }
-.service-card:nth-child(4n+3) .service-icon { background: var(--icon-green-bg); box-shadow: 0 10px 20px rgba(31, 157, 85, 0.25); }
-.service-card:nth-child(4n+4) .service-icon { background: var(--icon-navy-bg); box-shadow: 0 10px 20px rgba(15, 42, 67, 0.25); }
-.service-card h3 { font-size: 0.85rem; margin-bottom: 4px; color: var(--ink); }
+.service-card h3 { font-size: 0.92rem; margin-bottom: 5px; color: var(--ink); }
 .service-card p { font-size: 0.92rem; margin-bottom: 8px; color: var(--slate); }
 .service-types { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .service-types span { font-size: 0.85rem; background: var(--mist); color: var(--slate); padding: 4px 9px; border-radius: 999px; }
@@ -580,8 +595,8 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .service-info .service-process p:last-child { margin-bottom: 0; }
 
 .service-card .btn {
-  font-size: 0.7rem;
-  padding: 4px 10px;
+  font-size: 0.76rem;
+  padding: 5px 12px;
   border-width: 1px;
   margin-top: auto;
   align-self: flex-start;
@@ -1526,15 +1541,15 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
      card itself is shrunk to match. */
   .services-grid { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; }
   .service-card { padding: 12px 11px; }
-  .service-icon { width: 34px; height: 34px; border-radius: 9px; font-size: 1rem; margin-bottom: 8px; }
-  .service-card h3 { font-size: 0.8rem; margin-bottom: 3px; }
+  .service-icon { width: 40px; height: 40px; border-radius: 9px; font-size: 1.2rem; }
+  .service-card h3 { font-size: 0.85rem; margin-bottom: 4px; }
   .service-card p { font-size: 0.85rem; margin-bottom: 8px; }
   .service-types { gap: 4px; margin-bottom: 8px; }
   .service-types span { font-size: 0.85rem; padding: 3px 7px; }
   .service-info { margin-bottom: 10px; }
   .service-info summary { font-size: 0.85rem; }
   .service-info .service-process { font-size: 0.85rem; }
-  .service-card .btn { width: auto; text-align: center; font-size: 0.7rem; padding: 4px 10px; border-width: 1px; }
+  .service-card .btn { width: auto; text-align: center; font-size: 0.72rem; padding: 5px 11px; border-width: 1px; }
 
   .why-grid { grid-template-columns: 1fr; }
   .why-grid-compact { grid-template-columns: repeat(2, 1fr); gap: 8px; }

@@ -796,7 +796,7 @@ function renderServicesGrid() {
     <div class="service-card" data-appliance="${a.id}">
       ${a.photoUrl
         ? `<img class="service-card-photo" src="${a.photoUrl}" alt="${a.name} service technician at work" loading="lazy">`
-        : `<div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div>`}
+        : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
       <h3>${a.name}</h3>
       <a href="#book" class="btn btn-outline btn-sm">Book Now</a>
     </div>
