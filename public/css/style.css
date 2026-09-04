@@ -535,8 +535,9 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    file happens to be. */
 .service-card-photo {
   width: calc(100% + 28px);
+  max-width: calc(100% + 28px);
   margin: -16px -14px 14px;
-  aspect-ratio: 16 / 11;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   display: block;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -560,7 +561,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .service-icon-wrap {
   width: calc(100% + 28px);
   margin: -16px -14px 14px;
-  aspect-ratio: 16 / 11;
+  aspect-ratio: 1 / 1;
   display: flex; align-items: center; justify-content: center;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--icon-blue-bg);
