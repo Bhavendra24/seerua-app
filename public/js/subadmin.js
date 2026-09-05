@@ -74,10 +74,26 @@ async function checkLogin() {
     document.getElementById('whoAmI').textContent = `Logged in as ${subAdmin.name}`;
     await loadAll();
     switchView('orders');
+    startAutoRefresh();
   } else {
     document.getElementById('loginWrap').style.display = 'flex';
     document.getElementById('appShell').classList.remove('active');
   }
+}
+
+// ADDED: same fix as the Super Admin panel — nothing refreshed on its
+// own before this, so a new booking or a technician's update only ever
+// showed up after manually reloading the whole page.
+let currentView = 'orders';
+let autoRefreshTimer = null;
+function startAutoRefresh() {
+  if (autoRefreshTimer) return;
+  autoRefreshTimer = setInterval(async () => {
+    try {
+      BOOKINGS = await api('/api/admin/bookings');
+      if (currentView === 'orders') renderOrders();
+    } catch (e) { /* a single missed refresh isn't worth bothering about — it'll just try again in 25s */ }
+  }, 15000);
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -118,6 +134,7 @@ document.getElementById('sideNav').addEventListener('click', (e) => {
 });
 
 function switchView(view) {
+  currentView = view;
   document.querySelectorAll('.panel-view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
   document.querySelectorAll('#sideNav button').forEach(b => b.classList.toggle('active', b.getAttribute('data-view') === view));

@@ -725,7 +725,7 @@ app.get('/api/referral/validate', (req, res) => {
 // a deploy/restart to confirm the running server is actually the latest
 // code, not a stale process still serving old files. Bump BUILD_MARKER
 // whenever a fix should be independently verifiable this way.
-const BUILD_MARKER = 'google-analytics-added-2026-09-04';
+const BUILD_MARKER = 'mobile-container-padding-fix-2026-09-05';
 const SERVER_STARTED_AT = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
@@ -1500,9 +1500,24 @@ function readArchivedBookings() {
   }
 }
 
-app.get('/api/bookings/track', (req, res) => {
-  const { phone } = req.query;
+app.get('/api/bookings/track', async (req, res) => {
+  const { phone, accessToken } = req.query;
   if (!phone) return res.status(400).json({ error: 'Phone number required' });
+  // SECURITY FIX: this used to return a customer's full booking history —
+  // name, home address, exactly which appliance they have, service
+  // dates — to literally anyone who typed in their phone number, with no
+  // proof they actually owned that number. Someone could enumerate
+  // random 10-digit numbers and read other people's addresses. Now
+  // requires the same OTP access-token proof used for placing a booking
+  // in the first place, so only the person who can actually receive an
+  // SMS at that number can see what's booked under it.
+  if (!accessToken) {
+    return res.status(401).json({ error: 'Please verify your number with the OTP sent to it first.' });
+  }
+  const otpValid = await verifyOtpAccessToken(accessToken, phone);
+  if (!otpValid) {
+    return res.status(401).json({ error: 'Could not verify this number. Please request a new OTP and try again.' });
+  }
   // Searches both the active collection and the archive, so a customer's
   // full history is always visible even after old bookings have been
   // archived for performance — archiving is purely an internal storage

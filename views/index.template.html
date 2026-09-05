@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609040j">
+<link rel="stylesheet" href="/css/style.css?v=202609050a">
 
 <script type="application/ld+json">
 {
@@ -67,7 +67,7 @@
     </a>
     <nav class="nav-links" id="navLinks">
       <a href="#services" data-i18n="nav.services">Services</a>
-      <a href="#track" data-i18n="nav.track">Track</a>
+      <a href="#track" data-i18n="nav.track">My Account</a>
       <a href="#faq" data-i18n="nav.faq">FAQ</a>
       <a href="#" id="careersNavLink" data-i18n="nav.careers">👷 Careers</a>
     </nav>
@@ -305,6 +305,7 @@
           <div class="field">
             <label for="fPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
             <input type="tel" id="fPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
+            <small id="fPhoneLockNote" style="display:none;color:var(--slate);margin-top:4px;">🔒 Locked to this number — remove all items below to use a different number.</small>
           </div>
           <button type="button" class="btn btn-outline btn-block" id="addItemBtn" data-i18n="booking.addBtn">+ Add to Booking</button>
           <div class="form-msg" id="addItemMsg"></div>
@@ -368,7 +369,7 @@
     <div id="trackWrap" hidden>
       <div class="section-head">
         <span class="eyebrow" data-i18n="track.eyebrow">Check your order</span>
-        <h2 data-i18n="track.title">My Booking</h2>
+        <h2 data-i18n="track.title">My Account</h2>
         <p data-i18n="track.sub">See the live status of every appliance in your booking, and quickly rebook with the same details.</p>
       </div>
       <div class="track-box reveal" style="max-width:640px;">
@@ -447,7 +448,7 @@
         <h5 data-i18n="footer.quickLinks">Quick Links</h5>
         <ul>
           <li><a href="#services" data-i18n="nav.services">Services</a></li>
-          <li><a href="#track">My Booking</a></li>
+          <li><a href="#track">My Account</a></li>
           <li><a href="/careers" data-i18n="nav.careers2">Careers</a></li>
           <li><a href="/terms" data-i18n="footer.terms">Terms &amp; Conditions</a></li>
         </ul>
@@ -770,8 +771,8 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609030b"></script>
-<script src="/js/i18n.js?v=202609010a"></script>
+<script src="/js/main.js?v=202609050b"></script>
+<script src="/js/i18n.js?v=202609050a"></script>
 <script src="/js/chatbot.js?v=202609040a"></script>
 </body>
 </html>

@@ -50,6 +50,7 @@ async function api(url, opts = {}) {
 }
 
 // ---------------- AUTH ----------------
+let currentView = 'dashboard';
 async function checkLogin() {
   const { loggedIn } = await api('/api/admin/check');
   if (loggedIn) {
@@ -57,10 +58,30 @@ async function checkLogin() {
     document.getElementById('appShell').classList.add('active');
     await loadAll();
     switchView('dashboard');
+    startAutoRefresh();
   } else {
     document.getElementById('loginWrap').style.display = 'flex';
     document.getElementById('appShell').classList.remove('active');
   }
+}
+
+// ADDED: nothing ever refreshed on its own before this — a new booking
+// coming in, a technician accepting a job, anything at all, only ever
+// showed up after the admin manually reloaded the whole page. Every 15
+// seconds, quietly re-fetches just the bookings (the thing that actually
+// changes minute-to-minute) and re-renders only if currently looking at
+// a view that shows booking data — never interrupts whatever else the
+// admin might be doing on another tab (editing pricing, etc.).
+let autoRefreshTimer = null;
+function startAutoRefresh() {
+  if (autoRefreshTimer) return; // already running — don't stack multiple intervals
+  autoRefreshTimer = setInterval(async () => {
+    try {
+      BOOKINGS = await api('/api/admin/bookings');
+      if (currentView === 'orders') { renderOrders(); }
+      if (currentView === 'dashboard') { renderDashboard(); }
+    } catch (e) { /* a single missed refresh isn't worth bothering the admin about — it'll just try again in 25s */ }
+  }, 15000);
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -101,6 +122,7 @@ document.getElementById('sideNav').addEventListener('click', (e) => {
 });
 
 function switchView(view) {
+  currentView = view;
   document.querySelectorAll('.panel-view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
   document.querySelectorAll('#sideNav button').forEach(b => b.classList.toggle('active', b.getAttribute('data-view') === view));
@@ -759,6 +781,12 @@ async function autoAssign(bookingId, itemId) {
     const repeatWarn = repeats.length ? `\n\n⚠️ Repeat booking: ${booking.name} (${booking.phone}) has ${repeats.length} other booking${repeats.length === 1 ? '' : 's'} on ${booking.bookingDate} (ID${repeats.length === 1 ? '' : 's'}: ${repeats.map(r => r.id).join(', ')}). Please confirm this isn't a duplicate.` : '';
     if (!confirm(`Auto-assign ${top.name} — ${apRatingText}${liveText}?${capacityWarn}${repeatWarn}`)) return;
     await api(`/api/admin/bookings/${bookingId}/items/${itemId}/assign`, { method: 'PUT', body: JSON.stringify({ technicianId: top.id }) });
+    // BUG FIX: a successful (re)assignment never removed this item from
+    // the unlocked set — so once unlocked once, an item stayed unlocked
+    // forever (reassign/auto-assign buttons kept showing), defeating the
+    // whole point of the lock protecting an already-working technician
+    // from an accidental second reassignment.
+    assignmentUnlocked.delete(`${bookingId}__${itemId}`);
     BOOKINGS = await api('/api/admin/bookings');
     renderOrders(); renderDashboard();
   } catch (e) { alert(e.message); }
@@ -769,6 +797,9 @@ document.getElementById('assignConfirmBtn').addEventListener('click', async () =
   if (!technicianId) return;
   try {
     await api(`/api/admin/bookings/${assignBookingId}/items/${assignItemId}/assign`, { method: 'PUT', body: JSON.stringify({ technicianId }) });
+    // BUG FIX: same as autoAssign() above — re-lock after a successful
+    // manual (re)assignment too.
+    assignmentUnlocked.delete(`${assignBookingId}__${assignItemId}`);
     BOOKINGS = await api('/api/admin/bookings');
     renderOrders(); renderDashboard();
     closeModal('assignModal');

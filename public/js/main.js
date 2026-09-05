@@ -829,16 +829,21 @@ function loadCartFromStorage() {
     const saved = JSON.parse(raw);
     if (Array.isArray(saved.cartItems)) cartItems = saved.cartItems;
     if (saved.appliedCoupon) appliedCoupon = saved.appliedCoupon;
+    if (saved.cartPhoneNumber) cartPhoneNumber = saved.cartPhoneNumber;
   } catch (e) { /* corrupted/old data — just start with an empty cart */ }
 }
 
 function saveCartToStorage() {
   try {
-    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ cartItems, appliedCoupon }));
+    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ cartItems, appliedCoupon, cartPhoneNumber }));
   } catch (e) { /* storage full or unavailable — cart just won't survive a refresh this time */ }
 }
 
 let cartItems = [];
+// The phone number the current cart's items were added under — set when
+// the first item goes in, cleared when the cart empties out again. See
+// the check in addItemToCart() for why this exists.
+let cartPhoneNumber = null;
 // SUGGESTION IMPLEMENTED: OTP now happens right when the first item is
 // added to the cart (not at final Submit) — this remembers that
 // verification across the rest of the flow, so Submit doesn't ask again
@@ -854,6 +859,24 @@ function renderCart() {
   updateBottomNavCartBadge();
   const offset = quickBookViewStartIndex !== null ? quickBookViewStartIndex : 0;
   const visibleItems = quickBookViewStartIndex !== null ? cartItems.slice(quickBookViewStartIndex) : cartItems;
+  // BUG FIX: nothing stopped a customer from adding one appliance, then
+  // changing the phone number field and adding a second appliance under
+  // a completely different number — both items still end up in the SAME
+  // cart, and the final "Book Now" submits everything under whichever
+  // number happens to be in the field at that moment, silently ignoring
+  // whatever number was showing when the earlier item(s) were added.
+  // Locking the phone field the moment the cart has its first item
+  // guarantees one cart == one phone number == one customer, for the
+  // whole life of that cart.
+  const phoneField = document.getElementById('fPhone');
+  const phoneLockNote = document.getElementById('fPhoneLockNote');
+  if (phoneField && quickBookViewStartIndex === null) {
+    const shouldLock = cartItems.length > 0;
+    phoneField.readOnly = shouldLock;
+    phoneField.style.background = shouldLock ? 'var(--mist)' : '';
+    if (phoneLockNote) phoneLockNote.style.display = shouldLock ? 'block' : 'none';
+    if (!shouldLock) cartPhoneNumber = null; // cart's empty again — free to start over with any number
+  }
   // Clear, visible confirmation that this is an isolated "just this one
   // item" checkout — so it's obvious nothing else from the regular cart
   // is quietly being bundled into this booking.
@@ -1071,6 +1094,22 @@ async function addItemToCart() {
     return;
   }
 
+  // BUG FIX: this is the ONE shared entry point both the main booking form
+  // AND Quick Book funnel through (Quick Book syncs its own phone field
+  // into fPhone right before calling this) — so checking here, in one
+  // place, guarantees one cart == one phone number regardless of which UI
+  // added each item. Without this, a customer could add an appliance,
+  // then either edit the main phone field directly or reopen Quick Book
+  // (which resets its own phone field blank each time) and add a second
+  // appliance under a completely different number — both landing in the
+  // same cart, silently submitted together under whichever number
+  // happened to be showing at final checkout.
+  if (cartItems.length > 0 && cartPhoneNumber && phone !== cartPhoneNumber) {
+    msg.className = 'form-msg error';
+    msg.textContent = `This booking is already using ${cartPhoneNumber}. Please use the same number, or remove the item(s) below first to start over with a different number.`;
+    return;
+  }
+
   const addBtn = document.getElementById('addItemBtn');
   const originalBtnText = addBtn.textContent;
   addingItem = true;
@@ -1157,6 +1196,7 @@ async function addItemToCart() {
         skuId: (typeof qbSkuOverride !== 'undefined' && qbSkuOverride) ? qbSkuOverride.skuId : null,
         unitPrice, lineTotal: unitPrice * qty
       });
+      cartPhoneNumber = phone; // locks this cart to this number — see the check above and renderCart()
       renderCart();
       document.getElementById('fProblem').value = '';
       document.getElementById('fQty').value = 1;
@@ -1396,18 +1436,23 @@ function bindFormEvents() {
       document.getElementById('slotPicker').innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select city and date above to see available slots.</p>';
 
       // Give the customer a few seconds to read the confirmation, then
-      // collapse the form again — they can reopen it anytime via the
-      // header/footer "Book Now" button. Scrolling to the top at the same
-      // time avoids an odd side effect of the collapse: the expanded
-      // form's height shrinks a lot once it closes, and since scroll
-      // position is just a pixel offset (not tied to a specific section),
-      // the page would otherwise "jump" to whatever content now occupies
-      // that same pixel range — which turned out to be the FAQ section
-      // further down, landing the customer somewhere random instead of
-      // back at a clean starting point.
+      // collapse the form and take them straight to "My Account" so they
+      // can immediately see this exact booking's status — reusing the
+      // same OTP verification they just completed, so this doesn't ask
+      // them to verify a second time in the same visit.
+      const bookedPhone = payload.phone;
       setTimeout(() => {
         closeBookingForm();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const trackPhoneInput = document.getElementById('trackPhone');
+        if (trackPhoneInput) trackPhoneInput.value = bookedPhone;
+        if (payload.accessToken) {
+          verifiedBookingPhone = bookedPhone;
+          verifiedBookingAccessToken = payload.accessToken;
+        }
+        const trackSection = document.getElementById('trackWrap');
+        if (trackSection) trackSection.hidden = false;
+        document.getElementById('trackBtn')?.click();
+        document.getElementById('track')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 3500);
     } catch (err) {
       msg.className = 'form-msg error';
@@ -1517,7 +1562,13 @@ function showGoogleReviewPrompt() {
   `;
 }
 
-// Track order
+// My Account — was "Track my booking", now OTP-protected (see the
+// matching server-side fix on /api/bookings/track): a customer's booking
+// history includes their name, home address, and exact appliance
+// details, which anyone could previously read just by typing in any
+// 10-digit number. Reuses the exact same OTP flow as placing a booking —
+// if this phone was already verified earlier in this session (e.g. they
+// just booked something), it's reused instead of asking twice.
 let lastTrackedBookings = [];
 let knownReferralPhone = null; // set once the customer has looked themselves up in "My Booking", so the referral button doesn't need to ask for the number a second time
 document.getElementById('trackBtn').addEventListener('click', async () => {
@@ -1528,9 +1579,18 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
     results.innerHTML = '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>';
     return;
   }
-  results.innerHTML = '<p>Searching...</p>';
   try {
-    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
+    let accessToken;
+    if (verifiedBookingPhone === phone && verifiedBookingAccessToken) {
+      accessToken = verifiedBookingAccessToken; // already verified this number earlier in this visit
+    } else {
+      results.innerHTML = '<p>Please complete the OTP verification that just opened.</p>';
+      accessToken = await verifyPhoneWithOtp(phone);
+      verifiedBookingPhone = phone;
+      verifiedBookingAccessToken = accessToken;
+    }
+    results.innerHTML = '<p>Searching...</p>';
+    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}&accessToken=${encodeURIComponent(accessToken)}`);
     lastTrackedBookings = bookings;
     if (!bookings.length) {
       results.innerHTML = '<p>No bookings found for this number.</p>';
@@ -1548,7 +1608,7 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
       resetReferralSectionToPrompt();
     }
   } catch (e) {
-    results.innerHTML = '<p style="color:var(--red)">Something went wrong, please try again.</p>';
+    results.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
     if (referBlock) referBlock.hidden = true;
   }
 });

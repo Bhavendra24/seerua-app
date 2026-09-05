@@ -1541,6 +1541,11 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
   .booking-close-btn { top: -10px; right: 6px; }
 }
 @media (max-width: 720px) {
+  /* BUG FIX: this stayed at the same 40px-per-side padding as desktop —
+     on a ~380px-wide phone screen, that's 80px (over 20% of the whole
+     width) spent on empty margin instead of actual content, making
+     everything feel narrower and more cramped than it needs to be. */
+  .container { padding: 0 16px; }
   .site-header .container { height: 64px; }
   .brand img { height: 38px; width: 38px; }
   .brand-name-main { font-size: 1rem; }
