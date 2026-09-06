@@ -325,8 +325,10 @@ async function renderOtpCard() {
   // instead of always looking blank/unset.
   const widgetIdInput = document.getElementById('otpWidgetId');
   const tokenAuthInput = document.getElementById('otpTokenAuth');
+  const authkeyInput = document.getElementById('otpAuthkey');
   if (widgetIdInput) widgetIdInput.value = data.widgetId || '';
   if (tokenAuthInput) tokenAuthInput.value = data.tokenAuth || '';
+  if (authkeyInput) authkeyInput.value = data.authkey || '';
   if (data.enabled) {
     label.textContent = '🟢 OTP Enabled';
     card.style.borderLeftColor = 'var(--green)';
@@ -346,13 +348,14 @@ document.getElementById('saveOtpCredsBtn').addEventListener('click', async () =>
   msg.className = 'msg-inline';
   const widgetId = document.getElementById('otpWidgetId').value.trim();
   const tokenAuth = document.getElementById('otpTokenAuth').value.trim();
+  const authkey = document.getElementById('otpAuthkey').value.trim();
   if (!widgetId || !tokenAuth) {
     msg.className = 'msg-inline error';
     msg.textContent = 'Both Widget ID and Token Auth are required.';
     return;
   }
   try {
-    await api('/api/admin/otp-config', { method: 'PUT', body: JSON.stringify({ widgetId, tokenAuth }) });
+    await api('/api/admin/otp-config', { method: 'PUT', body: JSON.stringify({ widgetId, tokenAuth, authkey }) });
     msg.className = 'msg-inline success';
     msg.textContent = 'Saved! New OTP attempts will use these credentials right away — no restart needed.';
   } catch (err) {
@@ -551,10 +554,17 @@ function unlockAssignment(bookingId, itemId) {
   renderOrders();
 }
 
+// Lazily fetched only once the "🗄️ Archived Bookings" view is actually
+// opened — no point loading it up front on every Orders tab visit.
+let ARCHIVED_BOOKINGS = null;
+
 function renderOrders() {
+  const mode = document.getElementById('ordersViewMode').value;
+  document.getElementById('archivedNotice').style.display = mode === 'archived' ? 'block' : 'none';
+
   const statusFilter = document.getElementById('orderStatusFilter').value;
   const search = document.getElementById('orderSearch').value.trim().toLowerCase();
-  let list = BOOKINGS;
+  let list = mode === 'archived' ? (ARCHIVED_BOOKINGS || []) : BOOKINGS;
   // A rejected item doesn't stay "Rejected" — it goes straight back to
   // "Pending" so it can be reassigned right away (see the rejectionHistory
   // note below). So this filter looks for items with rejection history
@@ -566,6 +576,31 @@ function renderOrders() {
   }
   if (search) list = list.filter(b => b.name.toLowerCase().includes(search) || b.phone.includes(search));
   list = sortOrdersByBookingTime(list);
+
+  if (mode === 'archived') {
+    // Deliberately simple and read-only — these are all fully finished
+    // jobs kept only for record-keeping (see the Archive Old Bookings
+    // card in Settings), so there's no assign/rate/reactivate/delete
+    // machinery to reproduce here, just what's in each one.
+    document.getElementById('ordersTable').innerHTML = list.length ? list.map(b => `
+      <tr>
+        <td>${b.id}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · ${b.timeSlot}</small>` : ''}</td>
+        <td>${esc(b.name)}<br><small style="color:var(--slate)">${esc(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small></td>
+        <td>${b.items.map(it => `
+          <div style="padding:6px 0;border-bottom:1px dashed var(--line);">
+            <div>${it.qty}x ${it.applianceName} (${it.typeName}) — ${it.serviceType === 'repair' ? 'Repair' : 'Service'}</div>
+            <span class="pill pill-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
+            ${it.technicianName ? ` <small style="color:var(--slate)">→ ${it.technicianName}</small>` : ''}
+            ${it.rating ? ` <small style="color:var(--slate)">· ⭐${it.rating}</small>` : ''}
+          </div>
+        `).join('')}</td>
+        <td>${b.cityName}</td>
+        <td>₹${fmtInr(b.totalPrice)}</td>
+        <td><small style="color:var(--slate);">🗄️ Archived</small></td>
+      </tr>
+    `).join('') : `<tr class="empty-row"><td colspan="6">No archived bookings found.</td></tr>`;
+    return;
+  }
 
   document.getElementById('ordersTable').innerHTML = list.length ? list.map(b => `
     <tr>
@@ -642,6 +677,18 @@ function renderOrders() {
   `).join('') : `<tr class="empty-row"><td colspan="6">No orders found.</td></tr>`;
 }
 document.getElementById('orderStatusFilter').addEventListener('change', renderOrders);
+document.getElementById('ordersViewMode').addEventListener('change', async () => {
+  const mode = document.getElementById('ordersViewMode').value;
+  if (mode === 'archived' && ARCHIVED_BOOKINGS === null) {
+    document.getElementById('ordersTable').innerHTML = `<tr class="empty-row"><td colspan="6">Loading archived bookings...</td></tr>`;
+    try {
+      ARCHIVED_BOOKINGS = await api('/api/admin/bookings/archived');
+    } catch (e) {
+      ARCHIVED_BOOKINGS = [];
+    }
+  }
+  renderOrders();
+});
 
 async function rateItem(bookingId, itemId, rating) {
   if (!rating) return;
@@ -838,22 +885,123 @@ async function refreshNbAppliancesForCity(cityId) {
   refreshNbTypes();
 }
 
+// ---------------- Custom date calendar for #nbDate (New Booking / Phone
+// Call) — same fix as the customer-facing site: Android's native date
+// picker has a real bug where tapping "today" specifically registers no
+// tap at all, while every other date works fine. Fully custom markup/JS
+// here (own #adminDateCalendarModal, separate from the customer site's
+// #dateCalendarModal — different HTML page entirely, no collision) means
+// every date behaves identically everywhere. ----------------
+let adminDateCalViewYear, adminDateCalViewMonth;
+let adminDateCalSelected = null;
+
+function adminDateCalToStr(y, m, d) {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function adminSelectDateCalendarDay(str) {
+  adminDateCalSelected = str;
+  const dateEl = document.getElementById('nbDate');
+  const displayEl = document.getElementById('nbDateDisplay');
+  dateEl.value = str;
+  const d = new Date(str + 'T00:00:00');
+  displayEl.value = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  closeAdminDateCalendar();
+}
+
+function renderAdminDateCalendar() {
+  const label = document.getElementById('adminDateCalMonthLabel');
+  const grid = document.getElementById('adminDateCalGrid');
+  const prevBtn = document.getElementById('adminDateCalPrev');
+  if (!label || !grid) return;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  label.textContent = `${monthNames[adminDateCalViewMonth]} ${adminDateCalViewYear}`;
+
+  const now = new Date();
+  const todayStr = adminDateCalToStr(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = adminDateCalToStr(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+  document.getElementById('adminDateCalTodayBtn')?.classList.toggle('active', adminDateCalSelected === todayStr);
+  document.getElementById('adminDateCalTomorrowBtn')?.classList.toggle('active', adminDateCalSelected === tomorrowStr);
+  prevBtn.disabled = (adminDateCalViewYear === now.getFullYear() && adminDateCalViewMonth === now.getMonth());
+
+  const firstWeekday = new Date(adminDateCalViewYear, adminDateCalViewMonth, 1).getDay();
+  const daysInMonth = new Date(adminDateCalViewYear, adminDateCalViewMonth + 1, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < firstWeekday; i++) html += '<span class="date-cal-day is-empty"></span>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const str = adminDateCalToStr(adminDateCalViewYear, adminDateCalViewMonth, d);
+    const isPast = str < todayStr;
+    const isToday = str === todayStr;
+    const isSelected = str === adminDateCalSelected;
+    html += `<button type="button" class="date-cal-day${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}" data-date="${str}" ${isPast ? 'disabled' : ''}>${d}</button>`;
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.date-cal-day[data-date]').forEach(btn => {
+    btn.addEventListener('click', () => adminSelectDateCalendarDay(btn.getAttribute('data-date')));
+  });
+}
+
+function openAdminDateCalendar() {
+  const now = new Date();
+  const current = document.getElementById('nbDate').value;
+  if (current) {
+    const [y, m] = current.split('-').map(Number);
+    adminDateCalViewYear = y;
+    adminDateCalViewMonth = m - 1;
+    adminDateCalSelected = current;
+  } else {
+    adminDateCalViewYear = now.getFullYear();
+    adminDateCalViewMonth = now.getMonth();
+    adminDateCalSelected = null;
+  }
+  renderAdminDateCalendar();
+  openModal('adminDateCalendarModal');
+}
+
+function closeAdminDateCalendar() {
+  closeModal('adminDateCalendarModal');
+}
+
+document.getElementById('nbDateDisplay').addEventListener('click', openAdminDateCalendar);
+document.getElementById('adminDateCalendarClose').addEventListener('click', closeAdminDateCalendar);
+document.getElementById('adminDateCalendarModal').addEventListener('click', (e) => {
+  if (e.target.id === 'adminDateCalendarModal') closeAdminDateCalendar();
+});
+document.getElementById('adminDateCalPrev').addEventListener('click', () => {
+  adminDateCalViewMonth--;
+  if (adminDateCalViewMonth < 0) { adminDateCalViewMonth = 11; adminDateCalViewYear--; }
+  renderAdminDateCalendar();
+});
+document.getElementById('adminDateCalNext').addEventListener('click', () => {
+  adminDateCalViewMonth++;
+  if (adminDateCalViewMonth > 11) { adminDateCalViewMonth = 0; adminDateCalViewYear++; }
+  renderAdminDateCalendar();
+});
+document.getElementById('adminDateCalTodayBtn').addEventListener('click', () => {
+  const now = new Date();
+  adminSelectDateCalendarDay(adminDateCalToStr(now.getFullYear(), now.getMonth(), now.getDate()));
+});
+document.getElementById('adminDateCalTomorrowBtn').addEventListener('click', () => {
+  const t = new Date();
+  t.setDate(t.getDate() + 1);
+  adminSelectDateCalendarDay(adminDateCalToStr(t.getFullYear(), t.getMonth(), t.getDate()));
+});
+
 async function openNewBookingModal() {
   document.getElementById('nbName').value = '';
   document.getElementById('nbPhone').value = '';
   document.getElementById('nbAddress').value = '';
   document.getElementById('nbDate').value = '';
-  // Same as the customer-facing booking form: don't let staff pick a past
-  // date in the calendar in the first place (the server already rejects
-  // it, but the picker itself should behave like a real calendar and not
-  // offer dates that can never be booked).
-  const todayStr = new Date().toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD
-  document.getElementById('nbDate').min = todayStr;
+  document.getElementById('nbDateDisplay').value = '';
+  adminDateCalSelected = null;
   document.getElementById('nbSlotId').value = '';
   document.getElementById('nbProblem').value = '';
   document.getElementById('nbQty').value = 1;
   document.getElementById('nbMsg').className = 'msg-inline';
   document.getElementById('nbMsg').textContent = '';
+  document.getElementById('nbAddItemBtn').disabled = false;
   nbCartItems = [];
   renderNbCart();
 
@@ -990,7 +1138,10 @@ document.getElementById('archiveForm').addEventListener('submit', async (e) => {
     const res = await api('/api/admin/bookings/archive-old', { method: 'POST', body: JSON.stringify({ beforeDate }) });
     msg.className = 'msg-inline success';
     msg.textContent = res.archivedCount > 0 ? `Archived ${res.archivedCount} booking(s). ${res.remainingActive} remain active.` : res.message;
-    if (res.archivedCount > 0) { await loadAll(); renderOrders(); }
+    if (res.archivedCount > 0) {
+      ARCHIVED_BOOKINGS = null; // stale now — refetch next time the Archived Bookings view is opened
+      await loadAll(); renderOrders();
+    }
   } catch (err) {
     msg.className = 'msg-inline error';
     msg.textContent = err.message;
@@ -1032,6 +1183,8 @@ function removeNbCartItem(idx) {
 
 document.getElementById('nbAddItemBtn').addEventListener('click', async () => {
   const msg = document.getElementById('nbMsg');
+  const btn = document.getElementById('nbAddItemBtn');
+  if (btn.disabled) return; // BUG FIX: guards against a rapid double-tap adding the same item twice
   msg.className = 'msg-inline';
   const cityId = document.getElementById('nbCity').value;
   const applianceId = document.getElementById('nbAppliance').value;
@@ -1050,11 +1203,23 @@ document.getElementById('nbAddItemBtn').addEventListener('click', async () => {
     msg.textContent = 'This appliance is currently not available in the selected city.';
     return;
   }
+  btn.disabled = true;
   try {
     const row = await api(`/api/price?cityId=${cityId}&applianceId=${applianceId}&typeId=${typeId}`);
     const unitPrice = serviceType === 'repair' ? row.repairPrice : row.servicePrice;
     const appliance = nbFilteredAppliances.find(a => a.id === applianceId);
     const type = appliance ? appliance.types.find(t => t.id === typeId) : null;
+    // REVERTED the earlier "merge into matching existing line" change —
+    // turns out that was the actual problem being reported, just from a
+    // different angle: clicking "+ Add to Booking" again later (not a
+    // rapid double-tap, which the 900ms lock below already handles) was
+    // silently adding into an existing line's quantity/price instead of
+    // being its own clearly separate, visible line. Every click now
+    // always adds exactly one new line with exactly the quantity shown
+    // in the field at that moment — nothing is ever combined behind the
+    // scenes. Multiple genuine units of the same appliance/type means
+    // typing that number into Quantity once, not clicking Add that many
+    // times.
     nbCartItems.push({
       applianceId, applianceName: appliance ? appliance.name : '',
       typeId, typeName: type ? type.name : '',
@@ -1066,11 +1231,52 @@ document.getElementById('nbAddItemBtn').addEventListener('click', async () => {
   } catch (err) {
     msg.className = 'msg-inline error';
     msg.textContent = 'Could not get price for this selection.';
+    btn.disabled = false;
+    return;
   }
+  // BUG FIX (attempt 2): a fixed 900ms cooldown wasn't long enough — a
+  // second, third, fourth accidental press spaced more than 900ms apart
+  // (very easy to do on a fumbled tap, or just impatiently pressing
+  // again a second or two later) still went through as its own separate
+  // line each time. "Ek hi baar add hona chahiye, galti se dab jaye to
+  // bhi" — one press should mean one add, full stop, no matter how many
+  // extra times it gets pressed afterward. So instead of a timer, the
+  // button now just stays locked after every successful add, and only
+  // unlocks again once something in the form actually changes (a new
+  // appliance/type/service/quantity/problem — see nbFormChangeUnlocksAddBtn
+  // below) — a deliberate signal that this is now a genuinely different
+  // thing to add, not another accidental press of the same one.
+  msg.className = 'msg-inline success';
+  msg.textContent = 'Added. Change something above to add another item.';
+});
+
+// Re-arms the (now-locked-after-use) "+ Add to Booking" button the
+// moment the person actually changes any part of what they're about to
+// add — see the comment above.
+function nbFormChangeUnlocksAddBtn() {
+  const btn = document.getElementById('nbAddItemBtn');
+  if (btn.disabled) {
+    btn.disabled = false;
+    const msg = document.getElementById('nbMsg');
+    if (msg.classList.contains('success')) { msg.className = 'msg-inline'; msg.textContent = ''; }
+  }
+}
+['nbCity', 'nbAppliance', 'nbType', 'nbServiceType', 'nbQty', 'nbProblem'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', nbFormChangeUnlocksAddBtn);
+  el.addEventListener('change', nbFormChangeUnlocksAddBtn);
 });
 
 document.getElementById('nbSubmitBtn').addEventListener('click', async () => {
   const msg = document.getElementById('nbMsg');
+  const btn = document.getElementById('nbSubmitBtn');
+  // BUG FIX: this is the actual cause of "phone booking add karte hi
+  // utni hi baar add ho jaati hai" — the button never disabled itself
+  // while the request was in flight, so a slow response (or just an
+  // impatient double/triple tap, easy to do on mobile) fired that many
+  // separate POST requests, each one genuinely creating its own
+  // duplicate booking. One click now does one thing, guaranteed.
+  if (btn.disabled) return;
   msg.className = 'msg-inline';
 
   const name = document.getElementById('nbName').value.trim();
@@ -1106,6 +1312,9 @@ document.getElementById('nbSubmitBtn').addEventListener('click', async () => {
     return;
   }
 
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Creating...';
   try {
     await api('/api/admin/bookings', {
       method: 'POST',
@@ -1122,6 +1331,9 @@ document.getElementById('nbSubmitBtn').addEventListener('click', async () => {
   } catch (err) {
     msg.className = 'msg-inline error';
     msg.textContent = err.message || 'Could not create booking.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 });
 

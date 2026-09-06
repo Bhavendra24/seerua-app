@@ -60,13 +60,13 @@ body {
 }
 h1, h2, h3, h4 {
   font-family: var(--font-display);
-  color: var(--blue-900);
-  font-weight: 500;
+  color: var(--ink);
+  font-weight: 800;
   font-size: clamp(1.2rem, 2.1vw, 1.6rem);
   margin: 0 0 0.32em;
   line-height: 1.2;
 }
-p { margin: 0 0 1em; color: var(--slate); text-align: justify; text-align-last: left; }
+p { margin: 0 0 1em; color: var(--ink); text-align: justify; text-align-last: left; }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 ul { padding: 0; margin: 0; list-style: none; }
@@ -159,8 +159,65 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 .nav-links a:hover { color: var(--accent-600); }
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .header-actions .call-link { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--blue-700); font-size: 0.92rem; }
+/* Careers page's simple "← Back to Home" link — its own class (not
+   .call-link) specifically so it stays visible on mobile, where
+   .call-link itself is hidden further down (that rule is meant for the
+   phone number specifically, not this). */
+.header-home-link { font-weight: 700; color: var(--blue-700); font-size: 0.92rem; white-space: nowrap; }
 .nav-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
 .nav-toggle span { display: block; width: 24px; height: 2.4px; background: var(--blue-900); margin: 5px 0; border-radius: 2px; }
+
+/* Header account icon/avatar + its dropdown menu (My Account / Logout) —
+   always visible in the header, next to the hamburger. Plain person icon
+   before an account exists; once one does, updateHeaderAccountUI() in
+   main.js swaps it for a filled circle with the customer's name-initial. */
+.header-account { position: relative; }
+.header-account-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--mist, #eef3f9);
+  border: none;
+  color: var(--blue-900);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+.header-account-btn:hover { background: var(--line, #dde5ee); }
+.header-account-btn.has-account {
+  background: var(--accent-500);
+  color: #fff;
+  font-weight: 700;
+}
+.header-account-initial { font-size: 1rem; font-family: var(--font-body); line-height: 1; }
+.header-account-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
+  box-shadow: 0 10px 28px rgba(15, 42, 67, 0.14);
+  min-width: 160px;
+  z-index: 200;
+  overflow: hidden;
+}
+.header-account-menu.open { display: block; }
+.header-account-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--blue-900);
+  cursor: pointer;
+}
+.header-account-menu-item:hover { background: var(--mist, #eef3f9); }
+.header-account-menu-item + .header-account-menu-item { border-top: 1px solid var(--line); }
 
 /* ---------- Hero ---------- */
 
@@ -229,6 +286,62 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
    what's already in the image). Only the bottom strip — which had an
    outdated phone number — is rebuilt below as real, correctly-numbered,
    clickable HTML instead of being left as unreliable baked-in image text. */
+/* ---------- Coded hero, attempt 2 — recreates the poster's most
+   distinctive pieces (the diagonal "Trusted Service" ribbon, the row of
+   circular service icons) as real markup instead of a flat photo/badge
+   card, so it doesn't read as a generic template hero while everything
+   stays real, indexable text. ---------- */
+.hero-coded-section { background: #fff; padding: 28px 0 4px; }
+/* The faint background watermark logo (.hero::before, inherited from
+   the base .hero class) was designed to sit behind a tall single-column
+   poster image — with the new coded hero's icon row + footer strip
+   sitting in that same lower area, the watermark showed through and
+   visually clashed with them. Switched off for this hero specifically. */
+.hero-coded-section::before { display: none; }
+.hero-coded-grid { display: grid; grid-template-columns: 1fr; gap: 36px; align-items: center; margin-bottom: 2px; }
+@media (min-width: 860px) {
+  .hero-coded-grid { grid-template-columns: 1.1fr 0.9fr; gap: 40px; }
+  .hero-coded-grid-solo { grid-template-columns: 1fr; text-align: center; }
+  .hero-coded-grid-solo .hero-coded-text { max-width: 720px; margin: 0 auto; }
+  .hero-coded-grid-solo .hero-sub { margin-left: auto; margin-right: auto; }
+  .hero-coded-grid-solo .hero-badges { justify-content: center; }
+}
+.hero-eyebrow {
+  display: inline-block; background: var(--mist); color: var(--ink);
+  font-weight: 700; font-size: 0.78rem; padding: 6px 14px; border-radius: 999px;
+  margin-bottom: 16px; border: 1px solid var(--line);
+}
+.hero-coded-text h1 {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(1.75rem, 4.6vw, 2.6rem); line-height: 1.22;
+  color: var(--ink); margin: 0 0 16px;
+}
+.hero-accent-wrap { position: relative; display: inline-block; color: var(--accent-600); }
+.hero-underline { display: block; width: 100%; height: 12px; margin-top: -4px; }
+.hero-sub { color: var(--ink); font-size: 1rem; line-height: 1.65; margin: 0 0 20px; max-width: 480px; }
+.hero-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 26px; }
+.hero-badges span {
+  display: flex; align-items: center; gap: 7px; background: #fff;
+  border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px;
+  font-size: 0.82rem; font-weight: 600; color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.hero-badges svg { width: 16px; height: 16px; stroke: var(--ink); flex-shrink: 0; }
+
+/* Circular service-icon row, recreating the poster's "we service &
+   repair" strip in real markup. */
+.hero-services-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 8px;
+  text-align: center; padding-top: 8px;
+}
+@media (min-width: 640px) {
+  .hero-services-row { grid-template-columns: repeat(7, 1fr); }
+}
+.hero-service-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: 0.78rem; font-weight: 700; color: var(--ink);
+}
+
 .hero-poster-section { padding: 24px 0 0; }
 .hero-poster-img { width: 100%; height: auto; display: block; border-radius: var(--radius-lg, 16px); }
 .hero-poster-footer {
@@ -308,8 +421,8 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--accent-100);
-  color: var(--accent-600);
+  background: var(--mist);
+  color: var(--ink);
   font-weight: 700;
   font-size: 0.85rem;
   letter-spacing: 0.04em;
@@ -317,6 +430,7 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   padding: 7px 14px;
   border-radius: 999px;
   margin-bottom: 18px;
+  border: 1px solid var(--line);
 }
 .hero-rating {
   display: inline-flex;
@@ -464,19 +578,40 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 .price-hint { font-size: 0.85rem; color: var(--slate); margin-top: 6px; }
 
 /* ---------- Sections ---------- */
-section { padding: 40px 0; }
-.section-cities-compact { padding: 26px 0; }
-.section-cities-compact .section-head { margin-bottom: 14px; }
+/* Tightened significantly (from 40px) — deep pass to compact the whole
+   page, per explicit request that no section should have visible extra
+   breathing room. */
+section { padding: 22px 0; }
+.section-cities-compact { padding: 16px 0; }
+.section-cities-compact .section-head { margin-bottom: 10px; }
 .section-cities-compact .city-chip-row { gap: 7px; }
 .section-cities-compact .city-chip { padding: 6px 14px; font-size: 0.85rem; }
-.section-head { text-align: left; margin: 0 0 12px; }
-.section-head .eyebrow { margin-bottom: 8px; }
+.section-head { text-align: left; margin: 0 0 8px; }
+/* Explicit request: these six sections' headings (and the intro
+   paragraph right under them) are centered — every other section on the
+   page stays left-aligned. */
+#services .section-head,
+#serviceDetails .section-head,
+#whyUs .section-head,
+#about .section-head,
+#cities .section-head,
+#faq .section-head {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+.section-head .eyebrow { margin-bottom: 6px; }
 .section-head h2 { letter-spacing: -0.01em; }
 /* BUG FIX: this subtext line had no explicit size, so it inherited the
    page's base 1.05rem body text — noticeably larger than the similar
    subtext under other section headings elsewhere on the page. */
 .section-head p { font-size: 0.95rem; }
-.bg-mist { background: var(--mist); }
+.bg-mist { background: #fff; }
+/* Explicit request: eliminate the space above and below "Our services"
+   entirely — the generic `section { padding: 22px 0; }` above otherwise
+   gives it the same breathing room as every other section. */
+#services { padding: 0; }
+#services .section-head { margin-bottom: 10px; }
 
 /* "Appliance care, explained" section — deliberately smaller than the
    site-wide unified heading size, since this section's own heading and
@@ -487,7 +622,14 @@ section { padding: 40px 0; }
    size; and the description paragraphs share one consistent size instead
    of inheriting whatever the base <p> rule happens to render at. */
 #serviceDetails .section-head h2 { font-size: clamp(1.2rem, 2.2vw, 1.55rem); }
-.appliance-detail-title { font-size: 0.98rem; margin-bottom: 8px; }
+.appliance-detail-title {
+  font-size: 0.98rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: inline-block;
+  border-bottom: 2px solid var(--accent-500);
+  padding-bottom: 4px;
+}
 .appliance-detail-text p { font-size: 0.92rem; margin-bottom: 0.7em; }
 .appliance-detail-text p:last-child { margin-bottom: 0; }
 
@@ -499,7 +641,17 @@ section { padding: 40px 0; }
 section.bg-mist + section.bg-mist { padding-top: 0; }
 
 /* ---------- Scroll-reveal ---------- */
-.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
+/* BUG FIX: this scroll-triggered fade-in was leaving content invisible
+   (but still occupying its normal layout space) whenever the
+   IntersectionObserver that adds .in-view didn't fire in time — on a
+   fast scroll, or for sections further down the page — which looked
+   exactly like a big blank gap where a whole section's text should be,
+   even though the text was really there the whole time, just
+   transparent. Disabling the animation entirely (always visible) is a
+   guaranteed fix, and per general design guidance, scattered fade-in
+   effects on every section are a generic default anyway, not something
+   this page depends on. */
+.reveal { opacity: 1; transform: none; }
 .reveal.in-view { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
@@ -825,7 +977,14 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 
 /* ---------- Careers modal (fill & submit right on this page) ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(15,42,67,0.55); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; overscroll-behavior: contain; }
-.modal-backdrop.open { display: flex; }
+.modal-backdrop.open { display: flex; animation: modalBackdropFadeIn 0.18s ease; }
+/* Design polish: every modal in the site (Account Gate, OTP entry,
+   Track Booking, Refer a Friend, date calendar, Quick Book, Careers)
+   shares these two classes, so this one animation applies everywhere
+   at once instead of popping instantly into place. */
+@keyframes modalBackdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalPopIn { from { opacity: 0; transform: scale(0.94) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.modal-backdrop.open .modal { animation: modalPopIn 0.24s var(--ease); }
 
 /* Small floating confirmation toast — shown after actions (like Quick Book
    "Add") that close their own modal, so the person still gets clear,
@@ -902,7 +1061,47 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .qb-service-card .qb-checklist { margin-bottom: 12px; }
 .qb-service-card .qb-actions { display: flex; gap: 8px; }
 .qb-service-card .qb-btn { padding: 10px 8px; font-size: 0.85rem; }
-.modal-close { float: right; background: none; border: none; font-size: 1.3rem; line-height: 1; cursor: pointer; color: var(--slate); }
+.modal-close { float: right; background: none; border: none; font-size: 1.3rem; line-height: 1; cursor: pointer; color: var(--slate); width: 32px; height: 32px; border-radius: 50%; transition: background 0.15s ease, color 0.15s ease; }
+.modal-close:hover { background: var(--mist); color: var(--ink); }
+
+/* Small inline spinner for "Loading...", "Sending...", "Checking your
+   bookings..." style messages inside popups — used via .spinner-text,
+   e.g. <p class="spinner-text"><span class="spinner-dot"></span>Loading...</p> */
+@keyframes spinnerSpin { to { transform: rotate(360deg); } }
+.spinner-text { display: flex; align-items: center; gap: 8px; }
+.spinner-dot {
+  width: 14px; height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent-500);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spinnerSpin 0.7s linear infinite;
+}
+
+/* Custom date calendar (replaces native <input type="date"> for #fDate —
+   see the template comment on #dateCalendarModal for why). */
+.date-cal-header { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; }
+.date-cal-header strong { color: var(--blue-900); font-size: 1rem; }
+.date-cal-nav { background: var(--mist, #eef3f9); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; line-height: 1; cursor: pointer; color: var(--blue-900); }
+.date-cal-nav:disabled { opacity: 0.35; cursor: not-allowed; }
+.date-cal-quick { display: flex; gap: 8px; margin-bottom: 12px; }
+.date-cal-quick-btn { flex: 1; padding: 9px; border: 1.5px solid var(--accent-500); border-radius: 999px; background: #fff; color: var(--accent-600); font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
+.date-cal-quick-btn:hover, .date-cal-quick-btn.active { background: var(--accent-500); color: #fff; }
+.date-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.78rem; font-weight: 700; color: var(--slate); margin-bottom: 4px; }
+.date-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.date-cal-day {
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  color: var(--blue-900);
+  cursor: pointer;
+}
+.date-cal-day:disabled { color: var(--line); cursor: not-allowed; }
+.date-cal-day.is-today { font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--accent-500); }
+.date-cal-day.is-selected { background: var(--accent-500); color: #fff; }
+.date-cal-day.is-empty { visibility: hidden; }
 .modal h3 { margin-bottom: 4px; }
 .modal p.modal-sub { color: var(--slate); font-size: 0.88rem; margin: 0 0 18px; }
 .modal-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
@@ -1053,7 +1252,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 
 /* Footer */
 .site-footer { background: var(--blue-900); color: #cfe1f0; padding: 40px 0 20px; }
-.footer-grid { display: grid; grid-template-columns: 1.3fr 0.85fr 1.35fr 0.9fr; gap: 28px; margin-bottom: 28px; }
+.footer-col-brand { margin-bottom: 20px; max-width: 560px; }
 .footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .footer-brand img { height: 36px; width: 36px; background: var(--white); border-radius: 8px; padding: 3px; }
 .footer-brand span { font-family: var(--font-display); font-weight: 700; color: var(--white); font-size: 1.1rem; }
@@ -1069,12 +1268,15 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    particularly noticeable for something as recognizable as the WhatsApp
    mark, which needs to actually look like WhatsApp's real icon (their
    brand green, correct shape) to read as "original" rather than a
-   generic chat bubble. */
-.footer-contact-icons { display: flex; align-items: center; gap: 14px; }
+   generic chat bubble. Sits directly under the brand description now —
+   no separate "Contact" column/heading, so there's no leftover column
+   height mismatch or awkward gap next to a much taller brand column. */
+.footer-contact-icons { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
 .footer-icon-link { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); color: var(--white); transition: background 0.2s var(--ease), transform 0.2s var(--ease); }
 .footer-icon-link:hover { background: rgba(255,255,255,0.16); transform: translateY(-2px); }
 .footer-icon-link svg { width: 18px; height: 18px; }
 .footer-icon-whatsapp { color: #25D366; }
+.footer-icon-call { color: var(--accent-500); }
 .footer-bottom { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.85rem; color: #8ba9c2; }
 .footer-bottom a { color: #8ba9c2; }
 .footer-bottom a:hover { color: var(--accent-500); }
@@ -1248,7 +1450,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    ever could — used while waiting for Bella's reply. */
 .chat-thinking { display: inline-flex; align-items: center; gap: 8px; color: var(--slate); }
 .chat-thinking-star {
-  color: var(--accent-500);
+  color: #FFD43B;
   animation: chatThinkingSpin 2s linear infinite;
   flex-shrink: 0;
   transform-origin: center;
@@ -1387,35 +1589,55 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   border: 4px solid var(--bg, #fff);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  margin-top: -26px;
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
   flex-shrink: 0;
-  transition: transform 0.15s ease, background 0.15s ease;
-  position: relative;
-  z-index: 92;
+  transition: background 0.15s ease;
+  /* FLOW CHANGE: moved off to the side (bottom-right corner, floating
+     above the nav bar) instead of sitting dead-center in the bottom-nav
+     row — Home/City/Cart/Menu now space out evenly on their own below
+     it. */
+  position: fixed;
+  right: 16px;
+  bottom: calc(74px + env(safe-area-inset-bottom));
+  z-index: 130;
+  /* "Breathing" idle animation — gently grows and shrinks so the button
+     draws the eye without being distracting. Pauses once the fan-out
+     panel is open (see .open rule below) so it doesn't fight with the
+     close (X) icon's own stillness. */
+  animation: supportBreathe 2.6s ease-in-out infinite;
 }
-.bottom-nav-support:hover { background: var(--accent-600); transform: scale(1.05); }
+.bottom-nav-support:hover { background: var(--accent-600); }
+.bottom-nav-support.open { animation: none; }
+@keyframes supportBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-support { animation: none; }
+}
 .bottom-nav-support .support-icon-close { display: none; }
 .bottom-nav-support.open .support-icon-default { display: none; }
 .bottom-nav-support.open .support-icon-close { display: block; }
 .bottom-nav-support.open { background: var(--ink); }
 
 /* Radial fan-out — 3 satellite buttons (Call/WhatsApp/AI) that pop out
-   above the center support button in a small arc, instead of a sliding
-   bottom sheet. Positioned relative to the center button's spot in the
-   nav bar; hidden/collapsed by default (opacity 0, sitting right on top
-   of the center button) and only visible+spread out once .open is set
-   on #supportFanOut by chatbot.js. */
+   above the corner support button in a small vertical stack, instead of
+   a sliding bottom sheet. Anchored to the same right-side spot as
+   .bottom-nav-support (see above — moved off-center to the side); hidden/
+   collapsed by default (opacity 0, sitting right on top of that button)
+   and only visible+spread out once .open is set on #supportFanOut by
+   chatbot.js. */
 .support-fan-out {
   position: fixed;
-  left: 50%;
-  bottom: 78px;
+  right: 16px;
+  bottom: calc(74px + env(safe-area-inset-bottom));
   z-index: 91;
   pointer-events: none;
 }
 .support-fan-btn {
   position: absolute;
   bottom: 0;
+  right: 0;
   width: 48px; height: 48px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -1425,20 +1647,20 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   box-shadow: 0 6px 14px rgba(0,0,0,0.25);
   text-decoration: none;
   opacity: 0;
-  transform: translate(-50%, 0) scale(0.4);
+  transform: translate(0, 0) scale(0.4);
   transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
-  left: 0;
 }
 .support-fan-btn.support-fan-call { background: #0d6efd; }
 .support-fan-btn.support-fan-whatsapp { background: #1aa251; }
 .support-fan-btn.support-fan-ai { background: #5b5bd6; }
 .support-fan-out.open { pointer-events: auto; }
 .support-fan-out.open .support-fan-btn { opacity: 1; }
-/* Fan out in a small arc: WhatsApp straight up (center), Call to the
-   left, AI to the right — all landing at the same height above the bar. */
-.support-fan-out.open .support-fan-whatsapp { transform: translate(-50%, -84px) scale(1); }
-.support-fan-out.open .support-fan-call { transform: translate(-150%, -68px) scale(1); }
-.support-fan-out.open .support-fan-ai { transform: translate(50%, -68px) scale(1); }
+/* Stacked straight up from the corner button — WhatsApp closest, then
+   Call, then AI furthest up — rather than a horizontal arc, so nothing
+   spreads off the right edge of the screen near the corner. */
+.support-fan-out.open .support-fan-whatsapp { transform: translate(0, -68px) scale(1); }
+.support-fan-out.open .support-fan-call { transform: translate(0, -132px) scale(1); }
+.support-fan-out.open .support-fan-ai { transform: translate(0, -196px) scale(1); }
 
 /* Bottom sheets — Support / City / Menu popups, all sharing the same
    slide-up-from-bottom pattern, dismissible by tapping the backdrop. */
@@ -1529,6 +1751,18 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    last bit of content, on any screen size (this bar is no longer
    mobile-only). */
 body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+/* The bottom tab bar (Home/City/Cart/Menu) is a mobile-app pattern —
+   left on at every width, it was still showing up on tablet/desktop
+   screens next to the perfectly normal top header nav, which reads as
+   a mobile UI accidentally leaking into a desktop layout. Desktop
+   already has everything it needs in the header, so this hides it from
+   860px up (matching the breakpoint the rest of the page already
+   switches to a desktop layout at) and gives that reserved bottom
+   padding back to the page. */
+@media (min-width: 721px) {
+  .bottom-nav { display: none; }
+  body { padding-bottom: 0; }
+}
 
 /* ---------- Responsive ---------- */
 @media (max-width: 980px) {
@@ -1537,7 +1771,6 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
   .steps { grid-template-columns: 1fr; }
   .why-grid { grid-template-columns: repeat(2, 1fr); }
   .booking-wrap { grid-template-columns: 1fr; }
-  .footer-grid { grid-template-columns: 1fr 1fr; }
   .booking-close-btn { top: -10px; right: 6px; }
 }
 @media (max-width: 720px) {
@@ -1595,7 +1828,7 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
   .cart-add-box { padding: 12px; margin: 12px 0; }
   .modal { padding: 18px; }
   .modal p.modal-sub { margin-bottom: 12px; }
-  section { padding: 32px 0; }
+  section { padding: 16px 0; }
 
   /* Compact hero on mobile — so "Our services" is visible sooner without
      much scrolling on a phone screen. Desktop keeps its original, more
@@ -1604,31 +1837,16 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
      per explicit request — heading also thinner (font-weight 500, set on
      the base .hero h1 rule above) and smaller here so the appliance
      list/services grid comes into view with minimal scrolling. */
-  .hero { padding: 14px 0 6px; }
+  .hero { padding: 14px 0 0; }
   .hero .eyebrow { margin-bottom: 6px; padding: 4px 10px; font-size: 0.72rem; }
   .hero h1 { margin-bottom: 5px; }
   .hero-rating { margin-bottom: 5px; }
   .hero-sub { font-size: 0.86rem; margin-bottom: 6px; }
   .hero-grid { gap: 0; }
-  #services { padding-top: 12px; }
+  #services { padding: 0; }
   #services .section-head { margin-bottom: 8px; }
   #services .section-head .eyebrow { margin-bottom: 8px; }
 
-  .footer-grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "brand brand"
-      "services services"
-      "links contact";
-    gap: 20px 14px;
-  }
-  .footer-col-brand { grid-area: brand; }
-  .footer-col-services { grid-area: services; }
-  .footer-col-links { grid-area: links; }
-  .footer-col-contact { grid-area: contact; }
-  .footer-col-links h5, .footer-col-contact h5 { font-size: 0.85rem; margin-bottom: 10px; }
-  .footer-col-links ul li { margin-bottom: 7px; }
-  .footer-col-links ul li a { font-size: 0.85rem; }
   .cta-banner { flex-direction: column; text-align: center; }
 
   /* Full-screen takeover, now paired with blur-on-send (see chatbot.js) —

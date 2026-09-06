@@ -67,35 +67,45 @@
     </a>
     <nav class="nav-links" id="navLinks">
       <a href="#services" data-i18n="nav.services">Services</a>
-      <a href="#track" data-i18n="nav.track">My Account</a>
       <a href="#faq" data-i18n="nav.faq">FAQ</a>
-      <a href="#" id="careersNavLink" data-i18n="nav.careers">👷 Careers</a>
+      <a href="/careers" id="careersNavLink" data-i18n="nav.careers">👷 Careers</a>
     </nav>
     <div class="header-actions">
       <a class="call-link" href="tel:+919389585479">
         📞 <span class="call-text">9389585479</span>
       </a>
-      <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+      <!-- FLOW CHANGE: "My Account" moved out of the nav-links text list
+           into its own always-visible icon here — a plain person icon
+           before an account exists, or a circular avatar with the
+           customer's name-initial once it does (see
+           updateHeaderAccountUI() in main.js). Tapping it either starts
+           the shared Account Gate (no account yet) or opens a small
+           menu with "My Account" + "Logout" (account exists). -->
+      <div class="header-account" id="headerAccountWrap">
+        <button type="button" class="header-account-btn" id="headerAccountBtn" aria-label="My Account">
+          <svg id="headerAccountIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span id="headerAccountInitial" class="header-account-initial" style="display:none;"></span>
+        </button>
+        <div class="header-account-menu" id="headerAccountMenu">
+          <button type="button" class="header-account-menu-item" id="headerAccountTrackBtn">📦 Track Booking</button>
+          <button type="button" class="header-account-menu-item" id="headerAccountReferBtn">🎁 Refer a Friend</button>
+          <button type="button" class="header-account-menu-item" id="headerAccountLogoutBtn">🚪 Logout</button>
+        </div>
+      </div>
     </div>
   </div>
 </header>
 
 <!-- HERO + PRICE CALCULATOR -->
-<section class="hero hero-poster-section">
-  <div class="container">
-    <!-- Full marketing poster provided by the user, cropped to remove the
-         bottom phone-number/website strip (which had an outdated number)
-         — that section is rebuilt just below as real, correctly-numbered
-         HTML instead, since editing baked-in image text reliably isn't
-         possible. Everything above that (logo, headline, trust badges,
-         serviced-appliance icons, product photo, ribbon) is the original
-         poster, untouched. -->
-    <img class="hero-poster-img" src="/images/hero-poster.jpg" alt="Seerua Appliance Care — One stop solution for all your home appliances: AC, Washing Machine, RO, Fridge, Chimney, Microwave Oven, Geyser" width="1536" height="818">
-
-    <div class="hero-poster-footer">
-      <div class="hero-poster-features">
-        <span>🛵 Doorstep Service</span>
-        <span>₹ Affordable Pricing</span>
+<section class="hero hero-coded-section">
+  <div class="container hero-coded-grid hero-coded-grid-solo">
+    <div class="hero-coded-text">
+      <h1>One stop solution for all your<br><span class="hero-accent-wrap">home appliances<svg class="hero-underline" viewBox="0 0 220 14" preserveAspectRatio="none"><path d="M2 10c40-10 160-10 216 0" stroke="var(--accent-500)" stroke-width="4" stroke-linecap="round" fill="none"/></svg></span></h1>
+      <p class="hero-sub">From {{APPLIANCE_LIST_TEXT}} — repair and service for every essential home appliance.</p>
+      <div class="hero-badges">
+        <span>Expert Technicians</span>
+        <span>✓ Trusted Appliance Care</span>
+        <span>Genuine Parts</span>
         <span>⭐ 100% Customer Satisfaction</span>
       </div>
     </div>
@@ -125,7 +135,7 @@
       <span class="eyebrow">Know your appliance</span>
       <h2>Appliance care, explained</h2>
     </div>
-    <div class="reveal" style="display:grid; gap:16px;" id="serviceDetailsList"></div>
+    <div class="reveal" style="display:grid; gap:8px;" id="serviceDetailsList"></div>
   </div>
 </section>
 
@@ -171,7 +181,7 @@
 </section>
 
 <!-- ABOUT -->
-<section>
+<section id="about">
   <div class="container">
     <div class="section-head reveal">
       <span class="eyebrow" data-i18n="about.eyebrow">About Us</span>
@@ -302,7 +312,14 @@
             <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;" data-i18n="booking.photoHelp">Helps the technician arrive prepared with the right spare part.</p>
             <div id="fPhotoPreview" style="display:none;margin-top:8px;"></div>
           </div>
-          <div class="field">
+          <!-- FLOW CHANGE: mobile number is no longer typed here — it's
+               captured once, up front, by the shared Account Gate (see
+               #accountGateModal) before this form is ever shown. The
+               field stays in the DOM (hidden) purely so all the existing
+               OTP/cart logic in main.js that reads/writes #fPhone keeps
+               working unchanged; applyAccountToBookingFields() fills it
+               in automatically from the saved account. -->
+          <div class="field" id="fPhoneField" style="display:none;">
             <label for="fPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
             <input type="tel" id="fPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
             <small id="fPhoneLockNote" style="display:none;color:var(--slate);margin-top:4px;">🔒 Locked to this number — remove all items below to use a different number.</small>
@@ -332,6 +349,15 @@
         </div>
         <div class="msg-inline-coupon" id="couponMsg"></div>
 
+        <!-- FLOW CHANGE: name + address are now collected once, up front,
+             in the Account Gate's "Add Address" step (see
+             #accountGateModal / openAccountGate() in main.js), not here.
+             These fields are auto-filled and set read-only from the
+             saved account; "✏️ Edit Address" re-opens that same step to
+             change them, rather than editing inline — matches the
+             wireframe's separate "Edit Address" screen. Kept as real
+             (not hidden) fields so nothing else in main.js that reads
+             #fName/#fAddress needs to change. -->
         <div class="form-row">
           <div class="field">
             <label for="fName">Full Name *</label>
@@ -342,11 +368,24 @@
         <div class="field">
           <label for="fAddress">Full Address *</label>
           <textarea id="fAddress" rows="2" required placeholder="House no., street, landmark, pincode"></textarea>
+          <button type="button" class="btn btn-outline btn-sm" id="editAddressBtn" style="display:none;margin-top:8px;">✏️ Edit Address</button>
         </div>
 
         <div class="field">
-          <label for="fDate">Preferred Date *</label>
-          <input type="date" id="fDate" required>
+          <label for="fDateDisplay">Preferred Date *</label>
+          <!-- FLOW CHANGE / BUG FIX: replaced the native <input
+               type="date"> with our own calendar popup — the native
+               Android calendar has a real, reported bug where tapping
+               "today" specifically registers no tap at all (every other
+               date works), and since that picker is rendered entirely
+               by the OS outside this page, there's no way to fix that
+               bug from here. Our own calendar (#dateCalendarModal)
+               fully replaces it, so every date — including today —
+               behaves identically. #fDate stays as a hidden input
+               holding the real YYYY-MM-DD value everything else in
+               main.js already reads from. -->
+          <input type="text" id="fDateDisplay" readonly placeholder="Tap to select a date" style="cursor:pointer;background:#fff;">
+          <input type="hidden" id="fDate" required>
         </div>
 
         <div class="field">
@@ -372,7 +411,15 @@
         <h2 data-i18n="track.title">My Account</h2>
         <p data-i18n="track.sub">See the live status of every appliance in your booking, and quickly rebook with the same details.</p>
       </div>
-      <div class="track-box reveal" style="max-width:640px;">
+      <!-- FLOW CHANGE: this box (mobile number + Check Status + results)
+           is no longer shown on the page — every path that used to
+           reveal it (header "Track Booking", after placing a booking, a
+           "rate your service" SMS link) now opens the Track Booking
+           popup instead (#trackBookingModal). Kept in the DOM, just
+           permanently hidden, because #trackPhone/#trackBtn/#trackResults
+           are still the underlying engine those flows drive — see
+           trackBtn's click handler in main.js. -->
+      <div class="track-box reveal" style="max-width:640px;display:none;">
         <div class="field">
           <label for="trackPhone" data-i18n="track.phoneLabel">Registered Mobile Number</label>
           <input type="tel" id="trackPhone" data-i18n-placeholder="track.phonePlaceholder" placeholder="10 digit number" maxlength="10">
@@ -435,43 +482,23 @@
 
 <footer class="site-footer">
   <div class="container">
-    <div class="footer-grid">
-      <div class="footer-col-brand">
-        <div class="footer-brand">
-          <img src="/images/logo.png" alt="Seerua Appliance Care">
-          <span>Seerua Appliance Care</span>
-        </div>
-        <p class="footer-slogan">{{FOOTER_SLOGAN}}</p>
-        <p>{{FOOTER_DESCRIPTION}}</p>
+    <div class="footer-col-brand">
+      <div class="footer-brand">
+        <img src="/images/logo.png" alt="Seerua Appliance Care">
+        <span>Seerua Appliance Care</span>
       </div>
-      <div class="footer-col-links">
-        <h5 data-i18n="footer.quickLinks">Quick Links</h5>
-        <ul>
-          <li><a href="#services" data-i18n="nav.services">Services</a></li>
-          <li><a href="#track">My Account</a></li>
-          <li><a href="/careers" data-i18n="nav.careers2">Careers</a></li>
-          <li><a href="/terms" data-i18n="footer.terms">Terms &amp; Conditions</a></li>
-        </ul>
-      </div>
-      <div class="footer-col-services">
-        <h5 data-i18n="footer.servicesHeading">Services</h5>
-        <ul id="footerServicesList">
-          {{SERVICES_LIST_HTML}}
-        </ul>
-      </div>
-      <div class="footer-col-contact">
-        <h5 data-i18n="footer.contact">Contact</h5>
-        <div class="footer-contact-icons">
-          <a href="tel:+919389585479" class="footer-icon-link" aria-label="Call us" title="Call us">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.49a1 1 0 011 1 11.36 11.36 0 00.57 3.56 1 1 0 01-.25 1.02l-2.2 2.2z" fill="currentColor"/></svg>
-          </a>
-          <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="footer-icon-link footer-icon-whatsapp" aria-label="Chat on WhatsApp" title="WhatsApp">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.36-.53.05-1.05.24-3.52-.73-2.98-1.17-4.86-4.2-5.01-4.4-.15-.19-1.2-1.59-1.2-3.03 0-1.44.75-2.15 1.02-2.44.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.76 1.26 1.63 2.04 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.73-.85.92-1.14.19-.29.39-.24.65-.14.27.1 1.68.79 1.97.93.29.15.48.22.55.34.07.13.07.75-.17 1.43z" fill="currentColor"/></svg>
-          </a>
-          <a href="mailto:b4india@gmail.com" class="footer-icon-link" aria-label="Email us" title="Email us">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5.5A1.5 1.5 0 014.5 4h15A1.5 1.5 0 0121 5.5v13a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5v-13z" stroke="currentColor" stroke-width="1.6"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
-        </div>
+      <p class="footer-slogan">{{FOOTER_SLOGAN}}</p>
+      <p>{{FOOTER_DESCRIPTION}}</p>
+      <div class="footer-contact-icons">
+        <a href="tel:+919389585479" class="footer-icon-link footer-icon-call" aria-label="Call us" title="Call us">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.49a1 1 0 011 1 11.36 11.36 0 00.57 3.56 1 1 0 01-.25 1.02l-2.2 2.2z" fill="currentColor"/></svg>
+        </a>
+        <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="footer-icon-link footer-icon-whatsapp" aria-label="Chat on WhatsApp" title="WhatsApp">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.36-.53.05-1.05.24-3.52-.73-2.98-1.17-4.86-4.2-5.01-4.4-.15-.19-1.2-1.59-1.2-3.03 0-1.44.75-2.15 1.02-2.44.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.76 1.26 1.63 2.04 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.73-.85.92-1.14.19-.29.39-.24.65-.14.27.1 1.68.79 1.97.93.29.15.48.22.55.34.07.13.07.75-.17 1.43z" fill="currentColor"/></svg>
+        </a>
+        <a href="mailto:b4india@gmail.com" class="footer-icon-link" aria-label="Email us" title="Email us">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5.5A1.5 1.5 0 014.5 4h15A1.5 1.5 0 0121 5.5v13a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5v-13z" stroke="currentColor" stroke-width="1.6"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
       </div>
     </div>
     <div class="footer-bottom">
@@ -505,7 +532,7 @@
     <span>City</span>
   </button>
   <button type="button" class="bottom-nav-support" id="bottomNavSupportBtn" aria-label="Contact us">
-    <svg class="support-icon-default" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+    <svg class="support-icon-default" viewBox="0 0 24 24" width="30" height="30" fill="#FFD43B" stroke="#FFD43B" stroke-width="0.5" stroke-linejoin="miter"><path d="M12 1.5l3.15 7.2L23 9.55l-5.6 5.3L19.5 23 12 18.6 4.5 23l2.1-8.15L1 9.55l7.85-.85L12 1.5z"></path></svg>
     <svg class="support-icon-close" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
   </button>
   <div class="support-fan-out" id="supportFanOut">
@@ -515,7 +542,9 @@
     <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="support-fan-btn support-fan-whatsapp" aria-label="WhatsApp">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm5.8 14.1c-.24.68-1.4 1.3-1.93 1.38-.5.08-1.11.11-1.79-.11-.41-.13-.94-.31-1.61-.6-2.85-1.23-4.71-4.1-4.85-4.29-.14-.19-1.16-1.54-1.16-2.94s.73-2.09.99-2.38c.26-.28.56-.35.75-.35s.38 0 .54.01c.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.15.12.32.02.51-.09.19-.14.31-.28.48-.14.16-.29.36-.42.48-.14.13-.28.28-.12.55.16.28.7 1.16 1.51 1.88 1.04.92 1.91 1.21 2.19 1.35.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.28.36-.23.6-.14.24.1 1.53.72 1.79.85.26.13.44.19.5.3.06.11.06.63-.18 1.31z"></path></svg>
     </a>
-    <button type="button" class="support-fan-btn support-fan-ai" id="supportFanAiBtn" aria-label="Chat with Bella AI">🤖</button>
+    <button type="button" class="support-fan-btn support-fan-ai" id="supportFanAiBtn" aria-label="Chat with Bella AI">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="#FFD43B" stroke="#FFD43B" stroke-width="0.5" stroke-linejoin="miter"><path d="M12 1.5l3.15 7.2L23 9.55l-5.6 5.3L19.5 23 12 18.6 4.5 23l2.1-8.15L1 9.55l7.85-.85L12 1.5z"></path></svg>
+    </button>
   </div>
   <button type="button" class="bottom-nav-item" id="bottomNavCartBtn" data-has-cart="true">
     <span class="bottom-nav-cart-wrap">
@@ -556,7 +585,7 @@
 <div class="bottom-sheet-backdrop" id="citySheetBackdrop">
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
-    <h3>Apna Shehar Chunein</h3>
+    <h3>Select Your City</h3>
     <div class="bottom-sheet-city-grid" id="bottomSheetCityGrid"></div>
   </div>
 </div>
@@ -568,6 +597,10 @@
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
     <h3>Menu</h3>
+    <a href="/careers" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fff4e6;color:#d97706;">👷</span>
+      <span><strong>Careers</strong><br><small>Join as a technician partner</small></span>
+    </a>
     <a href="/#services" class="bottom-sheet-option">
       <span class="bottom-sheet-icon" style="background:#e8f4ff;color:#0d6efd;">🔧</span>
       <span><strong>Our Services</strong><br><small>AC, Washing Machine, RO, Fridge</small></span>
@@ -636,7 +669,13 @@
         <p><strong>Currently not serving this in your city.</strong><br>We're working on it — coming soon!</p>
       </div>
 
-      <div class="field" id="qbPhoneField">
+      <!-- FLOW CHANGE (Instant Booking): mobile number field removed from
+           here entirely — by the time this modal can open, openQuickBookModal()
+           in main.js has already gated on the shared Account Gate, so the
+           phone number is already known/verified. #qbPhone stays in the
+           DOM (hidden) only so the existing qbDoAdd()/qbAddService() code
+           reading it keeps working — it's auto-filled from the account. -->
+      <div class="field" id="qbPhoneField" style="display:none;">
         <label for="qbPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
         <input type="tel" id="qbPhone" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
       </div>
@@ -748,6 +787,107 @@
   </div>
 </div>
 
+<!-- REFER A FRIEND MODAL — its own popup box (same pattern as Track
+     Booking), opened from the header account menu's "Refer a Friend".
+     Closing it wipes its content too, so nothing is left behind. -->
+<div class="modal-backdrop" id="referModal">
+  <div class="modal" style="max-width:480px;">
+    <button type="button" class="modal-close" id="referModalClose" aria-label="Close">✕</button>
+    <h3>🎁 Refer a Friend</h3>
+    <div id="referModalBody">
+      <p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM DATE CALENDAR — replaces the native <input type="date"> for
+     #fDate (see the field in the booking form) to work around a real
+     Android bug where the OS's own calendar picker doesn't register a
+     tap specifically on "today". Fully our own markup/JS, so every date
+     behaves the same everywhere. -->
+<div class="modal-backdrop" id="dateCalendarModal">
+  <div class="modal" style="max-width:360px;">
+    <button type="button" class="modal-close" id="dateCalendarClose" aria-label="Close">✕</button>
+    <div class="date-cal-header">
+      <button type="button" class="date-cal-nav" id="dateCalPrev" aria-label="Previous month">‹</button>
+      <strong id="dateCalMonthLabel"></strong>
+      <button type="button" class="date-cal-nav" id="dateCalNext" aria-label="Next month">›</button>
+    </div>
+    <div class="date-cal-quick" id="dateCalQuick">
+      <button type="button" class="date-cal-quick-btn" id="dateCalTodayBtn">Today</button>
+      <button type="button" class="date-cal-quick-btn" id="dateCalTomorrowBtn">Tomorrow</button>
+    </div>
+    <div class="date-cal-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="date-cal-grid" id="dateCalGrid"></div>
+  </div>
+</div>
+
+<!-- TRACK BOOKING MODAL — its own popup box (per explicit request), not a
+     permanent section left sitting open on the page. Opened from the
+     header account menu's "Track Booking"; closing it (✕, tapping
+     outside, or "Book Again") wipes its content too, so nothing is left
+     behind once it's dismissed. -->
+<div class="modal-backdrop" id="trackBookingModal">
+  <div class="modal" style="max-width:480px;">
+    <button type="button" class="modal-close" id="trackBookingModalClose" aria-label="Close">✕</button>
+    <h3>Track Booking</h3>
+    <div id="trackBookingModalBody">
+      <p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT GATE MODAL — the single shared entry point for BOTH "Booking"
+     and "My Account" (per the unified flow): Mobile Number → OTP verify
+     → (new customers only) Add Address. Saving the address here is what
+     actually creates the account. A customer who has already been
+     through this once (saved in localStorage, see getAccount() in
+     main.js) skips straight past this modal entirely — including for
+     Instant Booking (tapping an appliance card), which used to ask for
+     the mobile number a second time. -->
+<div class="modal-backdrop" id="accountGateModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="accountGateClose" aria-label="Close">✕</button>
+
+    <div id="agPhoneStep">
+      <h3 id="agPhoneTitle">Welcome 👋</h3>
+      <p class="modal-sub" id="agPhoneSub">Enter your mobile number for booking</p>
+      <div class="field">
+        <label for="agPhone">Mobile Number</label>
+        <input type="tel" id="agPhone" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
+      </div>
+      <!-- FLOW CHANGE (back to manual): typing alone no longer
+           auto-triggers OTP — that made it too easy to accidentally
+           fire multiple send attempts (e.g. editing the number after a
+           failed try), which stacked up multiple captcha widgets in
+           the same popup. One explicit tap = one send attempt. -->
+      <button type="button" class="btn btn-primary btn-block" id="agSendBtn">Send OTP</button>
+      <div class="form-msg" id="agPhoneMsg"></div>
+    </div>
+
+    <div id="agAddressStep" style="display:none;">
+      <h3 id="agAddressTitle">Add Address</h3>
+      <p class="modal-sub">Ye ek hi baar chahiye — aage se yehi address use hoga.</p>
+      <div class="field">
+        <label for="agName">Name *</label>
+        <input type="text" id="agName" placeholder="Your name">
+      </div>
+      <div class="field">
+        <label for="agCity">City *</label>
+        <select id="agCity"></select>
+      </div>
+      <div class="field">
+        <label for="agAddress">Full Address *</label>
+        <textarea id="agAddress" rows="2" placeholder="House no., street, landmark, pincode"></textarea>
+      </div>
+      <button type="button" class="btn btn-primary btn-block" id="agSaveBtn">Save</button>
+      <div class="form-msg" id="agAddressMsg"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Our own OTP-entry box — replaced relying on MSG91's built-in popup UI,
      which was reliably sending real SMS OTPs (confirmed) but never
      rendering ANY visible popup on screen, on any device or environment
@@ -761,6 +901,14 @@
     <button type="button" class="modal-close" id="otpEntryClose" aria-label="Close">✕</button>
     <h3>Verify Your Number</h3>
     <p class="modal-sub">We've sent a code by SMS to <strong id="otpEntryPhone"></strong>.</p>
+    <!-- Only fills with anything if MSG91's Captcha Validation is turned
+         ON for this widget (see captchaRenderId in main.js's
+         verifyPhoneWithOtp) — MSG91 renders its captcha checkbox here.
+         The code is sent automatically the moment this is completed
+         (see waitForCaptchaThenSend in main.js); stays empty/invisible
+         if Captcha Validation is OFF, and the code is sent immediately
+         in that case instead. -->
+    <div id="otpEntryCaptcha" style="margin:4px 0 10px;"></div>
     <div class="field">
       <label for="otpEntryCode">Enter OTP</label>
       <input type="tel" id="otpEntryCode" inputmode="numeric" maxlength="6" placeholder="Enter the code" autocomplete="one-time-code" style="letter-spacing:0.3em;font-size:1.2rem;text-align:center;">

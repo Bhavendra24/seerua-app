@@ -22,3 +22,9 @@ data/otp-config.json
 data/notification-config.json
 data/sessions/
 public/uploads/
+
+# Holds the real Together.ai API key (and any other real secrets) once
+# filled in — must never be committed. .env.example (with placeholder
+# values) is committed instead; copy it to .env and fill in your real
+# key after cloning.
+.env

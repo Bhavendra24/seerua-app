@@ -46,19 +46,22 @@
   <div class="container">
     <a href="/" class="brand">
       <img src="/images/logo.png" alt="Seerua Appliance Care Logo">
-      <span class="brand-name">Seerua Appliance Care</span>
+      <span class="brand-name-stack">
+        <span class="brand-name-main">SEERUA</span>
+        <span class="brand-name-sub">Appliance Care</span>
+      </span>
     </a>
-    {{HEADER_NAV_HTML}}
     <div class="header-actions">
+      {{HEADER_HOME_LINK_HTML}}
       {{HEADER_CALL_HTML}}
-      <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
     </div>
   </div>
 </header>
 
 <section id="apply">
   <div class="container">
-    <div class="section-head" style="position:relative;">
+    <div class="section-head" style="position:relative;max-width:720px;">
+      <button type="button" id="careerFormClose" aria-label="Close and go back" title="Close and go back" style="position:absolute;top:0;right:0;background:var(--white);border:1px solid var(--line);box-shadow:var(--shadow-sm);width:34px;height:34px;border-radius:50%;font-size:1.1rem;line-height:1;cursor:pointer;color:var(--slate);z-index:2;">✕</button>
       <span class="eyebrow">{{APPLY_EYEBROW}}</span>
       <h1>{{APPLY_HEADING}}</h1>
       <p>{{APPLY_SUBTEXT}}</p>
@@ -67,7 +70,6 @@
     {{HIRING_PAUSED_NOTICE}}
     <div style="max-width:600px;margin:0 auto;{{FORM_DISPLAY_STYLE}}">
       <form class="booking-form" id="careerForm">
-        <button type="button" id="careerFormClose" aria-label="Close and go back" title="Close and go back" style="position:absolute;top:-14px;right:-14px;background:var(--white);border:1px solid var(--line);box-shadow:var(--shadow-sm);width:34px;height:34px;border-radius:50%;font-size:1.1rem;line-height:1;cursor:pointer;color:var(--slate);z-index:2;">✕</button>
         <div class="form-row">
           <div class="field">
             <label for="capName">Full Name *</label>
@@ -132,6 +134,35 @@
         <div class="form-msg" id="capMsg"></div>
       </form>
     </div>
+
+    <div class="section-head reveal" style="max-width:720px;margin-top:32px;">
+      <span class="eyebrow">Careers at Seerua</span>
+      <h2>Why Work With Us</h2>
+      <p>{{CAREERS_INTRO_TEXT}}</p>
+    </div>
+
+    <div class="why-grid reveal">
+      <div class="why-item">
+        <div class="why-icon">📅</div>
+        <h4>Steady, doorstep work</h4>
+        <p>Jobs come to you through the app — no need to chase customers or advertise your own services.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">₹</div>
+        <h4>Transparent, fair pay</h4>
+        <p>City-wise pricing is fixed upfront, so you always know exactly what a job pays before you take it.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">📍</div>
+        <h4>Work close to home</h4>
+        <p>We match jobs to your own city, so you're not spending your day traveling across town.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">📈</div>
+        <h4>Room to grow</h4>
+        <p>A growing company means more jobs over time for technicians who do good, reliable work.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -144,15 +175,6 @@
 
 <script>
 document.getElementById('year').textContent = new Date().getFullYear();
-const navToggle = document.getElementById('navToggle');
-const navLinks = document.getElementById('navLinks');
-navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
-navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
-document.addEventListener('click', (e) => {
-  if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && !navToggle.contains(e.target)) {
-    navLinks.classList.remove('open');
-  }
-});
 
 async function fetchJSON(url, opts) {
   const res = await fetch(url, opts);

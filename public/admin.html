@@ -13,7 +13,7 @@
 <link rel="icon" href="/images/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/panel.css?v=202609040a">
+<link rel="stylesheet" href="/css/panel.css?v=202609050e">
 </head>
 <body class="compact">
 
@@ -178,6 +178,19 @@
           <label>MSG91 Token Auth</label>
           <input type="text" id="otpTokenAuth" placeholder="e.g. 51995Txxxxxxxxxxxxxxxx" autocomplete="off">
         </div>
+        <div class="field">
+          <label>MSG91 AuthKey</label>
+          <input type="text" id="otpAuthkey" placeholder="e.g. 519975AeuFqVMH46a729a96P1" autocomplete="off">
+          <!-- BUG FIX: this is the account-level secret MSG91 needs to
+               actually verify a completed OTP's access-token — without
+               it, verification always failed even with a fully correct
+               code, because it was only ever saveable under
+               Notifications further down (shared with SMS/WhatsApp
+               sending) and never here, where OTP verification itself
+               looks for it. Same value either way — if it's already
+               set under Notifications, this can be left blank. -->
+          <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;">Needed to actually verify a completed OTP. Same key as under Notifications below (MSG91 → Settings → Auth Key) — only fill in one of the two, it's shared.</p>
+        </div>
         <button class="btn btn-primary btn-sm" id="saveOtpCredsBtn">Save Widget ID &amp; Token</button>
         <div class="msg-inline" id="otpCredsMsg"></div>
         <div class="msg-inline" id="otpMsg"></div>
@@ -245,6 +258,10 @@
 
       <div class="card">
         <div class="filters">
+          <select id="ordersViewMode">
+            <option value="active">Active Bookings</option>
+            <option value="archived">🗄️ Archived Bookings</option>
+          </select>
           <select id="orderStatusFilter">
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
@@ -257,6 +274,7 @@
           </select>
           <input type="text" id="orderSearch" placeholder="Search by name or phone">
         </div>
+        <p id="archivedNotice" style="display:none;font-size:0.85rem;color:var(--slate);margin:-4px 0 12px;">🗄️ Showing archived bookings — read-only (no technician assignment, rating, or deletion; these are all fully finished jobs kept for record-keeping).</p>
         <div class="table-wrap"><table>
           <thead><tr><th>ID</th><th>Customer</th><th>Items (status &amp; technician)</th><th>City</th><th>Total</th><th>Action</th></tr></thead>
           <tbody id="ordersTable"></tbody>
@@ -914,6 +932,28 @@
   </div>
 </div>
 
+<!-- CUSTOM DATE CALENDAR — same fix as the customer-facing site, for
+     the same reason: Android's native date picker has a real bug where
+     tapping "today" specifically doesn't register. -->
+<div class="modal-backdrop" id="adminDateCalendarModal">
+  <div class="modal" style="max-width:360px;">
+    <button type="button" class="modal-close" id="adminDateCalendarClose" aria-label="Close">✕</button>
+    <div class="date-cal-header">
+      <button type="button" class="date-cal-nav" id="adminDateCalPrev" aria-label="Previous month">‹</button>
+      <strong id="adminDateCalMonthLabel"></strong>
+      <button type="button" class="date-cal-nav" id="adminDateCalNext" aria-label="Next month">›</button>
+    </div>
+    <div class="date-cal-quick">
+      <button type="button" class="date-cal-quick-btn" id="adminDateCalTodayBtn">Today</button>
+      <button type="button" class="date-cal-quick-btn" id="adminDateCalTomorrowBtn">Tomorrow</button>
+    </div>
+    <div class="date-cal-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="date-cal-grid" id="adminDateCalGrid"></div>
+  </div>
+</div>
+
 <!-- NEW BOOKING (PHONE CALL) MODAL -->
 <div class="modal-backdrop" id="newBookingModal">
   <div class="modal" style="max-width:560px;">
@@ -949,7 +989,15 @@
     <div id="nbCartEmpty" style="font-size:0.85rem;color:var(--slate);text-align:center;padding:6px 0 14px;">No appliances added yet.</div>
 
     <div class="two-col">
-      <div class="field"><label>Visit Date</label><input type="date" id="nbDate" required></div>
+      <div class="field"><label for="nbDateDisplay">Visit Date</label>
+        <!-- BUG FIX: replaced the native <input type="date"> — same
+             Android bug as the customer-facing booking form, where
+             tapping "today" specifically registers no tap at all.
+             #nbDate stays as a hidden input holding the real
+             YYYY-MM-DD value everything else in admin.js reads from. -->
+        <input type="text" id="nbDateDisplay" readonly placeholder="Tap to select a date" style="cursor:pointer;background:#fff;">
+        <input type="hidden" id="nbDate" required>
+      </div>
       <div class="field"><label>Time Slot</label>
         <select id="nbSlotId" required>
           <option value="">Select a time slot</option>
@@ -1018,6 +1066,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609050c"></script>
+<script src="/js/admin.js?v=202609050i"></script>
 </body>
 </html>

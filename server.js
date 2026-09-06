@@ -1,4 +1,10 @@
 const express = require('express');
+// Loads variables from a .env file (in the project root) into
+// process.env — so TOGETHER_API_KEY etc. can just live in that file
+// instead of needing to be typed inline before every `npm start`. If no
+// .env file exists this is a harmless no-op (env vars set the normal
+// way, e.g. by the OS or an inline `VAR=value npm start`, still work).
+require('dotenv').config();
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const MySQLStore = require('express-mysql-session')(session);
@@ -1511,12 +1517,25 @@ app.get('/api/bookings/track', async (req, res) => {
   // requires the same OTP access-token proof used for placing a booking
   // in the first place, so only the person who can actually receive an
   // SMS at that number can see what's booked under it.
-  if (!accessToken) {
-    return res.status(401).json({ error: 'Please verify your number with the OTP sent to it first.' });
-  }
-  const otpValid = await verifyOtpAccessToken(accessToken, phone);
-  if (!otpValid) {
-    return res.status(401).json({ error: 'Could not verify this number. Please request a new OTP and try again.' });
+  //
+  // FLOW CHANGE: made this conditional on the same Admin Panel OTP
+  // on/off switch that already governs every other OTP check in the app
+  // (POST /api/bookings, POST /api/customer-profile) — previously this
+  // one endpoint alone ignored that switch and always demanded a valid
+  // accessToken, which meant "My Account" hung forever whenever OTP was
+  // turned off (e.g. no SMS provider configured yet), even though
+  // Booking worked fine in that same state.
+  const otpCfgForTrack = readData('otp-config');
+  const otpEnabledForTrack = otpCfgForTrack.enabled !== false;
+  const alreadyVerifiedForTrack = isPhoneVerified(phone);
+  if (otpEnabledForTrack && !alreadyVerifiedForTrack) {
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Please verify your number with the OTP sent to it first.' });
+    }
+    const otpValid = await verifyOtpAccessToken(accessToken, phone);
+    if (!otpValid) {
+      return res.status(401).json({ error: 'Could not verify this number. Please request a new OTP and try again.' });
+    }
   }
   // Searches both the active collection and the archive, so a customer's
   // full history is always visible even after old bookings have been
@@ -1692,7 +1711,7 @@ app.get('/api/admin/otp-config', requireAdmin, (req, res) => {
   // is masked to just its last 4 characters — enough for the Super Admin
   // to recognize "yes, this is the token I set" without redisplaying the
   // full secret every time the Settings page loads.
-  res.json({ enabled: cfg.enabled !== false, widgetId: cfg.widgetId || '', tokenAuth: cfg.tokenAuth || '' });
+  res.json({ enabled: cfg.enabled !== false, widgetId: cfg.widgetId || '', tokenAuth: cfg.tokenAuth || '', authkey: cfg.authkey || '' });
 });
 app.put('/api/admin/otp-config', requireAdmin, (req, res) => {
   const cfg = readData('otp-config');
@@ -1707,8 +1726,9 @@ app.put('/api/admin/otp-config', requireAdmin, (req, res) => {
   // whitespace from copy-pasting out of the MSG91 dashboard.
   if (typeof req.body.widgetId === 'string') cfg.widgetId = req.body.widgetId.trim();
   if (typeof req.body.tokenAuth === 'string') cfg.tokenAuth = req.body.tokenAuth.trim();
+  if (typeof req.body.authkey === 'string') cfg.authkey = req.body.authkey.trim();
   writeData('otp-config', cfg);
-  res.json({ success: true, enabled: cfg.enabled !== false, widgetId: cfg.widgetId, tokenAuth: cfg.tokenAuth ? '••••••••' + cfg.tokenAuth.slice(-4) : '' });
+  res.json({ success: true, enabled: cfg.enabled !== false, widgetId: cfg.widgetId, tokenAuth: cfg.tokenAuth ? '••••••••' + cfg.tokenAuth.slice(-4) : '', authkey: cfg.authkey ? '••••••••' + cfg.authkey.slice(-4) : '' });
 });
 
 // =======================================================
@@ -1742,8 +1762,77 @@ app.get('/api/customer-lookup', (req, res) => {
   const bookings = readData('bookings');
   const archived = readData('bookings-archive');
   const match = bookings.find(b => b.phone === phone) || archived.find(b => b.phone === phone);
-  if (!match) return res.json({ found: false });
-  res.json({ found: true, name: match.name || '', address: match.address || '', cityId: match.cityId || '' });
+  if (match) return res.json({ found: true, name: match.name || '', address: match.address || '', cityId: match.cityId || '' });
+  // FLOW CHANGE: the unified Booking/My Account "account gate" (see
+  // main.js openAccountGate) now lets a customer save their name/address
+  // right after OTP verification, before they've ever placed a real
+  // booking — that record lives in data/customers.json via
+  // POST /api/customer-profile below. Checked here as a fallback so a
+  // returning customer with an account but no booking yet still gets
+  // auto-filled/recognized instead of being treated as brand new.
+  const customers = readData('customers');
+  const profile = customers.find(c => c.phone === phone);
+  if (profile) return res.json({ found: true, name: profile.name || '', address: profile.address || '', cityId: profile.cityId || '' });
+  res.json({ found: false });
+});
+
+// Public — creates or updates a lightweight customer profile (name +
+// full address + city) right after mobile OTP verification, as the
+// "Add Address" step of the unified Booking/My Account flow. This is
+// what actually "creates the account" — before this, a customer record
+// only ever existed as a byproduct of a completed booking; now it can
+// exist the moment someone verifies their number and saves an address,
+// even if they haven't booked anything yet. Requires the phone to
+// already be OTP-verified so this can't be used to write profiles for
+// arbitrary numbers nobody actually confirmed.
+app.post('/api/customer-profile', async (req, res) => {
+  const { phone, name, address, cityId, accessToken } = req.body || {};
+  if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Valid 10 digit phone number required' });
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
+  if (!address || !address.trim()) return res.status(400).json({ error: 'Please enter your full address.' });
+  const cities = readData('cities');
+  if (!cityId || !cities.find(c => c.id === cityId)) return res.status(400).json({ error: 'Please select a valid city.' });
+  // FLOW CHANGE: OTP should only ever be asked ONCE per number — the
+  // first time someone registers. This is that "once": the Account
+  // Gate already ran the customer through the OTP widget just before
+  // this Add Address step and has the resulting accessToken. Verifying
+  // it here and calling markPhoneVerified() is what makes every LATER
+  // visit (any device, any session — verified-phones.json is
+  // server-wide, not per-browser) skip the OTP popup entirely from then
+  // on, via the same isPhoneVerified() check every other OTP entry
+  // point in the app already uses. Without this, a brand new number
+  // could never actually get past this step once OTP is truly turned
+  // on, since nothing was ever recording that it had been verified.
+  const otpCfgForProfile = readData('otp-config');
+  const otpEnabledForProfile = otpCfgForProfile.enabled !== false;
+  if (otpEnabledForProfile && !isPhoneVerified(phone)) {
+    if (!accessToken) {
+      return res.status(403).json({ error: 'Please verify your mobile number with OTP first.' });
+    }
+    try {
+      const otpValid = await verifyOtpAccessToken(accessToken, phone);
+      if (!otpValid) {
+        return res.status(401).json({ error: 'OTP verification failed, expired, or does not match this phone number. Please verify your number again.' });
+      }
+      markPhoneVerified(phone); // remembered from here on — no OTP needed for this number ever again
+    } catch (e) {
+      console.error('OTP verify error (customer-profile):', e);
+      return res.status(500).json({ error: 'Could not verify OTP right now. Please try again in a moment.' });
+    }
+  }
+
+  const customers = readData('customers');
+  const existing = customers.find(c => c.phone === phone);
+  if (existing) {
+    existing.name = name.trim();
+    existing.address = address.trim();
+    existing.cityId = cityId;
+    existing.updatedAt = new Date().toISOString();
+  } else {
+    customers.push({ id: genId('cust'), phone, name: name.trim(), address: address.trim(), cityId, createdAt: new Date().toISOString() });
+  }
+  writeData('customers', customers);
+  res.json({ success: true, name: name.trim(), address: address.trim(), cityId });
 });
 
 // Public — lets the booking form check, before opening the OTP widget,
@@ -3526,6 +3615,16 @@ app.get('/api/admin/bookings', requireStaff, (req, res) => {
   res.json(scope ? bookings.filter(b => scope.includes(b.cityId)) : bookings);
 });
 
+// Lets staff actually browse the Archive (see readArchivedBookings above)
+// from the Orders tab — previously the only way to move a booking INTO
+// the archive was through Admin Panel, but nothing let anyone look at
+// what had already been archived without opening the data file by hand.
+app.get('/api/admin/bookings/archived', requireStaff, (req, res) => {
+  const archived = readArchivedBookings();
+  const scope = getStaffCityScope(req);
+  res.json(scope ? archived.filter(b => scope.includes(b.cityId)) : archived);
+});
+
 // Lets Admin register a booking taken over a phone call — no OTP needed
 // here since the Admin is already authenticated. Still findable later by
 // the customer's phone number, same as any other booking.
@@ -4539,13 +4638,6 @@ app.get('/', (req, res) => {
     const cityListText = joinWithAnd(cityNames);
     const appliances = readData('appliances').filter(a => !a.hidden);
     const applianceListText = joinWithAnd(appliances.map(a => a.name));
-    // Each link jumps straight to the booking form AND pre-selects that
-    // appliance there (see the "footer-appliance-link" handler in main.js) —
-    // so clicking "Split AC Repair & Service" actually changes the selected
-    // appliance in the booking form, instead of just scrolling the page.
-    const servicesListHtml = appliances.length
-      ? appliances.map(a => `<li><a href="#book" data-appliance="${a.id}" class="footer-appliance-link">${a.name} Repair &amp; Service</a></li>`).join('\n          ')
-      : '<li><a href="#services">Appliance Repair &amp; Service</a></li>';
     const siteContent = readData('site-content');
     const template = fs.readFileSync(INDEX_TEMPLATE_PATH, 'utf-8');
     const html = template
@@ -4554,7 +4646,6 @@ app.get('/', (req, res) => {
       .split('{{CITY_COUNT}}').join(String(cityNames.length))
       .split('{{APPLIANCE_COUNT}}').join(String(appliances.length))
       .split('{{APPLIANCE_LIST_TEXT}}').join(applianceListText)
-      .replace('{{SERVICES_LIST_HTML}}', servicesListHtml)
       .replace('{{SAME_AS_JSON}}', buildSameAsJson())
       .replace('{{AGGREGATE_RATING_JSON}}', aggregateRatingJsonFragment(computeSiteRating()))
       .replace('{{FOOTER_SLOGAN}}', escapeHtml(siteContent.footerSlogan || ''))
@@ -5091,19 +5182,18 @@ app.get('/careers', (req, res) => {
     // Careers page normally shows.
     const admin = readData('admin');
     const hiringPaused = !!admin.hiringPaused;
-    // SUGGESTION IMPLEMENTED: when the rest of the site is down for
-    // maintenance, the Careers page's own header used to still show the
-    // normal nav (Services/Book/Track — all leading to the down site) and
-    // the support phone number, which is misleading during an outage and
-    // invites calls staff may not be ready to field. Both are hidden
-    // while maintenanceMode is on; the logo (linking home, where the
-    // maintenance notice itself lives) is the only navigation shown.
-    const headerNavHtml = admin.maintenanceMode ? '' : `<nav class="nav-links" id="navLinks">
-      <a href="/#services">Services</a>
-      <a href="/#book">Book</a>
-      <a href="/#track">Track</a>
-      <a href="/careers">Careers</a>
-    </nav>`;
+    // FLOW CHANGE: on the Careers page itself, "Services" and "FAQ" just
+    // send someone away to homepage sections that have nothing to do
+    // with applying for a job — Careers is the only genuinely useful
+    // item here, and it's also literally where the visitor already is.
+    // Simplified to one plain, always-visible "Home" link — small enough
+    // that it doesn't need the hamburger-menu machinery (nav-toggle/
+    // nav-links) at all, which also sidesteps a real bug that setup had:
+    // the mobile "hide above the viewport" CSS is tuned for a taller,
+    // multi-item nav — with just one short link the box is short enough
+    // that transform:translateY(-130%) didn't clear the viewport, so a
+    // sliver of it stayed visibly stuck to the top of the page.
+    const headerHomeLinkHtml = admin.maintenanceMode ? '' : `<a href="/" class="header-home-link">← Back to Home</a>`;
     const headerCallHtml = admin.maintenanceMode ? '' : `<a class="call-link" href="tel:+919389585479">📞 <span class="call-text">9389585479</span></a>`;
     const careerCities = readData('career-cities');
     const careerAppliances = readData('career-appliances');
@@ -5163,6 +5253,17 @@ app.get('/careers', (req, res) => {
       ? `<div style="max-width:600px;margin:0 auto 24px;padding:16px 20px;background:var(--mist);border-radius:var(--radius-md);text-align:center;color:var(--slate);">🙏 ${escapeHtml(admin.hiringPausedMessage || 'We\'ll open applications again once we have openings — thanks for understanding.')}</div>`
       : '';
     const formDisplayStyle = hiringPaused ? 'display:none;' : '';
+    // SEO/content: without this, the page was almost nothing but a bare
+    // form below the title — solid meta tags and JobPosting schema, but
+    // almost no actual readable text for Google (or a human) to find
+    // this page valuable for. This paragraph, plus the four benefit
+    // cards in the template right above the form, gives the page real
+    // body content — genuinely descriptive, not keyword-stuffed — while
+    // still naturally mentioning the cities/appliances actually being
+    // hired for.
+    const careersIntroText = careerCities.length
+      ? `We're always looking for skilled ${applianceListText || 'appliance repair'} technicians to join us in ${cityListText}. Whether you're experienced or just getting started, Seerua connects you with steady, doorstep repair and service jobs in your own city.`
+      : `We're building our technician network city by city. Tell us where you're based and what you can repair, and we'll reach out the moment there's an opening near you.`;
 
     const template = fs.readFileSync(CAREERS_TEMPLATE_PATH, 'utf-8');
     const html = template
@@ -5170,12 +5271,13 @@ app.get('/careers', (req, res) => {
       .split('{{CAREERS_META_DESCRIPTION}}').join(escapeHtml(metaDescription))
       .replace('{{CAREERS_KEYWORDS}}', escapeHtml(keywords))
       .replace('{{JOB_POSTING_SCHEMA_JSON}}', jobPostingSchemaHtml)
+      .replace('{{CAREERS_INTRO_TEXT}}', escapeHtml(careersIntroText))
       .replace('{{APPLY_EYEBROW}}', escapeHtml(applyEyebrow))
       .replace('{{APPLY_HEADING}}', escapeHtml(applyHeading))
       .replace('{{APPLY_SUBTEXT}}', escapeHtml(applySubtext))
       .replace('{{HIRING_PAUSED_NOTICE}}', hiringPausedNotice)
       .replace('{{FORM_DISPLAY_STYLE}}', formDisplayStyle)
-      .replace('{{HEADER_NAV_HTML}}', headerNavHtml)
+      .replace('{{HEADER_HOME_LINK_HTML}}', headerHomeLinkHtml)
       .replace('{{HEADER_CALL_HTML}}', headerCallHtml);
     res.setHeader('Content-Type', 'text/html');
     res.send(html);

@@ -68,30 +68,75 @@
     return otpConfigCache;
   }
 
+  // BUG FIX: same root cause as main.js — window.sendOtp doesn't exist
+  // synchronously right after initSendOTP({exposeMethods:true, ...}); the
+  // widget needs a moment to finish its own async setup first. Polls
+  // briefly until it's actually ready instead of calling it immediately.
+  function waitForOtpMethods(timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      (function poll() {
+        if (typeof window.sendOtp === 'function' && typeof window.verifyOtp === 'function') {
+          resolve();
+        } else if (Date.now() - start > timeoutMs) {
+          reject(new Error('OTP service did not initialize in time. Please try again.'));
+        } else {
+          setTimeout(poll, 150);
+        }
+      })();
+    });
+  }
+
+  // FLOW CHANGE / BUG FIX: same underlying bug as main.js's
+  // verifyPhoneWithOtp — `exposeMethods: false` relies on MSG91's own
+  // built-in popup to show the OTP entry box, and that popup reliably
+  // sends the SMS but never actually renders any visible UI. Chatbot.js
+  // has no modal of its own to fall back on (city pages don't have
+  // #otpEntryModal), so instead it asks for the code as a normal chat
+  // message — a natural fit for a chat interface. See the
+  // `pendingOtpVerify` check at the top of sendChatMessage() below,
+  // which intercepts the next message as the OTP code instead of
+  // sending it to the AI.
+  let pendingOtpVerify = null; // { resolve, reject } while waiting for the customer to type their OTP
   function verifyPhoneWithOtp(phone) {
     return new Promise(async (resolve, reject) => {
       try {
         const cfg = await ensureOtpConfig();
+        if (!cfg.widgetId || !cfg.tokenAuth) {
+          pendingOtpVerify = null;
+          reject(new Error('OTP is turned ON but the Widget ID / Token are not set in Admin Panel > OTP Settings. Add them there first.'));
+          return;
+        }
         await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
-        const configuration = {
+        const identifier = '91' + phone;
+        window.initSendOTP({
           widgetId: cfg.widgetId,
           tokenAuth: cfg.tokenAuth,
-          identifier: '91' + phone,
-          exposeMethods: false,
+          identifier,
+          exposeMethods: true,
           success: (data) => {
+            // Some widget versions call this directly rather than via
+            // the verifyOtp callback in sendChatMessage() — handled the
+            // same way either way.
             const accessToken = data && (data.message || data.token || data['access-token']);
-            if (!accessToken) {
-              reject(new Error('Verification succeeded but no token was received. Please try again.'));
-              return;
+            if (accessToken && pendingOtpVerify) {
+              pendingOtpVerify = null;
+              resolve(accessToken);
             }
-            resolve(accessToken);
           },
-          failure: (error) => {
-            reject(new Error('OTP verification failed or was cancelled.'));
-          }
-        };
-        window.initSendOTP(configuration);
+          failure: (error) => { console.log('OTP failure:', error); }
+        });
+        pendingOtpVerify = { resolve, reject };
+        await waitForOtpMethods(10000);
+        window.sendOtp(identifier, () => {
+          addBotMessage('📲 Aapke number par ek OTP bhej diya hai. Wo code yahan type karke bhej dein (agar na mile to "resend" likhein).');
+        }, (error) => {
+          pendingOtpVerify = null;
+          console.log('OTP send failure:', error);
+          reject(new Error('Could not send the OTP. Please try again.'));
+        });
       } catch (err) {
+        pendingOtpVerify = null;
         reject(err);
       }
     });
@@ -279,6 +324,43 @@
   async function sendChatMessage(text) {
     if (!text || !text.trim() || aiRequestInFlight) return;
     text = text.trim();
+    // While waiting for an OTP code (see verifyPhoneWithOtp above), the
+    // next message typed is treated as that code instead of being sent
+    // to the AI — this IS the OTP entry UI for the chat interface.
+    if (pendingOtpVerify) {
+      addUserMessage(text);
+      if (/^(resend|dobara|phir se bhejo)/i.test(text)) {
+        addBotMessage('🔁 Dobara OTP bhej rahe hain...');
+        window.retryOtp(null, () => {
+          addBotMessage('📲 Naya code bhej diya hai — kripya wo yahan type karein.');
+        }, () => {
+          addBotMessage('❌ Dobara bhejne mein dikkat aayi. Kripya thodi der baad try karein.');
+        });
+        return;
+      }
+      const code = text.replace(/\D/g, '');
+      if (!/^[0-9]{4,6}$/.test(code)) {
+        addBotMessage('Ye OTP jaisa nahi lag raha — kripya SMS mein aaya hua 4-6 digit ka code type karein, ya "resend" likhein.');
+        return;
+      }
+      const { resolve, reject } = pendingOtpVerify;
+      addBotMessage('⏳ Verify kar rahe hain...');
+      window.verifyOtp(code, (data) => {
+        const accessToken = data && (data.message || data.token || data['access-token']);
+        pendingOtpVerify = null;
+        if (!accessToken) {
+          addBotMessage('Verify to ho gaya lekin token nahi mila. Kripya dobara try karein.');
+          reject(new Error('No access token received.'));
+          return;
+        }
+        addBotMessage('✅ Number verify ho gaya!');
+        resolve(accessToken);
+      }, () => {
+        addBotMessage('❌ Code galat ya expire ho gaya hai. Kripya SMS wala code dubara type karein, ya "resend" likhein.');
+        // pendingOtpVerify stays set so the customer can retry
+      });
+      return;
+    }
     addUserMessage(text);
     setInputEnabled(false);
     const typingRow = addBotMessage('<span class="chat-thinking"><svg class="chat-thinking-star" viewBox="0 0 24 24" width="20" height="20"><path d="M12 1l2.6 7.3L22 11l-7.4 2.7L12 21l-2.6-7.3L2 11l7.4-2.7L12 1z" fill="currentColor"/></svg></span>');
@@ -525,6 +607,21 @@
       });
       if (document.body.contains(statusMsg)) statusMsg.remove();
       addBotMessage(`✅ Booking confirm ho gayi! Booking ID: <strong>${escapeHtml(data.booking.id)}</strong><br>Visit: ${escapeHtml(data.booking.bookingDate)}, ${escapeHtml(data.booking.timeSlot)}<br>Total: ₹${data.booking.totalPrice}`);
+      // FLOW CHANGE: a chatbot booking already gives the server everything
+      // it needs to recognize this customer next time (name/address/city
+      // saved on the booking itself — see /api/customer-lookup), but this
+      // browser's own Account Gate (header avatar) wouldn't know that yet
+      // without asking for the mobile number again. Saving it directly
+      // here — main.js's saveAccount()/updateHeaderAccountUI(), both
+      // plain globals since chatbot.js loads after main.js — means the
+      // very same visit already shows the account avatar and skips
+      // straight through if they tap Booking/My Account again right after.
+      if (typeof saveAccount === 'function') {
+        saveAccount({
+          phone: info.phone, name: info.name, address: info.address, cityId: info.cityId,
+          accessToken: payload.accessToken || (typeof verifiedBookingAccessToken !== 'undefined' ? verifiedBookingAccessToken : undefined)
+        });
+      }
     } catch (err) {
       if (document.body.contains(statusMsg)) statusMsg.remove();
       addBotMessage(err.message || 'Booking create nahi ho paayi. Kripya booking form se try karein ya humse call karein.');

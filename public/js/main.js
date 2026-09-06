@@ -5,19 +5,56 @@ let BOOKING_PAUSED_STATUS = null; // set once at page load from /api/booking-sta
 document.getElementById('year').textContent = new Date().getFullYear();
 
 // Mobile nav toggle
-const navToggle = document.getElementById('navToggle');
-const navLinks = document.getElementById('navLinks');
-navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
-navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
-// BUG FIX: the menu only ever closed by tapping the hamburger icon again
-// or a link inside it — tapping anywhere else on the page (which is the
-// natural instinct to dismiss a menu) did nothing, so it stayed open
-// sitting over the page. Closes on any click outside the menu itself.
-document.addEventListener('click', (e) => {
-  if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && !navToggle.contains(e.target)) {
-    navLinks.classList.remove('open');
-  }
-});
+// FLOW CHANGE: there used to be two separate ways to open essentially
+// the same menu — a hamburger up in the header, and this bottom-nav
+// "Menu" button. Consolidated down to just this one: it's the
+// thumb-reachable option, consistent with the rest of this bottom-nav
+// bar (Home/City/Cart/Menu), and matches app-style navigation the site
+// already leans on elsewhere. The header hamburger button and its
+// #navLinks dropdown are gone from the template — on desktop the same
+// Services/FAQ/Careers links show directly in the header with no
+// toggle needed either way.
+// BUG FIX: "Menu" and "City" further down were both fully built out in
+// the HTML (their own bottom sheets) but never actually wired up to
+// open anything at all. Fixed here.
+
+function openBottomSheet(id) {
+  document.querySelectorAll('.bottom-sheet-backdrop.open').forEach(el => el.classList.remove('open'));
+  const sheet = document.getElementById(id);
+  if (sheet) sheet.classList.add('open');
+}
+function closeBottomSheet(id) {
+  const sheet = document.getElementById(id);
+  if (sheet) sheet.classList.remove('open');
+}
+function bindBottomSheet(id) {
+  const backdrop = document.getElementById(id);
+  if (!backdrop) return;
+  // Tapping the dark backdrop itself (not the white sheet panel) closes it.
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) closeBottomSheet(id);
+  });
+  // Any actual link/option inside the sheet closes it once tapped — the
+  // navigation itself is the dismissal.
+  backdrop.querySelectorAll('a, button').forEach(el => {
+    el.addEventListener('click', () => closeBottomSheet(id));
+  });
+}
+['menuSheetBackdrop', 'citySheetBackdrop', 'supportSheetBackdrop'].forEach(bindBottomSheet);
+
+const bottomNavMenuBtn = document.getElementById('bottomNavMenuBtn');
+if (bottomNavMenuBtn) bottomNavMenuBtn.addEventListener('click', () => openBottomSheet('menuSheetBackdrop'));
+
+const bottomNavCityBtn = document.getElementById('bottomNavCityBtn');
+if (bottomNavCityBtn) {
+  bottomNavCityBtn.addEventListener('click', () => {
+    const grid = document.getElementById('bottomSheetCityGrid');
+    if (grid && !grid.children.length && typeof CITIES !== 'undefined') {
+      grid.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="bottom-sheet-city-btn">${c.name}</a>`).join('');
+    }
+    openBottomSheet('citySheetBackdrop');
+  });
+}
 
 // Custom line icons (white strokes, sit on the .service-icon's gradient
 // circle) instead of emoji — emoji render inconsistently across devices
@@ -49,7 +86,6 @@ function openBookingForm() {
   // would scroll to the booking form while that menu's fixed white panel
   // stayed open on top, hiding the form behind it. Always close the menu
   // here so that can't happen, no matter which "Book Now" was tapped.
-  if (navLinks) navLinks.classList.remove('open');
   const wrap = document.getElementById('bookingWrap');
   if (wrap) wrap.hidden = false;
   const section = document.getElementById('book');
@@ -72,7 +108,6 @@ function closeBookingForm() {
 // "Track" or "My Booking" in the nav/footer — every such link points to
 // #track, intercepted the same way as the booking form's #book links.
 function openTrackHistory(skipScroll) {
-  if (navLinks) navLinks.classList.remove('open'); // same fix as openBookingForm() above
   const wrap = document.getElementById('trackWrap');
   if (wrap) wrap.hidden = false;
   if (skipScroll) return;
@@ -80,11 +115,16 @@ function openTrackHistory(skipScroll) {
   if (section) section.scrollIntoView({ behavior: 'smooth' });
 }
 
+// FLOW CHANGE: both "My Account" and every "Book Now" (#book) link now
+// funnel through the same shared Account Gate first (Mobile → OTP →
+// Add Address) instead of opening their section directly — see
+// openAccountGate() below. A customer who already has a saved account
+// skips straight through with no extra steps.
 document.addEventListener('click', (e) => {
   const link = e.target.closest('a[href="#track"]');
   if (link) {
     e.preventDefault();
-    openTrackHistory();
+    openAccountGate('account');
   }
 });
 
@@ -92,7 +132,7 @@ document.addEventListener('click', (e) => {
   const link = e.target.closest('a[href="#book"]');
   if (link) {
     e.preventDefault();
-    openBookingForm();
+    openAccountGate('booking');
   }
 });
 
@@ -106,31 +146,30 @@ document.addEventListener('click', (e) => {
 // too early ends up pointed at whatever content happened to land there
 // once the page settles, not the form itself.
 function bindUrlTriggeredSections() {
-  if (window.location.hash === '#track') {
-    document.getElementById('track').scrollIntoView({ behavior: 'smooth' });
-  }
   const trackPhoneParam = new URLSearchParams(window.location.search).get('trackPhone');
   if (trackPhoneParam && /^[0-9]{10}$/.test(trackPhoneParam)) {
     const input = document.getElementById('trackPhone');
     if (input) {
       input.value = trackPhoneParam;
-      document.getElementById('track').scrollIntoView({ behavior: 'smooth' });
       const btn = document.getElementById('trackBtn');
-      if (btn) btn.click();
+      if (btn) btn.click(); // opens the Track Booking popup directly
     }
   }
   if (window.location.hash === '#book') {
     document.getElementById('book').scrollIntoView({ behavior: 'smooth' });
   }
 }
-// Reveal (not scroll) immediately, so the section isn't a jarring empty
-// flash of content once the deferred scroll above does land on it.
-if (window.location.hash === '#track' || new URLSearchParams(window.location.search).get('trackPhone')) {
-  openTrackHistory(true);
-}
-if (window.location.hash === '#book') {
-  const wrap = document.getElementById('bookingWrap');
-  if (wrap) wrap.hidden = false;
+// A #track/#book link followed from outside the page (e.g. an SMS/WhatsApp
+// link, or a bookmark) goes through the same Account Gate as an in-page
+// click — trackPhone param is the one exception, since that link already
+// carries a known phone number (e.g. a "rate your service" link) rather
+// than asking the person to prove who they are again.
+if (new URLSearchParams(window.location.search).get('trackPhone')) {
+  // handled by bindUrlTriggeredSections() once init() finishes loading
+} else if (window.location.hash === '#track') {
+  openAccountGate('account');
+} else if (window.location.hash === '#book') {
+  openAccountGate('booking');
 }
 
 async function fetchJSON(url, opts) {
@@ -691,7 +730,14 @@ function bindCareersModal() {
   if (!modal) return;
 
   if (openBtn) openBtn.addEventListener('click', openCareersModal);
-  if (navLink) navLink.addEventListener('click', (e) => { e.preventDefault(); openCareersModal(); navLinks.classList.remove('open'); });
+  // FLOW CHANGE: this used to intercept the click and open the modal
+  // below instead of navigating — but that meant the header's "Careers"
+  // link (used across the whole site) never actually sent anyone to the
+  // real /careers page, which is the one with proper SEO meta tags,
+  // JobPosting structured data, and real descriptive content for
+  // Google. It just quietly opened an invisible-to-search-engines
+  // duplicate of the same form instead. #careersNavLink now has a real
+  // href="/careers" in the template and is left to navigate normally.
   document.getElementById('careersModalClose').addEventListener('click', closeCareersModal);
   document.getElementById('careersModalCancel').addEventListener('click', closeCareersModal);
 
@@ -1291,10 +1337,116 @@ async function autoFillReturningCustomer(phoneFieldId, nameFieldId, addressField
   } catch (e) { /* non-critical — silently skip if the lookup fails, customer just fills the form normally */ }
 }
 
+// ---------------- Custom date calendar (replaces native <input
+// type="date"> for #fDate — see the template comment for why) ----------------
+let dateCalViewYear, dateCalViewMonth; // 0-indexed month, currently-displayed page
+let dateCalSelected = null; // 'YYYY-MM-DD' or null
+
+function dateCalToStr(y, m, d) {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function selectDateCalendarDay(str) {
+  dateCalSelected = str;
+  const fDateEl = document.getElementById('fDate');
+  const displayEl = document.getElementById('fDateDisplay');
+  fDateEl.value = str;
+  const d = new Date(str + 'T00:00:00');
+  displayEl.value = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  fDateEl.dispatchEvent(new Event('change')); // existing refreshSlots listener picks this up
+  closeDateCalendar();
+}
+
+function renderDateCalendar() {
+  const label = document.getElementById('dateCalMonthLabel');
+  const grid = document.getElementById('dateCalGrid');
+  const prevBtn = document.getElementById('dateCalPrev');
+  if (!label || !grid) return;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  label.textContent = `${monthNames[dateCalViewMonth]} ${dateCalViewYear}`;
+
+  const now = new Date();
+  const todayStr = dateCalToStr(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = dateCalToStr(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+  document.getElementById('dateCalTodayBtn')?.classList.toggle('active', dateCalSelected === todayStr);
+  document.getElementById('dateCalTomorrowBtn')?.classList.toggle('active', dateCalSelected === tomorrowStr);
+  // Can't navigate to a month before the current one — nothing bookable back there anyway.
+  prevBtn.disabled = (dateCalViewYear === now.getFullYear() && dateCalViewMonth === now.getMonth());
+
+  const firstWeekday = new Date(dateCalViewYear, dateCalViewMonth, 1).getDay();
+  const daysInMonth = new Date(dateCalViewYear, dateCalViewMonth + 1, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < firstWeekday; i++) html += '<span class="date-cal-day is-empty"></span>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const str = dateCalToStr(dateCalViewYear, dateCalViewMonth, d);
+    const isPast = str < todayStr;
+    const isToday = str === todayStr;
+    const isSelected = str === dateCalSelected;
+    html += `<button type="button" class="date-cal-day${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}" data-date="${str}" ${isPast ? 'disabled' : ''}>${d}</button>`;
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.date-cal-day[data-date]').forEach(btn => {
+    btn.addEventListener('click', () => selectDateCalendarDay(btn.getAttribute('data-date')));
+  });
+}
+
+function openDateCalendar() {
+  const now = new Date();
+  const current = document.getElementById('fDate').value;
+  if (current) {
+    const [y, m] = current.split('-').map(Number);
+    dateCalViewYear = y;
+    dateCalViewMonth = m - 1;
+    dateCalSelected = current;
+  } else {
+    dateCalViewYear = now.getFullYear();
+    dateCalViewMonth = now.getMonth();
+    dateCalSelected = null;
+  }
+  renderDateCalendar();
+  document.getElementById('dateCalendarModal').classList.add('open');
+}
+
+function closeDateCalendar() {
+  document.getElementById('dateCalendarModal').classList.remove('open');
+}
+
+function bindDateCalendar() {
+  document.getElementById('fDateDisplay').addEventListener('click', openDateCalendar);
+  document.getElementById('dateCalendarClose').addEventListener('click', closeDateCalendar);
+  document.getElementById('dateCalendarModal').addEventListener('click', (e) => {
+    if (e.target.id === 'dateCalendarModal') closeDateCalendar();
+  });
+  document.getElementById('dateCalPrev').addEventListener('click', () => {
+    dateCalViewMonth--;
+    if (dateCalViewMonth < 0) { dateCalViewMonth = 11; dateCalViewYear--; }
+    renderDateCalendar();
+  });
+  document.getElementById('dateCalNext').addEventListener('click', () => {
+    dateCalViewMonth++;
+    if (dateCalViewMonth > 11) { dateCalViewMonth = 0; dateCalViewYear++; }
+    renderDateCalendar();
+  });
+  // Quick shortcuts (matches the original wireframe) — jump straight to
+  // Today/Tomorrow without needing to find the right cell in the grid.
+  document.getElementById('dateCalTodayBtn').addEventListener('click', () => {
+    const now = new Date();
+    selectDateCalendarDay(dateCalToStr(now.getFullYear(), now.getMonth(), now.getDate()));
+  });
+  document.getElementById('dateCalTomorrowBtn').addEventListener('click', () => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    selectDateCalendarDay(dateCalToStr(t.getFullYear(), t.getMonth(), t.getDate()));
+  });
+}
+
 function bindFormEvents() {
   document.getElementById('fAppliance').addEventListener('change', refreshFormTypes);
   document.getElementById('addItemBtn').addEventListener('click', addItemToCart);
   document.getElementById('fDate').addEventListener('change', refreshSlots);
+  bindDateCalendar();
 
   document.getElementById('fCity').addEventListener('change', async () => {
     await refreshAppliancesForCity(document.getElementById('fCity').value);
@@ -1449,10 +1601,11 @@ function bindFormEvents() {
           verifiedBookingPhone = bookedPhone;
           verifiedBookingAccessToken = payload.accessToken;
         }
-        const trackSection = document.getElementById('trackWrap');
-        if (trackSection) trackSection.hidden = false;
+        // FLOW CHANGE: results now open in the Track Booking popup (see
+        // trackBtn's click handler below), not the old permanent
+        // "Registered Mobile Number" section on the page — nothing to
+        // scroll to here anymore.
         document.getElementById('trackBtn')?.click();
-        document.getElementById('track')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 3500);
     } catch (err) {
       msg.className = 'form-msg error';
@@ -1562,6 +1715,99 @@ function showGoogleReviewPrompt() {
   `;
 }
 
+function closeReferModal() {
+  const modal = document.getElementById('referModal');
+  const body = document.getElementById('referModalBody');
+  if (modal) modal.classList.remove('open');
+  if (body) body.innerHTML = ''; // truly gone, not just hidden with stale content
+}
+
+// Own popup for "Refer a Friend" (same pattern as Track Booking) — opens
+// WhatsApp with the referral message pre-filled AND shows the referral
+// stats/rewards here, in this one self-contained box, instead of
+// reusing the old always-on-page "My Account" section.
+async function openReferModal() {
+  const acc = getAccount();
+  if (!acc) { openAccountGate('account'); return; }
+  const modal = document.getElementById('referModal');
+  const body = document.getElementById('referModalBody');
+  if (!modal || !body) return;
+  modal.classList.add('open');
+  body.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Getting your referral link...</p>';
+  // Opened synchronously, before the `await`, so browsers still treat it
+  // as a direct result of the tap and don't block it as a pop-up.
+  const popup = window.open('', '_blank');
+  try {
+    const info = await fetchJSON(`/api/referral/my-info?phone=${acc.phone}`);
+    if (!info.active) {
+      if (popup) popup.close();
+      body.innerHTML = '<p style="color:var(--red)">The referral program is not active right now. Please check back later.</p>';
+      return;
+    }
+    const rewardsHtml = info.rewardCoupons && info.rewardCoupons.length
+      ? info.rewardCoupons.map(c => `
+          <div class="row1" style="padding:8px 0;border-bottom:1px solid var(--line);">
+            <span><strong style="color:var(--blue-900);">${escapeHtml(c.code)}</strong> · ₹${c.discountValue} off</span>
+            <span class="status-pill ${c.used ? 'status-completed' : 'status-assigned'}">${c.used ? 'Used' : 'Available'}</span>
+          </div>
+          ${!c.used ? `<div class="row2" style="margin-top:-4px;margin-bottom:6px;">Valid till ${c.expiryDate} — enter this code at checkout on your own next booking.</div>` : ''}
+        `).join('')
+      : '';
+    body.innerHTML = `
+      <div class="row2" style="margin-bottom:8px;">Your link: <a href="${info.link}" style="color:var(--blue-600);word-break:break-all;">${info.link}</a></div>
+      <div class="row1"><span>People you've referred</span><strong>${info.referredCount || 0}</strong></div>
+      <div class="row1"><span>Rewards pending (waiting for their service to complete)</span><strong>${info.pendingCount || 0}</strong></div>
+      ${rewardsHtml ? `<div style="margin-top:10px;"><strong style="color:var(--blue-900);font-size:0.88rem;">Your reward coupons</strong>${rewardsHtml}</div>` : `<div class="row2" style="margin-top:8px;">No reward coupons yet — you'll get one automatically once someone you referred completes their first service.</div>`}
+    `;
+    const shareText = `Hi! I use Seerua Appliance Care for AC/Washing Machine/RO/Fridge repair — book through my link and get ₹${info.referredDiscount} off your first service: ${info.link}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    if (popup) popup.location.href = whatsappUrl;
+    else window.open(whatsappUrl, '_blank'); // popup blocked anyway — try once more directly
+  } catch (e) {
+    if (popup) popup.close();
+    body.innerHTML = `<p style="color:var(--red)">${e.message || 'Could not get your referral link. Please try again.'}</p>`;
+  }
+}
+
+function bindReferModal() {
+  document.getElementById('referModalClose')?.addEventListener('click', closeReferModal);
+  document.getElementById('referModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'referModal') closeReferModal();
+  });
+}
+bindReferModal();
+
+// ---------------- Track Booking popup (its own box, not a permanent
+// section left open on the page) ----------------
+function closeTrackBookingModal() {
+  const modal = document.getElementById('trackBookingModal');
+  const body = document.getElementById('trackBookingModalBody');
+  if (modal) modal.classList.remove('open');
+  if (body) body.innerHTML = ''; // truly gone, not just hidden with stale content
+}
+
+// Thin wrapper reused by the header's "Track Booking" button and the
+// Account Gate's 'account' intent — both just need "look up this
+// account's phone", and the shared #trackBtn engine above already does
+// the OTP-check/fetch/render-into-the-popup work in one place.
+function openTrackBookingModal() {
+  const acc = getAccount();
+  if (!acc) { openAccountGate('account'); return; }
+  const trackPhoneInput = document.getElementById('trackPhone');
+  if (trackPhoneInput) trackPhoneInput.value = acc.phone;
+  verifiedBookingPhone = acc.phone;
+  if (acc.accessToken) verifiedBookingAccessToken = acc.accessToken;
+  document.getElementById('trackBtn')?.click();
+}
+
+function bindTrackBookingModal() {
+  document.getElementById('trackBookingModalClose')?.addEventListener('click', closeTrackBookingModal);
+  document.getElementById('trackBookingModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'trackBookingModal') closeTrackBookingModal();
+  });
+}
+bindTrackBookingModal();
+
 // My Account — was "Track my booking", now OTP-protected (see the
 // matching server-side fix on /api/bookings/track): a customer's booking
 // history includes their name, home address, and exact appliance
@@ -1573,8 +1819,15 @@ let lastTrackedBookings = [];
 let knownReferralPhone = null; // set once the customer has looked themselves up in "My Booking", so the referral button doesn't need to ask for the number a second time
 document.getElementById('trackBtn').addEventListener('click', async () => {
   const phone = document.getElementById('trackPhone').value.trim();
-  const results = document.getElementById('trackResults');
-  const referBlock = document.getElementById('refer');
+  // FLOW CHANGE: results render into the Track Booking popup, not the
+  // old always-on-page "Registered Mobile Number" box (that box, and
+  // its results div, are now permanently hidden — see .track-box in
+  // the template). This one popup is the single display surface for
+  // every path that leads here: header "Track Booking", after placing
+  // a booking, or a "rate your service" SMS/WhatsApp link.
+  const modal = document.getElementById('trackBookingModal');
+  const results = document.getElementById('trackBookingModalBody');
+  if (modal) modal.classList.add('open');
   if (!/^[0-9]{10}$/.test(phone)) {
     results.innerHTML = '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>';
     return;
@@ -1584,32 +1837,38 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
     if (verifiedBookingPhone === phone && verifiedBookingAccessToken) {
       accessToken = verifiedBookingAccessToken; // already verified this number earlier in this visit
     } else {
-      results.innerHTML = '<p>Please complete the OTP verification that just opened.</p>';
-      accessToken = await verifyPhoneWithOtp(phone);
+      // Same check as everywhere else OTP is used (Account Gate, Add to
+      // Booking, booking submit) — a number already verified before, or
+      // OTP turned OFF in Admin Panel, skips straight through with no
+      // popup. Previously this always tried to open the OTP widget
+      // regardless of that setting, which hung forever whenever OTP
+      // wasn't configured.
+      let phoneAlreadyVerified = false;
+      try {
+        const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+        phoneAlreadyVerified = !!check.verified;
+      } catch (e) { /* fall back to normal OTP flow */ }
+
+      let otpEnabled = true;
+      try {
+        const cfg = await ensureOtpConfig();
+        otpEnabled = cfg.enabled !== false;
+      } catch (e) { /* fall back to normal OTP flow */ }
+
+      if (otpEnabled && !phoneAlreadyVerified) {
+        results.innerHTML = '<p style="color:var(--slate);">Please complete the OTP verification that just opened.</p>';
+        accessToken = await verifyPhoneWithOtp(phone);
+      }
       verifiedBookingPhone = phone;
       verifiedBookingAccessToken = accessToken;
     }
-    results.innerHTML = '<p>Searching...</p>';
-    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}&accessToken=${encodeURIComponent(accessToken)}`);
+    results.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Searching...</p>';
+    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}&accessToken=${encodeURIComponent(accessToken || '')}`);
     lastTrackedBookings = bookings;
-    if (!bookings.length) {
-      results.innerHTML = '<p>No bookings found for this number.</p>';
-      if (referBlock) referBlock.hidden = true;
-      return;
-    }
-    results.innerHTML = bookings.map(b => bookingCardHtml(b, true)).join('');
-    if (referBlock) {
-      knownReferralPhone = phone;
-      // Kept collapsed to just the "Get My Referral Link" button — it's a
-      // separate action from checking your bookings above, not something
-      // that should visually blend into the same result. The actual link
-      // only appears once that button is tapped (see referOpenBtn below).
-      referBlock.hidden = false;
-      resetReferralSectionToPrompt();
-    }
+    knownReferralPhone = phone; // so the header's "Refer a Friend" doesn't need to ask for the number again
+    results.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<p>No bookings found for this number.</p>';
   } catch (e) {
     results.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
-    if (referBlock) referBlock.hidden = true;
   }
 });
 
@@ -1617,6 +1876,7 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
 function bookAgain(bookingId) {
   const b = lastTrackedBookings.find(x => x.id === bookingId);
   if (!b) return;
+  closeTrackBookingModal(); // "Book Again" tapped from the popup — close it so it doesn't sit on top of the booking form
   document.getElementById('fName').value = b.name;
   document.getElementById('fPhone').value = b.phone;
   document.getElementById('fAddress').value = b.address;
@@ -1699,59 +1959,279 @@ async function ensureOtpConfig() {
   return OTP_CONFIG;
 }
 
+// Waits for MSG91's captcha (rendered into #otpEntryCaptcha, if
+// "Captcha Validation" is ON for this widget) to actually be completed
+// by the customer before sending the OTP — sending it beforehand is
+// exactly what produced "Invalid Captcha Token" every time. If the
+// widget doesn't expose isCaptchaVerified at all (captcha is OFF for
+// this widget), resolves immediately with nothing to wait for.
+function waitForCaptchaThenSend(msgEl) {
+  return new Promise((resolve) => {
+    if (typeof window.isCaptchaVerified !== 'function') { resolve(); return; }
+    if (window.isCaptchaVerified()) { resolve(); return; }
+    msgEl.className = 'form-msg';
+    msgEl.textContent = 'Please complete the verification above — your code will be sent automatically.';
+    const check = setInterval(() => {
+      if (window.isCaptchaVerified()) {
+        clearInterval(check);
+        resolve();
+      }
+    }, 400);
+  });
+}
+
+// BUG FIX: calling window.initSendOTP({exposeMethods: true, ...}) does NOT
+// attach window.sendOtp/verifyOtp/retryOtp synchronously — MSG91's widget
+// does its own async setup first (fetching the widget's config from their
+// servers) before those methods exist. Calling window.sendOtp immediately
+// afterward, with no wait, hits "window.sendOtp is not a function" almost
+// every time. This polls briefly until they're actually attached (or
+// times out with a clear error, e.g. if the Widget ID/Token in Admin
+// Panel are wrong and the widget never finishes initializing at all).
+function waitForOtpMethods(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    (function poll() {
+      if (typeof window.sendOtp === 'function' && typeof window.verifyOtp === 'function') {
+        resolve();
+      } else if (Date.now() - start > timeoutMs) {
+        reject(new Error('OTP service did not initialize in time. In Admin Panel, double-check the Widget ID / Token, and on your MSG91 dashboard make sure this website\'s domain is whitelisted for that widget.'));
+      } else {
+        setTimeout(poll, 150);
+      }
+    })();
+  });
+}
+
 // Opens the MSG91 OTP widget for the given phone number and resolves with
 // the verified access-token once the customer completes the OTP step.
+// FLOW CHANGE / BUG FIX: this used to configure MSG91 with
+// `exposeMethods: false`, which relies entirely on MSG91's own built-in
+// popup to actually show the OTP entry box to the customer — and that
+// built-in popup was confirmed to send real SMS OTPs but never actually
+// render any visible UI on screen (see the comment on #otpEntryModal
+// below, which was built for exactly this reason but was never actually
+// wired up to anything, so it sat unused while the invisible built-in
+// popup kept being relied on underneath it). The customer would type
+// their number, the OTP would genuinely be sent, and then... nothing —
+// no popup to enter it into, so the promise never resolved and the flow
+// just sat there forever with no visible progress.
+//
+// Now uses MSG91's `exposeMethods: true` mode instead, which suppresses
+// MSG91's own popup entirely and hands us `window.sendOtp` /
+// `window.verifyOtp` / `window.retryOtp` to drive #otpEntryModal (our
+// own, always-visible modal) directly.
 function verifyPhoneWithOtp(phone) {
   return new Promise(async (resolve, reject) => {
-    // BUG FIX: MSG91's OTP popup is injected by their own third-party
-    // script, with its own z-index that this site has no control over.
-    // When it's triggered from INSIDE one of our own modals (e.g. the
-    // Quick Book "Add"/"Book" flow, which turned out to be exactly where
-    // this was reported), our modal could end up sitting on top of it —
-    // the OTP popup is technically there, just invisible and
-    // unclickable behind our own overlay, so the customer has no way to
-    // actually enter the code. The button then sits on "Verifying
-    // number…" forever, since the promise only resolves/rejects once the
-    // customer interacts with a popup they can never see. Temporarily
-    // dropping our own modal overlays' z-index for the duration of OTP
-    // verification (restored in `finally`, success or failure either
-    // way) guarantees MSG91's popup is always the topmost, reachable
-    // thing on screen while this is happening.
-    const ownOverlays = document.querySelectorAll('.modal-backdrop.open, .bottom-sheet-backdrop.open');
-    ownOverlays.forEach(el => { el.dataset.prevZIndex = el.style.zIndex || ''; el.style.zIndex = '1'; });
-    const restoreOwnOverlays = () => {
-      ownOverlays.forEach(el => {
-        el.style.zIndex = el.dataset.prevZIndex || '';
-        delete el.dataset.prevZIndex;
-      });
+    const modal = document.getElementById('otpEntryModal');
+    const phoneEl = document.getElementById('otpEntryPhone');
+    const codeEl = document.getElementById('otpEntryCode');
+    const msgEl = document.getElementById('otpEntryMsg');
+    const submitBtn = document.getElementById('otpEntrySubmit');
+    const resendBtn = document.getElementById('otpEntryResend');
+    const closeBtn = document.getElementById('otpEntryClose');
+    if (!modal || !phoneEl || !codeEl || !msgEl || !submitBtn || !resendBtn || !closeBtn) {
+      reject(new Error('OTP entry is not available on this page.'));
+      return;
+    }
+
+    let settled = false;
+    const cleanup = () => {
+      modal.classList.remove('open');
+      codeEl.value = '';
+      msgEl.className = 'form-msg';
+      msgEl.textContent = '';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Verify';
+      resendBtn.disabled = false;
+      resendBtn.textContent = 'Resend Code';
+      submitBtn.removeEventListener('click', onSubmit);
+      resendBtn.removeEventListener('click', onResend);
+      closeBtn.removeEventListener('click', onClose);
+      codeEl.removeEventListener('keydown', onKeydown);
     };
+    const finishResolve = (token) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(token);
+    };
+    const finishReject = (err) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+
+    function onSubmit() {
+      const code = codeEl.value.trim();
+      if (!/^[0-9]{4,6}$/.test(code)) {
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Please enter the code you received.';
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying...';
+      msgEl.className = 'form-msg';
+      msgEl.textContent = '';
+      window.verifyOtp(code, (data) => {
+        const accessToken = data && (data.message || data.token || data['access-token']);
+        if (!accessToken) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Verify';
+          msgEl.className = 'form-msg error';
+          msgEl.textContent = 'Verification succeeded but no token was received. Please try again.';
+          return;
+        }
+        finishResolve(accessToken);
+      }, () => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verify';
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Incorrect or expired code. Please try again.';
+      });
+    }
+    function onKeydown(e) { if (e.key === 'Enter') onSubmit(); }
+
+    async function onResend() {
+      resendBtn.disabled = true;
+      resendBtn.textContent = 'Resending...';
+      msgEl.className = 'form-msg';
+      msgEl.textContent = '';
+      await waitForCaptchaThenSend(msgEl);
+      msgEl.className = 'form-msg';
+      msgEl.textContent = '';
+      // SAFETY NET: if retryOtp's callbacks never fire for any reason
+      // (as happened when the channel arg was `undefined` instead of
+      // the required `null` — fixed below, but this guards against any
+      // similar silent-hang case in the future), don't leave the button
+      // stuck on "Resending..." forever.
+      let settledResend = false;
+      const resendTimeout = setTimeout(() => {
+        if (settledResend) return;
+        settledResend = true;
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Resend timed out. Please try again.';
+      }, 15000);
+      // BUG FIX: MSG91's docs specify the channel argument must be the
+      // literal `null` for "use the widget's default channel" — passing
+      // `undefined` instead makes the widget hang silently (neither
+      // success nor failure ever fires), which is exactly what was seen
+      // stuck on "Resending...".
+      window.retryOtp(null, () => {
+        if (settledResend) return;
+        settledResend = true;
+        clearTimeout(resendTimeout);
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+        msgEl.className = 'form-msg success';
+        msgEl.textContent = 'A new code has been sent.';
+      }, (error) => {
+        if (settledResend) return;
+        settledResend = true;
+        clearTimeout(resendTimeout);
+        console.log('OTP resend failure:', error);
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+        msgEl.className = 'form-msg error';
+        const detail = (error && (error.message || error.type || (typeof error === 'string' ? error : JSON.stringify(error)))) || 'Unknown error';
+        msgEl.textContent = `Could not resend the code: ${detail}.`;
+      });
+    }
+
+    function onClose() {
+      finishReject(new Error('OTP verification was cancelled.'));
+    }
+
+    submitBtn.addEventListener('click', onSubmit);
+    resendBtn.addEventListener('click', onResend);
+    closeBtn.addEventListener('click', onClose);
+    codeEl.addEventListener('keydown', onKeydown);
+
     try {
       const cfg = await ensureOtpConfig();
+      if (!cfg.widgetId || !cfg.tokenAuth) {
+        finishReject(new Error('OTP is turned ON but the Widget ID / Token are not set in Admin Panel > OTP Settings. Add them there first.'));
+        return;
+      }
       await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
-      const configuration = {
+      const identifier = '91' + phone; // MSG91 requires country code, no '+' or spaces
+      // BUG FIX: the modal (and its #otpEntryCaptcha div) must actually
+      // be visible/rendered BEFORE calling initSendOTP with a
+      // captchaRenderId — Google's captcha widget can't size/render
+      // itself into an element that's still sitting inside a
+      // display:none modal-backdrop, which is very likely why it kept
+      // silently producing an "Invalid Captcha Token" with nothing ever
+      // shown for the customer to actually solve. Opening the modal
+      // first, then initializing, fixes that ordering.
+      phoneEl.textContent = phone;
+      modal.classList.add('open');
+      msgEl.className = 'form-msg';
+      msgEl.textContent = 'Sending code...';
+      codeEl.focus();
+      // BUG FIX: without this, every call to initSendOTP (e.g. the
+      // customer editing the phone number and retrying after an
+      // earlier failure) rendered ANOTHER captcha box into the same
+      // div on top of the old one(s) instead of replacing it — MSG91
+      // ended up with multiple stacked captcha instances, which is
+      // very likely what then made Resend hang on "Resending..."
+      // (isCaptchaVerified() getting confused about which instance is
+      // the real one). Always start from a clean, empty container.
+      const captchaHolder = document.getElementById('otpEntryCaptcha');
+      if (captchaHolder) captchaHolder.innerHTML = '';
+      window.initSendOTP({
         widgetId: cfg.widgetId,
         tokenAuth: cfg.tokenAuth,
-        identifier: '91' + phone, // MSG91 requires country code, no '+' or spaces
-        exposeMethods: false,
+        identifier,
+        exposeMethods: true,
+        // Renders MSG91's captcha checkbox into #otpEntryCaptcha if
+        // "Captcha Validation" is turned ON for this widget on the
+        // MSG91 dashboard — required for sendOtp to succeed in that
+        // case, since exposeMethods:true means MSG91 never shows its
+        // own popup (where the captcha would otherwise normally live).
+        captchaRenderId: 'otpEntryCaptcha',
         success: (data) => {
-          restoreOwnOverlays();
+          // Some widget versions call this directly rather than via the
+          // verifyOtp callback below — handled the same way either way.
           const accessToken = data && (data.message || data.token || data['access-token']);
-          if (!accessToken) {
-            reject(new Error('Verification succeeded but no token was received. Please try again.'));
-            return;
-          }
-          resolve(accessToken);
+          if (accessToken) finishResolve(accessToken);
         },
-        failure: (error) => {
-          restoreOwnOverlays();
-          console.log('OTP failure:', error);
-          reject(new Error('OTP verification failed or was cancelled.'));
-        }
-      };
-      window.initSendOTP(configuration);
+        failure: (error) => { console.log('OTP failure:', error); }
+      });
+      await waitForOtpMethods(10000);
+      await waitForCaptchaThenSend(msgEl);
+      msgEl.className = 'form-msg';
+      msgEl.textContent = 'Sending code...';
+      let settledSend = false;
+      const sendTimeout = setTimeout(() => {
+        if (settledSend) return;
+        settledSend = true;
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Sending the code timed out. Tap "Resend Code" to try again.';
+      }, 15000);
+      window.sendOtp(identifier, () => {
+        if (settledSend) return;
+        settledSend = true;
+        clearTimeout(sendTimeout);
+        msgEl.className = 'form-msg';
+        msgEl.textContent = '';
+      }, (error) => {
+        if (settledSend) return;
+        settledSend = true;
+        clearTimeout(sendTimeout);
+        console.log('OTP send failure:', error);
+        msgEl.className = 'form-msg error';
+        // Surfaces MSG91's actual failure reason on screen (not just a
+        // generic message) so it can be screenshotted/read directly —
+        // this is genuine diagnostic info (wrong DLT template, domain
+        // not whitelisted, low balance, etc.), not something to hide.
+        const detail = (error && (error.message || error.type || (typeof error === 'string' ? error : JSON.stringify(error)))) || 'Unknown error';
+        msgEl.textContent = `Could not send the code: ${detail}. Tap "Resend Code" to try again.`;
+      });
     } catch (err) {
-      restoreOwnOverlays();
-      reject(err);
+      finishReject(err);
     }
   });
 }
@@ -1845,6 +2325,325 @@ function hideRedundantBookingFields() {
   if (addBox) addBox.style.display = 'none';
 }
 
+// ---------------- Unified Account Gate (Booking + My Account + Instant
+// Booking all share this) ----------------
+// One chain: Mobile Number -> OTP verify -> (new customers only) Add
+// Address. Saving the address is what actually "creates the account".
+// Once an account is saved (localStorage, keyed per-browser — this is a
+// customer convenience, not a security boundary; the server still
+// independently re-checks OTP verification on every real action), every
+// later visit to Booking, My Account, or Instant Booking skips straight
+// past all of this and goes directly to item selection / account
+// history, exactly as requested.
+const ACCOUNT_STORAGE_KEY = 'seerua_account_v1';
+
+function getAccount() {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+    const acc = raw ? JSON.parse(raw) : null;
+    return (acc && /^[0-9]{10}$/.test(acc.phone) && acc.name && acc.address && acc.cityId) ? acc : null;
+  } catch (e) { return null; }
+}
+function saveAccount(acc) {
+  try { localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(acc)); } catch (e) { /* private/incognito mode, etc. — chain still works, just won't be remembered next visit */ }
+  updateHeaderAccountUI();
+}
+function clearAccount() {
+  try { localStorage.removeItem(ACCOUNT_STORAGE_KEY); } catch (e) {}
+  verifiedBookingPhone = null;
+  verifiedBookingAccessToken = null;
+  updateHeaderAccountUI();
+}
+
+// Header icon: plain person icon with no account, a filled circle with
+// the customer's name-initial once one exists (see saveAccount/
+// clearAccount above, and the "Logout" menu item below).
+function updateHeaderAccountUI() {
+  const btn = document.getElementById('headerAccountBtn');
+  const icon = document.getElementById('headerAccountIcon');
+  const initialEl = document.getElementById('headerAccountInitial');
+  if (!btn) return;
+  const acc = getAccount();
+  if (acc && acc.name) {
+    btn.classList.add('has-account');
+    if (icon) icon.style.display = 'none';
+    if (initialEl) { initialEl.style.display = 'block'; initialEl.textContent = acc.name.trim().charAt(0).toUpperCase(); }
+  } else {
+    btn.classList.remove('has-account');
+    if (icon) icon.style.display = '';
+    if (initialEl) initialEl.style.display = 'none';
+  }
+}
+
+function bindHeaderAccountMenu() {
+  const wrap = document.getElementById('headerAccountWrap');
+  const btn = document.getElementById('headerAccountBtn');
+  const menu = document.getElementById('headerAccountMenu');
+  if (!btn || !menu) return;
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const acc = getAccount();
+    if (!acc) {
+      // No account yet — go straight into the Account Gate instead of
+      // showing a menu with nothing useful in it yet.
+      openAccountGate('account');
+      return;
+    }
+    menu.classList.toggle('open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (menu.classList.contains('open') && !wrap.contains(e.target)) {
+      menu.classList.remove('open');
+    }
+  });
+
+  document.getElementById('headerAccountTrackBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    openTrackBookingModal();
+  });
+
+  // One-tap "Refer a Friend" straight from the account menu — its own
+  // popup (same pattern as Track Booking), not the old always-on-page
+  // section.
+  document.getElementById('headerAccountReferBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    openReferModal();
+  });
+
+  document.getElementById('headerAccountLogoutBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    clearAccount();
+    // Reset the booking form's fields too, in case it's open right now
+    // with the previous account's (now logged-out) details still showing.
+    const nameEl = document.getElementById('fName');
+    const addrEl = document.getElementById('fAddress');
+    if (nameEl) { nameEl.value = ''; nameEl.readOnly = false; }
+    if (addrEl) { addrEl.value = ''; addrEl.readOnly = false; }
+    const editBtn = document.getElementById('editAddressBtn');
+    if (editBtn) editBtn.style.display = 'none';
+    showToast('Logged out');
+  });
+}
+bindHeaderAccountMenu();
+updateHeaderAccountUI();
+
+let agIntent = null; // 'booking' | 'account' | 'quickbook'
+let agPendingApplianceId = null;
+let agEditMode = false;
+
+// Pushes a known account's details into the shared hidden fields the
+// rest of the app (cart, submit, Quick Book) already reads from, and
+// marks this phone pre-verified for the session so the existing OTP
+// checks in addItemToCart()/the booking submit skip straight through
+// instead of asking a second time.
+function applyAccountToBookingFields(acc) {
+  const phoneEl = document.getElementById('fPhone');
+  const nameEl = document.getElementById('fName');
+  const addrEl = document.getElementById('fAddress');
+  const cityEl = document.getElementById('fCity');
+  if (phoneEl) phoneEl.value = acc.phone;
+  if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
+  if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
+  if (cityEl && acc.cityId && cityEl.value !== acc.cityId) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
+  const editBtn = document.getElementById('editAddressBtn');
+  if (editBtn) editBtn.style.display = 'inline-block';
+  verifiedBookingPhone = acc.phone;
+  if (acc.accessToken) verifiedBookingAccessToken = acc.accessToken;
+}
+
+function openAccountGate(intent, applianceId) {
+  agIntent = intent;
+  agPendingApplianceId = applianceId || null;
+  agEditMode = false;
+  const acc = getAccount();
+  if (acc) {
+    proceedAfterAccountGate(acc);
+    return;
+  }
+  document.getElementById('agPhoneMsg').textContent = '';
+  document.getElementById('agPhone').value = '';
+  document.getElementById('agPhoneStep').style.display = 'block';
+  document.getElementById('agAddressStep').style.display = 'none';
+  const title = document.getElementById('agPhoneTitle');
+  const sub = document.getElementById('agPhoneSub');
+  if (title) title.textContent = 'Welcome 👋';
+  if (sub) sub.textContent = intent === 'account' ? 'Enter your mobile number for My Account' : 'Enter your mobile number for booking';
+  document.getElementById('accountGateModal').classList.add('open');
+}
+
+function closeAccountGate() {
+  document.getElementById('accountGateModal').classList.remove('open');
+}
+
+// Called once the phone+address chain is fully complete (either just
+// now, or already done on an earlier visit) — sends the customer
+// straight on to whatever they originally asked for. This is the
+// "chain advances itself" part: no extra taps needed in between.
+function proceedAfterAccountGate(acc) {
+  closeAccountGate();
+  if (agIntent === 'account') {
+    // FLOW CHANGE: opens the Track Booking popup directly — no more
+    // revealing the old permanent on-page section first.
+    const trackPhoneInput = document.getElementById('trackPhone');
+    if (trackPhoneInput) trackPhoneInput.value = acc.phone;
+    verifiedBookingPhone = acc.phone;
+    if (acc.accessToken) verifiedBookingAccessToken = acc.accessToken;
+    document.getElementById('trackBtn')?.click();
+  } else if (agIntent === 'quickbook') {
+    applyAccountToBookingFields(acc);
+    openQuickBookModalReal(agPendingApplianceId);
+  } else {
+    openBookingForm();
+    applyAccountToBookingFields(acc);
+  }
+}
+
+function bindAccountGateModal() {
+  document.getElementById('accountGateClose').addEventListener('click', closeAccountGate);
+  document.getElementById('accountGateModal').addEventListener('click', (e) => {
+    if (e.target.id === 'accountGateModal') closeAccountGate();
+  });
+
+  // FLOW CHANGE (back to manual, per explicit request): typing the
+  // number alone no longer auto-fires this — a tap on "Send OTP" does.
+  // Editing the number after a failed attempt and tapping Send OTP
+  // again is a fresh, deliberate attempt (agSending only blocks a
+  // second tap while one is already in flight, via the button's own
+  // disabled state below).
+  let agSending = false;
+  async function attemptAccountGateVerification() {
+    if (agSending) return;
+    const msg = document.getElementById('agPhoneMsg');
+    const phone = document.getElementById('agPhone').value.trim();
+    const btn = document.getElementById('agSendBtn');
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return;
+    }
+    agSending = true;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    msg.className = 'form-msg';
+    msg.textContent = '';
+    try {
+      // Same check every other OTP entry point in this app already does
+      // (addItemToCart, the booking submit, My Account) — a number
+      // already verified before, or OTP turned OFF in Admin Panel, skips
+      // straight through with no popup at all.
+      let phoneAlreadyVerified = false;
+      try {
+        const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+        phoneAlreadyVerified = !!check.verified;
+      } catch (e) { /* fall back to normal OTP flow */ }
+
+      let otpEnabled = true;
+      try {
+        const cfg = await ensureOtpConfig();
+        otpEnabled = cfg.enabled !== false;
+      } catch (e) { /* fall back to normal OTP flow */ }
+
+      let accessToken = null;
+      if (otpEnabled && !phoneAlreadyVerified) {
+        msg.textContent = 'Sending OTP — please complete the verification that just opened.';
+        accessToken = await verifyPhoneWithOtp(phone);
+      }
+      verifiedBookingPhone = phone;
+      verifiedBookingAccessToken = accessToken;
+      msg.textContent = 'Verified! Checking your details...';
+      let lookup = { found: false };
+      try { lookup = await fetchJSON(`/api/customer-lookup?phone=${phone}`); } catch (e) { /* fall through to Add Address either way */ }
+      if (lookup.found && lookup.name && lookup.address && lookup.cityId) {
+        // Already has an account/past address on file — nothing more to
+        // ask, the chain jumps straight to whatever they came here for.
+        const acc = { phone, name: lookup.name, address: lookup.address, cityId: lookup.cityId, accessToken };
+        saveAccount(acc);
+        proceedAfterAccountGate(acc);
+      } else {
+        // Brand new number — one more step (Add Address) before the
+        // account actually exists. This step opens itself — no tap
+        // needed to get here.
+        document.getElementById('agPhoneStep').style.display = 'none';
+        document.getElementById('agAddressStep').style.display = 'block';
+        document.getElementById('agName').value = lookup.name || '';
+        document.getElementById('agAddress').value = lookup.address || '';
+        populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
+        if (lookup.cityId) document.getElementById('agCity').value = lookup.cityId;
+        document.getElementById('agAddressMsg').textContent = '';
+      }
+    } catch (err) {
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'OTP verification failed. Please try again.';
+    } finally {
+      agSending = false;
+      btn.disabled = false;
+      btn.textContent = 'Send OTP';
+    }
+  }
+  document.getElementById('agSendBtn').addEventListener('click', attemptAccountGateVerification);
+
+  document.getElementById('agSaveBtn').addEventListener('click', async () => {
+    const msg = document.getElementById('agAddressMsg');
+    const existingAcc = getAccount();
+    const phone = document.getElementById('agPhone').value.trim() || (existingAcc && existingAcc.phone) || verifiedBookingPhone;
+    const name = document.getElementById('agName').value.trim();
+    const address = document.getElementById('agAddress').value.trim();
+    const cityId = document.getElementById('agCity').value;
+    if (!phone) { msg.className = 'form-msg error'; msg.textContent = 'Please verify your mobile number first.'; return; }
+    if (!name) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your name.'; return; }
+    if (!address) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your full address.'; return; }
+    if (!cityId) { msg.className = 'form-msg error'; msg.textContent = 'Please select your city.'; return; }
+    const btn = document.getElementById('agSaveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    msg.className = 'form-msg';
+    msg.textContent = '';
+    try {
+      await fetchJSON('/api/customer-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, name, address, cityId, accessToken: verifiedBookingAccessToken || undefined })
+      });
+      const acc = { phone, name, address, cityId, accessToken: verifiedBookingAccessToken };
+      saveAccount(acc);
+      if (agEditMode) {
+        closeAccountGate();
+        applyAccountToBookingFields(acc);
+      } else {
+        proceedAfterAccountGate(acc);
+      }
+    } catch (err) {
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'Could not save your address. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    }
+  });
+
+  document.getElementById('editAddressBtn')?.addEventListener('click', () => {
+    const acc = getAccount();
+    if (!acc) return;
+    agEditMode = true;
+    document.getElementById('agAddressTitle').textContent = 'Edit Address';
+    document.getElementById('agPhoneStep').style.display = 'none';
+    document.getElementById('agAddressStep').style.display = 'block';
+    document.getElementById('agName').value = acc.name || '';
+    document.getElementById('agAddress').value = acc.address || '';
+    populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
+    if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
+    document.getElementById('agAddressMsg').textContent = '';
+    document.getElementById('accountGateModal').classList.add('open');
+  });
+}
+bindAccountGateModal();
+
+// Instant Booking entry point (tapping an appliance card) — now gated by
+// the same shared Account Gate as Booking/My Account, per the unified
+// flow. Once an account exists this is completely transparent: the
+// modal below (openQuickBookModalReal) opens immediately with the
+// mobile number field already filled in and hidden.
 function openQuickBookModal(applianceId) {
   if (BOOKING_PAUSED_STATUS && BOOKING_PAUSED_STATUS.bookingPaused) {
     // Don't open the modal at all — reveal the existing "not accepting
@@ -1856,6 +2655,16 @@ function openQuickBookModal(applianceId) {
     if (typeof openBookingForm === 'function') openBookingForm();
     return;
   }
+  const acc = getAccount();
+  if (!acc) {
+    openAccountGate('quickbook', applianceId);
+    return;
+  }
+  applyAccountToBookingFields(acc);
+  openQuickBookModalReal(applianceId);
+}
+
+function openQuickBookModalReal(applianceId) {
   qbApplianceId = applianceId;
   qbServiceType = 'service';
   const modal = document.getElementById('quickBookModal');
@@ -1863,15 +2672,13 @@ function openQuickBookModal(applianceId) {
   const detailsStep = document.getElementById('qbDetailsStep');
   const msg = document.getElementById('qbMsg');
   if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
-  // BUG FIX: this field never got cleared between sessions — after one
-  // successful Quick Book, reopening it for a second appliance kept
-  // showing the previous phone number (which, like the main form's phone
-  // field, could then silently get refilled by the browser's own memory
-  // instead of a real keystroke, meaning the address auto-fill lookup on
-  // blur never re-triggered for it). Starting blank each time it opens
-  // means a retyped number always re-triggers that lookup correctly.
+  // FLOW CHANGE: the mobile number field is hidden (see #qbPhoneField in
+  // the template) — by the time this runs, openQuickBookModal() has
+  // already gated on the shared account, so it's filled in from there
+  // instead of typed here.
   const qbPhoneEl = document.getElementById('qbPhone');
-  if (qbPhoneEl) qbPhoneEl.value = '';
+  const qbAcc = getAccount();
+  if (qbPhoneEl) qbPhoneEl.value = qbAcc ? qbAcc.phone : '';
 
   const existingCity = document.getElementById('fCity').value;
   if (existingCity) {
@@ -2137,11 +2944,11 @@ async function qbUpdatePrice() {
 // view (qbUpdatePrice) and the multi-service list view (qbRenderServicesList).
 function qbSetNotAvailable(isUnavailable) {
   const notAvailEl = document.getElementById('qbNotAvailable');
-  const phoneField = document.getElementById('qbPhoneField');
   const singleView = document.getElementById('qbSingleServiceView');
   const servicesList = document.getElementById('qbServicesList');
   if (notAvailEl) notAvailEl.style.display = isUnavailable ? 'block' : 'none';
-  if (phoneField) phoneField.style.display = isUnavailable ? 'none' : '';
+  // #qbPhoneField stays permanently hidden now (see template) — no
+  // longer toggled here.
   if (isUnavailable) {
     if (singleView) singleView.style.display = 'none';
     if (servicesList) servicesList.style.display = 'none';
