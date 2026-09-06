@@ -302,7 +302,7 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 @media (min-width: 860px) {
   .hero-coded-grid { grid-template-columns: 1.1fr 0.9fr; gap: 40px; }
   .hero-coded-grid-solo { grid-template-columns: 1fr; text-align: center; }
-  .hero-coded-grid-solo .hero-coded-text { max-width: 720px; margin: 0 auto; }
+  .hero-coded-grid-solo .hero-coded-text { max-width: 900px; margin: 0 auto; }
   .hero-coded-grid-solo .hero-sub { margin-left: auto; margin-right: auto; }
   .hero-coded-grid-solo .hero-badges { justify-content: center; }
 }
@@ -313,7 +313,7 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 }
 .hero-coded-text h1 {
   font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(1.75rem, 4.6vw, 2.6rem); line-height: 1.22;
+  font-size: clamp(1.75rem, 4.6vw, 3rem); line-height: 1.22;
   color: var(--ink); margin: 0 0 16px;
 }
 .hero-accent-wrap { position: relative; display: inline-block; color: var(--accent-600); }
@@ -1600,20 +1600,28 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   right: 16px;
   bottom: calc(74px + env(safe-area-inset-bottom));
   z-index: 130;
-  /* "Breathing" idle animation — gently grows and shrinks so the button
-     draws the eye without being distracting. Pauses once the fan-out
-     panel is open (see .open rule below) so it doesn't fight with the
-     close (X) icon's own stillness. */
-  animation: supportBreathe 2.6s ease-in-out infinite;
 }
 .bottom-nav-support:hover { background: var(--accent-600); }
-.bottom-nav-support.open { animation: none; }
+/* BUG FIX: the "breathing" animation used to live directly on this
+   button — but a position:fixed element that also carries its own
+   transform can end up computing its fixed position against the wrong
+   containing block in some cases (it showed up thousands of pixels
+   down the page on wider/laptop screens instead of pinned to the
+   viewport corner). Moved the transform onto this inner, plain (static-
+   position) span instead — the outer button now never has a transform
+   of its own, so its fixed positioning can't be affected by it. */
+.bottom-nav-support-inner {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+  animation: supportBreathe 2.6s ease-in-out infinite;
+}
+.bottom-nav-support.open .bottom-nav-support-inner { animation: none; }
 @keyframes supportBreathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.12); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bottom-nav-support { animation: none; }
+  .bottom-nav-support-inner { animation: none; }
 }
 .bottom-nav-support .support-icon-close { display: none; }
 .bottom-nav-support.open .support-icon-default { display: none; }
@@ -1760,7 +1768,19 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
    switches to a desktop layout at) and gives that reserved bottom
    padding back to the page. */
 @media (min-width: 721px) {
-  .bottom-nav { display: none; }
+  /* BUG FIX: this used to be `.bottom-nav { display: none; }` — but the
+     floating chat/support star button and its Call/WhatsApp/AI fan-out
+     panel are DOM children of <nav class="bottom-nav">, even though
+     both are position:fixed and visually float independently of it.
+     display:none on a parent hides its children regardless of their own
+     position — so hiding the tab bar on desktop was accidentally taking
+     the entire chat widget down with it. This instead collapses just
+     the tab bar itself (Home/City/Cart/Menu) down to nothing, while
+     explicitly keeping the floating support button and its fan-out
+     enabled and visible at every width. */
+  .bottom-nav { position: static; height: 0; padding: 0; margin: 0; background: none; border: none; box-shadow: none; pointer-events: none; }
+  .bottom-nav-item { display: none; }
+  .bottom-nav-support, .support-fan-out { pointer-events: auto; }
   body { padding-bottom: 0; }
 }
 
