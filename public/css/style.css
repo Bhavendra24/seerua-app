@@ -318,7 +318,7 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 }
 .hero-accent-wrap { position: relative; display: inline-block; color: var(--accent-600); }
 .hero-underline { display: block; width: 100%; height: 12px; margin-top: -4px; }
-.hero-sub { color: var(--ink); font-size: 1rem; line-height: 1.65; margin: 0 0 20px; max-width: 480px; }
+.hero-sub { color: var(--ink); font-size: 1rem; line-height: 1.65; margin: 0 0 20px; }
 .hero-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 26px; }
 .hero-badges span {
   display: flex; align-items: center; gap: 7px; background: #fff;
