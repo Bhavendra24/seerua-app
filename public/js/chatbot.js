@@ -363,7 +363,7 @@
     }
     addUserMessage(text);
     setInputEnabled(false);
-    const typingRow = addBotMessage('<span class="chat-thinking"><svg class="chat-thinking-star" viewBox="0 0 24 24" width="20" height="20"><path d="M12 1l2.6 7.3L22 11l-7.4 2.7L12 21l-2.6-7.3L2 11l7.4-2.7L12 1z" fill="currentColor"/></svg></span>');
+    const typingRow = addBotMessage('<span class="chat-thinking"><svg class="chat-thinking-star" viewBox="0 0 24 24" width="20" height="20"><path d="M12 1.5l3.15 7.2L23 9.55l-5.6 5.3L19.5 23 12 18.6 4.5 23l2.1-8.15L1 9.55l7.85-.85L12 1.5z" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="miter"/></svg></span>');
     aiRequestInFlight = true;
     try {
       const res = await fetch('/api/chatbot/ask', {

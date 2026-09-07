@@ -1450,7 +1450,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    ever could — used while waiting for Bella's reply. */
 .chat-thinking { display: inline-flex; align-items: center; gap: 8px; color: var(--slate); }
 .chat-thinking-star {
-  color: #FFD43B;
+  color: #0277FB;
   animation: chatThinkingSpin 2s linear infinite;
   flex-shrink: 0;
   transform-origin: center;
