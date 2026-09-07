@@ -1959,27 +1959,6 @@ async function ensureOtpConfig() {
   return OTP_CONFIG;
 }
 
-// Waits for MSG91's captcha (rendered into #otpEntryCaptcha, if
-// "Captcha Validation" is ON for this widget) to actually be completed
-// by the customer before sending the OTP — sending it beforehand is
-// exactly what produced "Invalid Captcha Token" every time. If the
-// widget doesn't expose isCaptchaVerified at all (captcha is OFF for
-// this widget), resolves immediately with nothing to wait for.
-function waitForCaptchaThenSend(msgEl) {
-  return new Promise((resolve) => {
-    if (typeof window.isCaptchaVerified !== 'function') { resolve(); return; }
-    if (window.isCaptchaVerified()) { resolve(); return; }
-    msgEl.className = 'form-msg';
-    msgEl.textContent = 'Please complete the verification above — your code will be sent automatically.';
-    const check = setInterval(() => {
-      if (window.isCaptchaVerified()) {
-        clearInterval(check);
-        resolve();
-      }
-    }, 400);
-  });
-}
-
 // BUG FIX: calling window.initSendOTP({exposeMethods: true, ...}) does NOT
 // attach window.sendOtp/verifyOtp/retryOtp synchronously — MSG91's widget
 // does its own async setup first (fetching the widget's config from their
@@ -2098,9 +2077,6 @@ function verifyPhoneWithOtp(phone) {
       resendBtn.textContent = 'Resending...';
       msgEl.className = 'form-msg';
       msgEl.textContent = '';
-      await waitForCaptchaThenSend(msgEl);
-      msgEl.className = 'form-msg';
-      msgEl.textContent = '';
       // SAFETY NET: if retryOtp's callbacks never fire for any reason
       // (as happened when the channel arg was `undefined` instead of
       // the required `null` — fixed below, but this guards against any
@@ -2158,40 +2134,16 @@ function verifyPhoneWithOtp(phone) {
       }
       await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
       const identifier = '91' + phone; // MSG91 requires country code, no '+' or spaces
-      // BUG FIX: the modal (and its #otpEntryCaptcha div) must actually
-      // be visible/rendered BEFORE calling initSendOTP with a
-      // captchaRenderId — Google's captcha widget can't size/render
-      // itself into an element that's still sitting inside a
-      // display:none modal-backdrop, which is very likely why it kept
-      // silently producing an "Invalid Captcha Token" with nothing ever
-      // shown for the customer to actually solve. Opening the modal
-      // first, then initializing, fixes that ordering.
       phoneEl.textContent = phone;
       modal.classList.add('open');
       msgEl.className = 'form-msg';
       msgEl.textContent = 'Sending code...';
       codeEl.focus();
-      // BUG FIX: without this, every call to initSendOTP (e.g. the
-      // customer editing the phone number and retrying after an
-      // earlier failure) rendered ANOTHER captcha box into the same
-      // div on top of the old one(s) instead of replacing it — MSG91
-      // ended up with multiple stacked captcha instances, which is
-      // very likely what then made Resend hang on "Resending..."
-      // (isCaptchaVerified() getting confused about which instance is
-      // the real one). Always start from a clean, empty container.
-      const captchaHolder = document.getElementById('otpEntryCaptcha');
-      if (captchaHolder) captchaHolder.innerHTML = '';
       window.initSendOTP({
         widgetId: cfg.widgetId,
         tokenAuth: cfg.tokenAuth,
         identifier,
         exposeMethods: true,
-        // Renders MSG91's captcha checkbox into #otpEntryCaptcha if
-        // "Captcha Validation" is turned ON for this widget on the
-        // MSG91 dashboard — required for sendOtp to succeed in that
-        // case, since exposeMethods:true means MSG91 never shows its
-        // own popup (where the captcha would otherwise normally live).
-        captchaRenderId: 'otpEntryCaptcha',
         success: (data) => {
           // Some widget versions call this directly rather than via the
           // verifyOtp callback below — handled the same way either way.
@@ -2201,7 +2153,6 @@ function verifyPhoneWithOtp(phone) {
         failure: (error) => { console.log('OTP failure:', error); }
       });
       await waitForOtpMethods(10000);
-      await waitForCaptchaThenSend(msgEl);
       msgEl.className = 'form-msg';
       msgEl.textContent = 'Sending code...';
       let settledSend = false;

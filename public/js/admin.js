@@ -558,6 +558,20 @@ function unlockAssignment(bookingId, itemId) {
 // opened — no point loading it up front on every Orders tab visit.
 let ARCHIVED_BOOKINGS = null;
 
+// True if this is the earliest booking (by createdAt) on record for this
+// phone number — i.e. genuinely their first order — false if the same
+// number has an earlier one, meaning this customer is returning.
+// Compares against every currently-loaded booking (BOOKINGS, plus
+// ARCHIVED_BOOKINGS if that view has already been opened this session)
+// rather than a separate API call, so this stays fast/free to compute
+// on every render.
+function isFirstBookingForPhone(booking) {
+  const all = ARCHIVED_BOOKINGS ? BOOKINGS.concat(ARCHIVED_BOOKINGS) : BOOKINGS;
+  const sameCustomer = all.filter(b => b.phone === booking.phone);
+  const earliest = sameCustomer.reduce((min, b) => (new Date(b.createdAt) < new Date(min.createdAt) ? b : min), sameCustomer[0]);
+  return earliest && earliest.id === booking.id;
+}
+
 function renderOrders() {
   const mode = document.getElementById('ordersViewMode').value;
   document.getElementById('archivedNotice').style.display = mode === 'archived' ? 'block' : 'none';
@@ -605,7 +619,7 @@ function renderOrders() {
   document.getElementById('ordersTable').innerHTML = list.length ? list.map(b => `
     <tr>
       <td>${b.id}${isBookingDateLocked(b.bookingDate) ? ' <span class="pill" style="background:#fef3c7;color:#b45309;" title="Locked past date">🔒 Locked</span>' : ''}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${b.timeSlot}</small>` : ''}</td>
-      <td>${esc(b.name)} ${b.source === 'phone' ? '<span class="pill pill-assigned" title="Booked via phone call by Admin">📞 Phone</span>' : ''}<br><small style="color:var(--slate)">${esc(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small></td>
+      <td>${esc(b.name)} ${b.source === 'phone' ? '<span class="pill pill-assigned" title="Booked via phone call by Admin">📞 Phone</span>' : ''} ${isFirstBookingForPhone(b) ? '<span class="pill" style="background:#dcfce7;color:#166534;" title="This phone number\'s first-ever booking">🆕 New</span>' : '<span class="pill" style="background:#e0e7ff;color:#3730a3;" title="This phone number has booked before">🔁 Returning</span>'}<br><small style="color:var(--slate)">${esc(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small></td>
       <td>
         ${b.items.map(it => `
           <div style="padding:8px 0;border-bottom:1px dashed var(--line);">
@@ -1682,8 +1696,22 @@ async function renderReferrals() {
       <td>${u.rewardStatus === 'credited'
           ? `<span class="pill pill-completed">Credited</span><br><small style="color:var(--slate)">${u.rewardCouponCode}</small>`
           : `<span class="pill pill-pending">Pending completion</span>`}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteReferralUse('${u.id}')">Delete</button></td>
     </tr>
-  `).join('') : `<tr class="empty-row"><td colspan="6">No referrals yet.</td></tr>`;
+  `).join('') : `<tr class="empty-row"><td colspan="7">No referrals yet.</td></tr>`;
+}
+
+// Removes just this referral record (see the comment on the DELETE
+// endpoint in server.js for exactly what this does and doesn't undo —
+// an already-credited reward coupon keeps working either way).
+async function deleteReferralUse(id) {
+  if (!confirm('Delete this referral record? This does not cancel any reward coupon already issued for it.')) return;
+  try {
+    await api(`/api/admin/referral-uses/${id}`, { method: 'DELETE' });
+    renderReferrals();
+  } catch (e) {
+    alert('Could not delete this referral: ' + (e.message || 'Unknown error'));
+  }
 }
 
 document.getElementById('referralConfigForm').addEventListener('submit', async (e) => {
@@ -2471,9 +2499,26 @@ function drawCustomers(list) {
       <td>${c.phone}</td>
       <td>${c.totalOrders}</td>
       <td>₹${fmtInr(c.totalSpent)}</td>
-      <td><button class="btn btn-outline btn-sm" onclick="viewCustomer('${c.phone}')">View History</button></td>
+      <td><button class="btn btn-outline btn-sm" onclick="viewCustomer('${c.phone}')">View History</button> <button class="btn btn-outline btn-sm btn-danger" onclick="deleteCustomer('${c.phone}', '${esc(c.name)}')">Delete</button></td>
     </tr>
   `).join('') : `<tr class="empty-row"><td colspan="5">No customers yet.</td></tr>`;
+}
+
+// Permanently removes this customer AND all of their bookings/order
+// history — irreversible. Uses a plain Yes/No confirm() rather than a
+// typed "DELETE" prompt() — prompt() is unreliable on mobile (keyboard
+// auto-capitalize, autocorrect, or the person just not realizing exact
+// text is required all make it silently do nothing with no visible
+// error), so it looked like the button just didn't work.
+async function deleteCustomer(phone, name) {
+  const ok = confirm(`Delete ${name} (${phone})?\n\nThis permanently removes them AND all of their booking history. This cannot be undone.`);
+  if (!ok) return;
+  try {
+    await api(`/api/admin/customers/${phone}`, { method: 'DELETE' });
+    renderCustomers();
+  } catch (e) {
+    alert('Could not delete this customer: ' + (e.message || 'Unknown error'));
+  }
 }
 document.getElementById('customerSearch').addEventListener('input', (e) => {
   const q = e.target.value.trim().toLowerCase();

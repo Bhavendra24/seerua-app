@@ -1584,7 +1584,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .bottom-nav-support {
   width: 52px; height: 52px;
   border-radius: 50%;
-  background: var(--accent-500);
+  background: #0277FB;
   color: #fff;
   border: 4px solid var(--bg, #fff);
   display: flex; align-items: center; justify-content: center;
@@ -1660,7 +1660,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 .support-fan-btn.support-fan-call { background: #0d6efd; }
 .support-fan-btn.support-fan-whatsapp { background: #1aa251; }
-.support-fan-btn.support-fan-ai { background: #5b5bd6; }
+.support-fan-btn.support-fan-ai { background: #fff; border: 2px solid #e5e7eb; }
 .support-fan-out.open { pointer-events: auto; }
 .support-fan-out.open .support-fan-btn { opacity: 1; }
 /* Stacked straight up from the corner button — WhatsApp closest, then

@@ -2954,6 +2954,20 @@ app.get('/api/admin/referral-uses', requireAdmin, (req, res) => {
   res.json(withNames);
 });
 
+// Removes a single referral-use record — e.g. a fraudulent or mistaken
+// entry. NOTE: this only removes the record of the referral itself; it
+// does NOT touch the referred customer's booking (that stays exactly as
+// it is), and if a reward coupon was already generated and credited to
+// the referrer (rewardStatus: 'credited'), that coupon keeps working —
+// deleting the record here doesn't revoke a coupon that's already out.
+app.delete('/api/admin/referral-uses/:id', requireAdmin, async (req, res) => {
+  await withLock('referral-uses', async () => {
+    const uses = readData('referral-uses').filter(u => u.id !== req.params.id);
+    writeData('referral-uses', uses);
+  });
+  res.json({ success: true });
+});
+
 // =======================================================
 // ADMIN: SITE RATING (real internal rating + admin-entered Google rating)
 // =======================================================
@@ -4018,6 +4032,47 @@ app.get('/api/admin/customers', requireStaff, (req, res) => {
   res.json(Object.values(map));
 });
 
+// Deletes a customer entirely: their manually-registered profile (if
+// any), every booking under their number, and their phone-verification
+// record (so if the number is ever used again, it starts fresh and has
+// to re-verify via OTP). Admin-only (not Sub-Admin) — this is a
+// permanent, irreversible removal of someone's order history, unlike
+// the read-only Customers list Sub-Admins can already see.
+app.delete('/api/admin/customers/:phone', requireAdmin, async (req, res) => {
+  const phone = req.params.phone;
+  await withLock('bookings', async () => {
+    const bookings = readData('bookings').filter(b => b.phone !== phone);
+    writeData('bookings', bookings);
+  });
+  // BUG FIX: a booking doesn't disappear just because it's old — it
+  // moves into this separate 'bookings-archive' collection (see
+  // /api/admin/bookings/archive-old) and stays fully intact there. This
+  // was never being touched by a delete here, so any customer with an
+  // archived booking kept showing up as "already known" (customer-lookup
+  // checks archive too) even after being "deleted".
+  await withLock('bookings-archive', async () => {
+    const archived = readData('bookings-archive').filter(b => b.phone !== phone);
+    writeData('bookings-archive', archived);
+  });
+  await withLock('customers', async () => {
+    const customers = readData('customers').filter(c => c.phone !== phone);
+    writeData('customers', customers);
+  });
+  // BUG FIX: 'verified-phones' is a flat array of phone number STRINGS
+  // (see isPhoneVerified/markPhoneVerified above — readData('verified-
+  // phones').includes(phone)), not an array of {phone: ...} objects.
+  // Filtering on v.phone here was always comparing undefined !== phone
+  // (true for every entry, since a string has no .phone property), so
+  // this filter kept removing nothing at all — the number stayed
+  // "verified" forever no matter how many times a customer using it got
+  // deleted, and OTP kept getting silently skipped for it.
+  await withLock('verified-phones', async () => {
+    const verified = readData('verified-phones').filter(v => v !== phone);
+    writeData('verified-phones', verified);
+  });
+  res.json({ success: true });
+});
+
 // SUGGESTION IMPLEMENTED: lightweight lookup used by the Admin/Sub-Admin
 // "New Booking (Phone Call)" form to auto-fill name + address the moment
 // a phone number that has booked before is entered, so staff don't have
@@ -4774,6 +4829,11 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
     }
     const cities = readData('cities').filter(c => c.active);
     const city = cities.find(c => slugify(c.name) === req.params.citySlug);
+    // BUG FIX: {{FOOTER_SLOGAN}}/{{FOOTER_DESCRIPTION}} further down
+    // reference siteContent, but nothing in this route ever read it —
+    // every single city page was crashing with a 500 (ReferenceError)
+    // as soon as it reached the footer replace calls.
+    const siteContent = readData('site-content');
     if (!city) {
       return res.status(404).send(
         `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
@@ -4828,6 +4888,16 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
       .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
+      // FLOW CHANGE: footer paragraph used to be a hardcoded sentence
+      // built around {{CITY_NAME}} ("Seerua Appliance Care is
+      // Moradabad's trusted platform...") — so it visibly reworded
+      // itself every time someone moved between city pages, which read
+      // as inconsistent/glitchy rather than intentional. Now pulls the
+      // exact same admin-editable, city-independent text the homepage's
+      // footer already uses, so the footer reads identically everywhere
+      // on the site.
+      .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
+      .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{SAME_AS_JSON}}').join(buildSameAsJson())
       .split('{{AGGREGATE_RATING_JSON}}').join(aggregateRatingJsonFragment(computeSiteRating(city.id)))
       .split('{{OFFER_CATALOG_JSON}}').join(buildOfferCatalogJson(city, appliances))
@@ -4863,6 +4933,9 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
     }
     const cities = readData('cities').filter(c => c.active);
     const city = cities.find(c => slugify(c.name) === req.params.citySlug);
+    // Same siteContent read the city page needs — see the BUG FIX note
+    // on the /appliance-repair/:citySlug route above (footer text).
+    const siteContent = readData('site-content');
     if (!city) {
       return res.status(404).send(
         `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
@@ -4939,6 +5012,8 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
       .split('{{OTHER_APPLIANCES_HTML}}').join(otherAppliancesHtml || '<span class="city-chip">More services coming soon</span>')
       .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
+      .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
+      .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
       .split('{{SERVICE_SCHEMA_JSON}}').join(buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRange))
       .split('{{BREADCRUMB_SCHEMA_JSON}}').join(buildApplianceBreadcrumbSchemaHtml(city.name, cityUrl, appliance.name, canonicalUrl));
@@ -4989,6 +5064,9 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
     }
     const cities = readData('cities').filter(c => c.active);
     const city = cities.find(c => slugify(c.name) === req.params.citySlug);
+    // Same siteContent read the city page needs — see the BUG FIX note
+    // on the /appliance-repair/:citySlug route above (footer text).
+    const siteContent = readData('site-content');
     if (!city) {
       return res.status(404).send(`<h1>City not found</h1><p><a href="/">Go back home</a>.</p>`);
     }
@@ -5005,6 +5083,8 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{ARTICLE_CARDS_HTML}}').join(articleCardsHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
+      .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
+      .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
       .split('{{BREADCRUMB_SCHEMA_JSON}}').join(buildBreadcrumbSchemaHtml(city.name, canonicalUrl));
 
@@ -5026,6 +5106,9 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
     }
     const cities = readData('cities').filter(c => c.active);
     const city = cities.find(c => slugify(c.name) === req.params.citySlug);
+    // Same siteContent read the city page needs — see the BUG FIX note
+    // on the /appliance-repair/:citySlug route above (footer text).
+    const siteContent = readData('site-content');
     if (!city) {
       return res.status(404).send(`<h1>City not found</h1><p><a href="/">Go back home</a>.</p>`);
     }
@@ -5059,6 +5142,8 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
       .split('{{ARTICLE_BODY_HTML}}').join(personalize(article.bodyHtml, city.name))
       .split('{{RELATED_ARTICLES_HTML}}').join(relatedArticlesHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
+      .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
+      .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
       .split('{{BREADCRUMB_SCHEMA_JSON}}').join(buildBreadcrumbSchemaHtml(city.name, canonicalUrl));
 
