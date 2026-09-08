@@ -1600,25 +1600,20 @@ function bindFormEvents() {
       selectedSlotId = null;
       document.getElementById('slotPicker').innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select city and date above to see available slots.</p>';
 
-      // Give the customer a few seconds to read the confirmation, then
-      // collapse the form and take them straight to "My Account" so they
-      // can immediately see this exact booking's status — reusing the
-      // same OTP verification they just completed, so this doesn't ask
-      // them to verify a second time in the same visit.
+      // FLOW CHANGE: this used to also auto-open the Track Booking popup
+      // right after — right on top of the green "Booking confirmed!"
+      // message the person is still reading, which felt pointless/
+      // confusing (two confirmations of the same thing, back to back).
+      // Now it just closes the form and leaves them on the page; they
+      // can open Track Booking themselves whenever they actually want to
+      // check on it.
       const bookedPhone = payload.phone;
+      if (payload.accessToken) {
+        verifiedBookingPhone = bookedPhone;
+        verifiedBookingAccessToken = payload.accessToken;
+      }
       setTimeout(() => {
         closeBookingForm();
-        const trackPhoneInput = document.getElementById('trackPhone');
-        if (trackPhoneInput) trackPhoneInput.value = bookedPhone;
-        if (payload.accessToken) {
-          verifiedBookingPhone = bookedPhone;
-          verifiedBookingAccessToken = payload.accessToken;
-        }
-        // FLOW CHANGE: results now open in the Track Booking popup (see
-        // trackBtn's click handler below), not the old permanent
-        // "Registered Mobile Number" section on the page — nothing to
-        // scroll to here anymore.
-        document.getElementById('trackBtn')?.click();
       }, 3500);
     } catch (err) {
       msg.className = 'form-msg error';
@@ -2527,8 +2522,29 @@ function bindAccountGateModal() {
       let lookup = { found: false };
       try { lookup = await fetchJSON(`/api/customer-lookup?phone=${phone}`); } catch (e) { /* fall through to Add Address either way */ }
       if (lookup.found && lookup.name && lookup.address && lookup.cityId) {
-        // Already has an account/past address on file — nothing more to
-        // ask, the chain jumps straight to whatever they came here for.
+        // BUG FIX: this branch used to skip straight to
+        // proceedAfterAccountGate() without ever telling the server
+        // this phone just verified — /api/customer-profile (which
+        // actually calls markPhoneVerified()) was only ever hit from the
+        // "brand new number" branch below. For an already-registered
+        // customer whose number wasn't already in verified-phones (e.g.
+        // an old phone-call booking from before OTP existed), that meant
+        // their OTP access token was NEVER actually consumed/recorded
+        // server-side. It sat unused, and if the booking submit step
+        // later tried to validate that same token a second time, MSG91
+        // rejected it as already-used/invalid — which looked exactly
+        // like "OTP is being asked again" moments after they'd just
+        // completed it. Calling the same endpoint here (harmless no-op
+        // re-save of their own existing details if already verified)
+        // ensures markPhoneVerified() actually runs once, so every later
+        // step in this same visit correctly sees them as verified.
+        try {
+          await fetchJSON('/api/customer-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, name: lookup.name, address: lookup.address, cityId: lookup.cityId, accessToken })
+          });
+        } catch (e) { /* non-fatal — worst case, later steps re-check phone-verified the normal way */ }
         const acc = { phone, name: lookup.name, address: lookup.address, cityId: lookup.cityId, accessToken };
         saveAccount(acc);
         proceedAfterAccountGate(acc);
