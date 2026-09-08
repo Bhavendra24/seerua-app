@@ -149,7 +149,7 @@ function checkAddressCityMismatch() {
     warningEl.style.display = 'none';
   }
 }
-document.getElementById('fAddress')?.addEventListener('blur', checkAddressCityMismatch);
+document.getElementById('fAddress')?.addEventListener('input', checkAddressCityMismatch);
 document.getElementById('fCity')?.addEventListener('change', checkAddressCityMismatch);
 
 // My History (order tracking + referral) is hidden until the person taps
