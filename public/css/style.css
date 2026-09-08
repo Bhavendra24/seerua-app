@@ -166,6 +166,16 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
    second way to do the same thing there. */
 @media (max-width: 720px) {
   .nav-menu-btn { display: none; }
+  /* BUG FIX: hiding just the button inside wasn't enough — this <nav>
+     relies on transform:translateY(-130%) (further down) to sit off-
+     screen above the viewport, and that percentage is based on the
+     nav's OWN height. With its only child hidden, the nav's height
+     collapsed to nearly nothing, so -130% of "nearly nothing" barely
+     moved it at all — it ended up sitting right at top:64px instead,
+     overlapping the logo underneath it. Hiding the whole nav directly
+     sidesteps that math entirely; mobile has its own separate "Menu"
+     button in the bottom nav bar anyway, so nothing is lost here. */
+  #navLinks { display: none; }
 }
 .nav-links a:hover { color: var(--accent-600); }
 .header-actions { display: flex; align-items: center; gap: 12px; }

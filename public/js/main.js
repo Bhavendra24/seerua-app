@@ -56,6 +56,19 @@ if (bottomNavCityBtn) {
   });
 }
 
+// Desktop header's own "City" button (bottomNavCityBtn above is mobile
+// bottom-nav only) — opens the exact same city-picker sheet.
+const navCityBtn = document.getElementById('navCityBtn');
+if (navCityBtn) {
+  navCityBtn.addEventListener('click', () => {
+    const grid = document.getElementById('bottomSheetCityGrid');
+    if (grid && !grid.children.length && typeof CITIES !== 'undefined') {
+      grid.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="bottom-sheet-city-btn">${c.name}</a>`).join('');
+    }
+    openBottomSheet('citySheetBackdrop');
+  });
+}
+
 // Custom line icons (white strokes, sit on the .service-icon's gradient
 // circle) instead of emoji — emoji render inconsistently across devices
 // and read as an unstyled placeholder rather than a designed icon set.
@@ -738,19 +751,13 @@ function closeCareersModal() {
 
 function bindCareersModal() {
   const openBtn = document.getElementById('careersBtn');
-  const navLink = document.getElementById('careersNavLink');
   const modal = document.getElementById('careersModal');
   if (!modal) return;
 
   if (openBtn) openBtn.addEventListener('click', openCareersModal);
-  // FLOW CHANGE: this used to intercept the click and open the modal
-  // below instead of navigating — but that meant the header's "Careers"
-  // link (used across the whole site) never actually sent anyone to the
-  // real /careers page, which is the one with proper SEO meta tags,
-  // JobPosting structured data, and real descriptive content for
-  // Google. It just quietly opened an invisible-to-search-engines
-  // duplicate of the same form instead. #careersNavLink now has a real
-  // href="/careers" in the template and is left to navigate normally.
+  // The header's own "Careers" link is now just a plain link inside the
+  // Menu sheet (see index.template.html) with a real href="/careers" —
+  // no JS interception needed, so nothing to bind here for it anymore.
   document.getElementById('careersModalClose').addEventListener('click', closeCareersModal);
   document.getElementById('careersModalCancel').addEventListener('click', closeCareersModal);
 

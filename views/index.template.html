@@ -66,16 +66,14 @@
       </span>
     </a>
     <nav class="nav-links" id="navLinks">
-      <a href="#services" data-i18n="nav.services">Services</a>
-      <a href="#faq" data-i18n="nav.faq">FAQ</a>
-      <a href="/careers" id="careersNavLink" data-i18n="nav.careers">👷 Careers</a>
-      <!-- BUG FIX: desktop had no way at all to reach the richer Menu
-           sheet (Know Your Appliance, Reviews, Why Seerua, Service Area,
-           All Brands, Careers-first list) — that only lived behind the
-           bottom-nav's "Menu" button, which is deliberately hidden on
-           desktop screens. Reuses the exact same sheet/JS, just a
-           different, desktop-only way in. -->
-      <button type="button" class="nav-menu-btn" onclick="openBottomSheet('menuSheetBackdrop')">Menu ▾</button>
+      <!-- FLOW CHANGE: replaced the single "Menu" button with these 4
+           direct links/buttons for desktop — Home, Our Services,
+           Careers, and City (opens the same city-picker sheet the
+           bottom nav's City button already uses). -->
+      <a href="/">Home</a>
+      <a href="#services">Our Services</a>
+      <a href="/careers">👷 Careers</a>
+      <button type="button" class="nav-menu-btn" id="navCityBtn">City</button>
     </nav>
     <div class="header-actions">
       <a class="call-link" href="tel:+919389585479">
