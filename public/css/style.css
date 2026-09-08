@@ -140,7 +140,7 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 76px;
+  height: 88px;
 }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 1; }
 .brand img { height: 52px; width: 52px; flex-shrink: 0; }
@@ -154,10 +154,10 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 .header-actions { flex-shrink: 0; }
 .brand-tag { display: none; }
 
-.nav-links { display: flex; gap: 20px; align-items: center; }
-.nav-links a { font-weight: 600; font-size: 0.88rem; color: var(--blue-900); white-space: nowrap; }
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a { font-weight: 700; font-size: 0.98rem; color: var(--blue-900); white-space: nowrap; }
 .nav-menu-btn {
-  font: inherit; font-weight: 600; font-size: 0.88rem; color: var(--blue-900);
+  font: inherit; font-weight: 700; font-size: 0.98rem; color: var(--blue-900);
   background: none; border: none; cursor: pointer; padding: 0; white-space: nowrap;
 }
 .nav-menu-btn:hover { color: var(--accent-600); }
