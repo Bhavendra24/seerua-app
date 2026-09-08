@@ -4909,6 +4909,12 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
     const otherCitiesHtml = cities.filter(c => c.id !== city.id)
       .map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="city-chip">${c.name}</a>`)
       .join('\n      ');
+    // Server-rendered directly (rather than fetched/built by client JS,
+    // which this standalone page doesn't have the CITIES data for) so
+    // the City picker sheet actually has something in it to tap.
+    const allCitiesGridHtml = cities
+      .map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="bottom-sheet-city-btn">${c.name}</a>`)
+      .join('\n      ');
 
     const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}`;
 
@@ -4923,6 +4929,7 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
       .split('{{SERVICES_GRID_HTML}}').join(servicesGridHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
       .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
+      .split('{{ALL_CITIES_GRID_HTML}}').join(allCitiesGridHtml)
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
       // FLOW CHANGE: footer paragraph used to be a hardcoded sentence
       // built around {{CITY_NAME}} ("Seerua Appliance Care is
@@ -5116,6 +5123,7 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
     const html = template
       .split('{{CITY_NAME}}').join(city.name)
       .split('{{CITY_ID}}').join(city.id)
+      .split('{{CITY_SLUG}}').join(slugify(city.name))
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{ARTICLE_CARDS_HTML}}').join(articleCardsHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
@@ -5165,6 +5173,7 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
     const html = template
       .split('{{CITY_NAME}}').join(city.name)
       .split('{{CITY_ID}}').join(city.id)
+      .split('{{CITY_SLUG}}').join(slugify(city.name))
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{SITE_URL}}').join(SITE_URL)
       .split('{{BLOG_INDEX_URL}}').join(blogIndexUrl)

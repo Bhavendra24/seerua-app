@@ -53,17 +53,16 @@
       </span>
     </a>
     <nav class="nav-links" id="navLinks">
-      <a href="/#services">Services</a>
-      <a href="/#faq">FAQ</a>
-      <a href="/careers">Careers</a>
+      <a href="/">Home</a>
+      <a href="/#services">Our Services</a>
       <a href="/careers">👷 Careers</a>
+      <button type="button" class="nav-menu-btn" id="navCityBtn">City</button>
     </nav>
     <div class="header-actions">
       <a class="call-link" href="tel:+919389585479">
         📞 <span class="call-text">9389585479</span>
       </a>
       <a class="btn btn-primary btn-sm" href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}#book">Book Now</a>
-      <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
     </div>
   </div>
 </header>
@@ -340,15 +339,29 @@
 </div>
 
 <script>
-const navToggle = document.getElementById('navToggle');
-const navLinks = document.getElementById('navLinks');
-navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
-navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
-document.addEventListener('click', (e) => {
-  if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && !navToggle.contains(e.target)) {
-    navLinks.classList.remove('open');
-  }
-});
+function openBottomSheet(id) {
+  document.querySelectorAll('.bottom-sheet-backdrop.open').forEach(el => el.classList.remove('open'));
+  const sheet = document.getElementById(id);
+  if (sheet) sheet.classList.add('open');
+}
+function closeBottomSheet(id) {
+  const sheet = document.getElementById(id);
+  if (sheet) sheet.classList.remove('open');
+}
+function bindBottomSheet(id) {
+  const backdrop = document.getElementById(id);
+  if (!backdrop) return;
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) closeBottomSheet(id);
+  });
+  backdrop.querySelectorAll('a, button').forEach(el => {
+    el.addEventListener('click', () => closeBottomSheet(id));
+  });
+}
+['menuSheetBackdrop', 'citySheetBackdrop'].forEach(bindBottomSheet);
+document.getElementById('navCityBtn')?.addEventListener('click', () => openBottomSheet('citySheetBackdrop'));
+document.getElementById('bottomNavCityBtn')?.addEventListener('click', () => openBottomSheet('citySheetBackdrop'));
+document.getElementById('bottomNavMenuBtn')?.addEventListener('click', () => openBottomSheet('menuSheetBackdrop'));
 (function () {
   var targets = document.querySelectorAll('.reveal');
   if (!targets.length) return;
