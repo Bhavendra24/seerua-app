@@ -248,18 +248,6 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   position: relative;
   overflow: hidden;
 }
-.hero::before {
-  content: "";
-  position: absolute;
-  width: 460px;
-  height: 460px;
-  bottom: -140px;
-  right: -100px;
-  background: url('/images/logo.png') center / contain no-repeat;
-  opacity: 0.06;
-  z-index: 0;
-  pointer-events: none;
-}
 .hero .container { position: relative; z-index: 1; }
 /* Faint sketch-style appliance icons scattered in the background — a
    subtle visual cue for "we service all of these" without competing with
@@ -313,12 +301,6 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
    card, so it doesn't read as a generic template hero while everything
    stays real, indexable text. ---------- */
 .hero-coded-section { background: #fff; padding: 28px 0 4px; }
-/* The faint background watermark logo (.hero::before, inherited from
-   the base .hero class) was designed to sit behind a tall single-column
-   poster image — with the new coded hero's icon row + footer strip
-   sitting in that same lower area, the watermark showed through and
-   visually clashed with them. Switched off for this hero specifically. */
-.hero-coded-section::before { display: none; }
 .hero-coded-grid { display: grid; grid-template-columns: 1fr; gap: 36px; align-items: center; margin-bottom: 2px; }
 @media (min-width: 860px) {
   .hero-coded-grid { grid-template-columns: 1.1fr 0.9fr; gap: 40px; }

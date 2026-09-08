@@ -4873,6 +4873,13 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
     // links — so this city's page reads as if that service doesn't exist.
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
     const pricing = readData('pricing');
+    // BUG FIX: the H1 heading's appliance list ("AC, Washing Machine, RO
+    // & Fridge Repair in...") was hardcoded plain text in the template —
+    // adding/renaming/removing an appliance in Admin never changed it,
+    // since nothing here ever fed real appliance data into that heading.
+    const cityApplianceListText = appliances.length
+      ? joinWithAnd(appliances.map(a => a.name))
+      : 'Appliance';
 
     const pricingRowsHtml = appliances.flatMap(a =>
       a.types.map(t => {
@@ -4908,6 +4915,7 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
     const template = fs.readFileSync(CITY_TEMPLATE_PATH, 'utf-8');
     const html = template
       .split('{{CITY_NAME}}').join(city.name)
+      .split('{{CITY_APPLIANCE_LIST}}').join(cityApplianceListText)
       .split('{{CITY_ID}}').join(city.id)
       .split('{{CITY_SLUG}}').join(slugify(city.name))
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
