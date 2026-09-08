@@ -156,6 +156,17 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 
 .nav-links { display: flex; gap: 20px; align-items: center; }
 .nav-links a { font-weight: 600; font-size: 0.88rem; color: var(--blue-900); white-space: nowrap; }
+.nav-menu-btn {
+  font: inherit; font-weight: 600; font-size: 0.88rem; color: var(--blue-900);
+  background: none; border: none; cursor: pointer; padding: 0; white-space: nowrap;
+}
+.nav-menu-btn:hover { color: var(--accent-600); }
+/* Desktop-only — mobile already has the bottom nav's own "Menu" button
+   opening this exact same sheet, so this would just be a redundant
+   second way to do the same thing there. */
+@media (max-width: 720px) {
+  .nav-menu-btn { display: none; }
+}
 .nav-links a:hover { color: var(--accent-600); }
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .header-actions .call-link { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--blue-700); font-size: 0.92rem; }
@@ -1258,7 +1269,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 
 /* Footer */
 .site-footer { background: var(--blue-900); color: #cfe1f0; padding: 40px 0 20px; }
-.footer-col-brand { margin-bottom: 20px; max-width: 560px; }
+.footer-col-brand { margin-bottom: 20px; }
 .footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .footer-brand img { height: 36px; width: 36px; background: var(--white); border-radius: 8px; padding: 3px; }
 .footer-brand span { font-family: var(--font-display); font-weight: 700; color: var(--white); font-size: 1.1rem; }
