@@ -48,10 +48,16 @@ if (bottomNavMenuBtn) bottomNavMenuBtn.addEventListener('click', () => openBotto
 const bottomNavCityBtn = document.getElementById('bottomNavCityBtn');
 if (bottomNavCityBtn) {
   bottomNavCityBtn.addEventListener('click', () => {
-    const grid = document.getElementById('bottomSheetCityGrid');
-    if (grid && !grid.children.length && typeof CITIES !== 'undefined') {
-      grid.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="bottom-sheet-city-btn">${c.name}</a>`).join('');
-    }
+    // BUG FIX: this used to render <a href="/appliance-repair/...">
+    // links — tapping a city there navigated to that city's separate
+    // SEO page instead of actually setting anything on THIS page's own
+    // booking form. The booking form's #fCity dropdown (and everything
+    // priced/filtered from it) never changed, so it kept showing
+    // whatever city was already in there (often Moradabad, from the
+    // saved account) no matter which city someone picked from this
+    // sheet — confusing since it looks like a plain city switcher.
+    // Now sets #fCity directly and stays on this page.
+    populateCitySheetGrid();
     openBottomSheet('citySheetBackdrop');
   });
 }
@@ -61,11 +67,24 @@ if (bottomNavCityBtn) {
 const navCityBtn = document.getElementById('navCityBtn');
 if (navCityBtn) {
   navCityBtn.addEventListener('click', () => {
-    const grid = document.getElementById('bottomSheetCityGrid');
-    if (grid && !grid.children.length && typeof CITIES !== 'undefined') {
-      grid.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="bottom-sheet-city-btn">${c.name}</a>`).join('');
-    }
+    populateCitySheetGrid();
     openBottomSheet('citySheetBackdrop');
+  });
+}
+function populateCitySheetGrid() {
+  const grid = document.getElementById('bottomSheetCityGrid');
+  if (!grid || typeof CITIES === 'undefined') return;
+  grid.innerHTML = CITIES.map(c => `<button type="button" class="bottom-sheet-city-btn" data-city-id="${c.id}">${c.name}</button>`).join('');
+  grid.querySelectorAll('[data-city-id]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cityId = btn.getAttribute('data-city-id');
+      const cityEl = document.getElementById('fCity');
+      if (cityEl) {
+        cityEl.value = cityId;
+        if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
+      }
+      closeBottomSheet('citySheetBackdrop');
+    });
   });
 }
 
