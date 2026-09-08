@@ -80,6 +80,21 @@ function populateCitySheetGrid() {
 // re-attaching a listener to each button every time the sheet reopens —
 // simpler and avoids any chance of stale/duplicate listeners piling up
 // across repeated opens.
+// Updates the mobile bottom-nav's and desktop header's own "City"
+// button label to show whichever city is currently active — called
+// both when someone explicitly picks one from this sheet, AND from
+// applyAccountToBookingFields() (a returning customer's saved account
+// city gets applied programmatically, which used to leave these
+// buttons stuck on their old label — showing a DIFFERENT city than
+// what the booking form was actually using underneath).
+function updateCityButtonLabels(cityId) {
+  const city = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === cityId) : null;
+  if (!city) return;
+  const bottomBtnSpan = document.querySelector('#bottomNavCityBtn span');
+  if (bottomBtnSpan) bottomBtnSpan.textContent = city.name;
+  const desktopBtn = document.getElementById('navCityBtn');
+  if (desktopBtn) desktopBtn.textContent = city.name;
+}
 document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-city-id]');
   if (!btn) return;
@@ -98,10 +113,7 @@ document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async 
   // it looked exactly like nothing had happened at all. A toast plus
   // updating both City buttons' own label fixes that.
   if (typeof showToast === 'function') showToast(`City set to ${cityName}`);
-  const bottomBtnSpan = document.querySelector('#bottomNavCityBtn span');
-  if (bottomBtnSpan) bottomBtnSpan.textContent = cityName;
-  const desktopBtn = document.getElementById('navCityBtn');
-  if (desktopBtn) desktopBtn.textContent = cityName;
+  updateCityButtonLabels(cityId);
 });
 
 // Custom line icons (white strokes, sit on the .service-icon's gradient
@@ -2517,6 +2529,7 @@ function applyAccountToBookingFields(acc) {
   if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
   if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
   if (cityEl && acc.cityId && cityEl.value !== acc.cityId) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
+  if (acc.cityId && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(acc.cityId);
   const editBtn = document.getElementById('editAddressBtn');
   if (editBtn) editBtn.style.display = 'inline-block';
   verifiedBookingPhone = acc.phone;
@@ -3060,6 +3073,7 @@ function bindQuickBookModal() {
     const cityId = document.getElementById('qbCitySelect').value;
     if (!cityId) return;
     document.getElementById('fCity').value = cityId;
+    if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityId);
     refreshAppliancesForCity(cityId).then(() => {
       document.getElementById('qbCityStep').style.display = 'none';
       document.getElementById('qbDetailsStep').style.display = 'block';
