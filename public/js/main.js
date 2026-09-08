@@ -2521,6 +2521,15 @@ function applyAccountToBookingFields(acc) {
   if (editBtn) editBtn.style.display = 'inline-block';
   verifiedBookingPhone = acc.phone;
   if (acc.accessToken) verifiedBookingAccessToken = acc.accessToken;
+  // BUG FIX: both the address and city above get set programmatically
+  // here (readonly pre-fill from the saved account) — neither a plain
+  // .value assignment (city) nor a readonly field (address, never
+  // actually typed into) fires the 'change'/'input' events
+  // checkAddressCityMismatch() normally listens for. So if someone's
+  // OWN saved account address doesn't actually match their account's
+  // saved city, the warning never had a chance to show at all. Call it
+  // directly here so this exact scenario is covered too.
+  if (typeof checkAddressCityMismatch === 'function') checkAddressCityMismatch();
 }
 
 function openAccountGate(intent, applianceId) {
