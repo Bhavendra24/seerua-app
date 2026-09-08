@@ -75,18 +75,34 @@ function populateCitySheetGrid() {
   const grid = document.getElementById('bottomSheetCityGrid');
   if (!grid || typeof CITIES === 'undefined') return;
   grid.innerHTML = CITIES.map(c => `<button type="button" class="bottom-sheet-city-btn" data-city-id="${c.id}">${c.name}</button>`).join('');
-  grid.querySelectorAll('[data-city-id]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const cityId = btn.getAttribute('data-city-id');
-      const cityEl = document.getElementById('fCity');
-      if (cityEl) {
-        cityEl.value = cityId;
-        if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
-      }
-      closeBottomSheet('citySheetBackdrop');
-    });
-  });
 }
+// Event delegation on the grid's container (bound ONCE, ever) instead of
+// re-attaching a listener to each button every time the sheet reopens —
+// simpler and avoids any chance of stale/duplicate listeners piling up
+// across repeated opens.
+document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-city-id]');
+  if (!btn) return;
+  const cityId = btn.getAttribute('data-city-id');
+  const cityName = btn.textContent;
+  const cityEl = document.getElementById('fCity');
+  if (cityEl) {
+    cityEl.value = cityId;
+    if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
+  }
+  closeBottomSheet('citySheetBackdrop');
+  // BUG FIX: setting #fCity's value silently had NO visible effect
+  // anywhere on the page — no confirmation text, no change to the
+  // "City" button itself — so even though the selection genuinely did
+  // take effect (appliances/pricing were correctly refreshed for it),
+  // it looked exactly like nothing had happened at all. A toast plus
+  // updating both City buttons' own label fixes that.
+  if (typeof showToast === 'function') showToast(`City set to ${cityName}`);
+  const bottomBtnSpan = document.querySelector('#bottomNavCityBtn span');
+  if (bottomBtnSpan) bottomBtnSpan.textContent = cityName;
+  const desktopBtn = document.getElementById('navCityBtn');
+  if (desktopBtn) desktopBtn.textContent = cityName;
+});
 
 // Custom line icons (white strokes, sit on the .service-icon's gradient
 // circle) instead of emoji — emoji render inconsistently across devices
