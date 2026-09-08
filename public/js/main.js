@@ -2142,7 +2142,14 @@ function verifyPhoneWithOtp(phone) {
       window.initSendOTP({
         widgetId: cfg.widgetId,
         tokenAuth: cfg.tokenAuth,
-        identifier,
+        // BUG FIX: 'identifier' was passed here AND again in the
+        // explicit window.sendOtp(identifier, ...) call just below —
+        // per MSG91's own docs, identifier here is only optional/for
+        // their own (unused, since exposeMethods:true) UI flow, while
+        // sendOtp() is what actually, genuinely sends the OTP. Having
+        // it in both places was very likely triggering two separate
+        // sends for one tap — exactly matching two different OTP codes
+        // arriving in two separate SMS for a single "Send OTP" tap.
         exposeMethods: true,
         success: (data) => {
           // Some widget versions call this directly rather than via the

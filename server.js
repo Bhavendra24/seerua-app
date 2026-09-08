@@ -4642,6 +4642,32 @@ function maintenancePageIfEnabled() {
 // {{APPLIANCE_LIST_TEXT}} inside an answer are swapped for the current
 // live lists, so Admin's FAQ/footer text stays accurate as cities and
 // appliances are added or removed — no manual edit needed.
+// Same fallback icons as ICONS in public/js/main.js's renderServicesGrid()
+// — kept in sync manually since one lives in server-rendered HTML and the
+// other in client JS. Used so the "Our Services" grid on the homepage
+// paints immediately in the initial HTML instead of staying empty for a
+// few seconds until client JS fetches /api/appliances and fills it in —
+// that gap was very visible on slower connections (looked like a chunk
+// of the page had gone missing, then popped in a moment later).
+const SERVER_SERVICE_ICONS = {
+  snowflake: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="9" rx="2.5"/><circle cx="7.5" cy="9.5" r="1" fill="#fff" stroke="none"/><path d="M4 18c1.2-1.6 2.4-1.6 3.6 0M9.6 18c1.2-1.6 2.4-1.6 3.6 0M15.2 18c1.2-1.6 2.4-1.6 3.6 0"/></svg>',
+  washer: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3" width="17" height="18" rx="2.5"/><circle cx="6.5" cy="6" r="0.4" fill="#fff" stroke="none"/><circle cx="9" cy="6" r="0.4" fill="#fff" stroke="none"/><circle cx="12" cy="14" r="5"/><circle cx="12" cy="14" r="2.1"/></svg>',
+  droplet: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.4 4 6 7.4 6 10.8a6 6 0 1 1-12 0c0-3.4 2.6-6.8 6-10.8Z"/><path d="M9.3 15.3c0 1.5 1.2 2.5 2.5 2.6"/></svg>',
+  fridge: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.2"/><line x1="5" y1="9.5" x2="19" y2="9.5"/><line x1="8.2" y1="4.8" x2="8.2" y2="7.2"/><line x1="8.2" y1="12" x2="8.2" y2="15"/></svg>',
+  wrench: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 4.9L3 17.5 6.5 21l6.3-6.3a4 4 0 0 0 4.9-5.4l-2.8 2.8-2.4-2.4 2.8-2.8Z"/></svg>'
+};
+function buildServicesGridHtml(appliances) {
+  return appliances.map(a => `
+    <div class="service-card" data-appliance="${a.id}">
+      ${a.photoUrl
+        ? `<img class="service-card-photo" src="${escapeHtml(a.photoUrl)}" alt="${escapeHtml(a.name)} service technician at work" loading="lazy">`
+        : `<div class="service-icon-wrap"><div class="service-icon">${SERVER_SERVICE_ICONS[a.icon] || SERVER_SERVICE_ICONS.wrench}</div></div>`}
+      <h3>${escapeHtml(a.name)}</h3>
+      <a href="#book" class="btn btn-outline btn-sm">Book Now</a>
+    </div>
+  `).join('');
+}
+
 function fillContentPlaceholders(text, cityListText, applianceListText) {
   return String(text || '')
     .split('{{CITY_LIST_TEXT}}').join(cityListText)
@@ -4693,6 +4719,7 @@ app.get('/', (req, res) => {
     const cityListText = joinWithAnd(cityNames);
     const appliances = readData('appliances').filter(a => !a.hidden);
     const applianceListText = joinWithAnd(appliances.map(a => a.name));
+    const servicesGridHtml = buildServicesGridHtml(appliances);
     const siteContent = readData('site-content');
     const template = fs.readFileSync(INDEX_TEMPLATE_PATH, 'utf-8');
     const html = template
@@ -4706,7 +4733,8 @@ app.get('/', (req, res) => {
       .replace('{{FOOTER_SLOGAN}}', escapeHtml(siteContent.footerSlogan || ''))
       .replace('{{FOOTER_DESCRIPTION}}', escapeHtml(fillContentPlaceholders(siteContent.footerDescription || '', cityListText, applianceListText)))
       .replace('{{FAQ_LIST_HTML}}', buildFaqListHtml(siteContent.faqs || [], cityListText, applianceListText))
-      .replace('{{FAQ_SCHEMA_JSON}}', buildFaqSchemaHtml(siteContent.faqs || [], cityListText, applianceListText));
+      .replace('{{FAQ_SCHEMA_JSON}}', buildFaqSchemaHtml(siteContent.faqs || [], cityListText, applianceListText))
+      .replace('{{SERVICES_GRID_HTML}}', servicesGridHtml);
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (e) {
