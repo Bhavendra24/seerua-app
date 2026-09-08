@@ -1025,9 +1025,15 @@ function renderCart() {
     if (!shouldLock) cartPhoneNumber = null; // cart's empty again — free to start over with any number
   }
   // Same lock, for the same reason, on City — see cartCityId's comment
-  // above for what goes wrong without this.
+  // above for what goes wrong without this. BUG FIX: this used to
+  // unconditionally UNLOCK the field again once the cart emptied out —
+  // which also undid the separate, persistent lock applied in
+  // applyAccountToBookingFields() for a returning customer's saved
+  // city, re-opening the exact mismatch risk that lock exists to
+  // prevent. Now only touches the field if there's no saved account
+  // locking it for an unrelated reason.
   const cityField = document.getElementById('fCity');
-  if (cityField && quickBookViewStartIndex === null) {
+  if (cityField && quickBookViewStartIndex === null && !getAccount()) {
     const shouldLockCity = cartItems.length > 0;
     cityField.disabled = shouldLockCity;
     cityField.style.background = shouldLockCity ? 'var(--mist)' : '';
@@ -2529,6 +2535,13 @@ function applyAccountToBookingFields(acc) {
   if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
   if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
   if (cityEl && acc.cityId && cityEl.value !== acc.cityId) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
+  // Locked to match Name/Address just above — was left as a fully open
+  // dropdown even for a returning customer with a saved city, which
+  // looked inconsistent ("why can I still change just this one thing?")
+  // and was an easy way to accidentally cause the exact price/technician
+  // mismatch bugs fixed earlier. "Edit Address" (renamed below) already
+  // covers changing city too, via the same Account Gate step.
+  if (cityEl) { cityEl.disabled = true; cityEl.style.background = 'var(--mist)'; }
   if (acc.cityId && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(acc.cityId);
   const editBtn = document.getElementById('editAddressBtn');
   if (editBtn) editBtn.style.display = 'inline-block';
@@ -2739,7 +2752,7 @@ function bindAccountGateModal() {
     const acc = getAccount();
     if (!acc) return;
     agEditMode = true;
-    document.getElementById('agAddressTitle').textContent = 'Edit Address';
+    document.getElementById('agAddressTitle').textContent = 'Edit Address / City';
     document.getElementById('agPhoneStep').style.display = 'none';
     document.getElementById('agAddressStep').style.display = 'block';
     document.getElementById('agName').value = acc.name || '';
