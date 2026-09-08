@@ -154,10 +154,10 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 .header-actions { flex-shrink: 0; }
 .brand-tag { display: none; }
 
-.nav-links { display: flex; gap: 32px; align-items: center; }
-.nav-links a { font-weight: 700; font-size: 0.98rem; color: var(--blue-900); white-space: nowrap; }
+.nav-links { display: flex; gap: 44px; align-items: center; }
+.nav-links a { font-weight: 700; font-size: 1.1rem; color: var(--blue-900); white-space: nowrap; }
 .nav-menu-btn {
-  font: inherit; font-weight: 700; font-size: 0.98rem; color: var(--blue-900);
+  font: inherit; font-weight: 700; font-size: 1.1rem; color: var(--blue-900);
   background: none; border: none; cursor: pointer; padding: 0; white-space: nowrap;
 }
 .nav-menu-btn:hover { color: var(--accent-600); }
