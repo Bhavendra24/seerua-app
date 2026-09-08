@@ -248,10 +248,13 @@
   </div>
 </section>
 
-<!-- BOOKING FORM -->
-<section class="bg-mist" id="book">
-  <div class="container">
-    <div class="booking-wrap reveal" id="bookingWrap" hidden>
+<!-- BOOKING FORM — proper popup modal now (was a plain page section that
+     just sat inline in the page flow, pushing content below it down
+     whenever it opened, instead of floating above everything like every
+     other modal on this site). -->
+<div class="modal-backdrop" id="bookingModalBackdrop">
+  <div class="modal modal-lg">
+    <div class="booking-wrap" id="bookingWrap">
       <button type="button" class="booking-close-btn" onclick="closeBookingForm()" aria-label="Close booking form">✕</button>
       <div class="booking-info">
         <span class="eyebrow" data-i18n="booking.eyebrow">Book a service</span>
@@ -400,7 +403,7 @@
       </form>
     </div>
   </div>
-</section>
+</div>
 
 <!-- TRACK ORDER + REFER & EARN (merged) -->
 <section id="track">

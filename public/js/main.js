@@ -81,15 +81,17 @@ let incomingReferralCode = null; // set from ?ref= in the URL, sent along with t
 // instead of letting the browser jump there directly, we intercept those
 // clicks so the form is revealed first, then scroll to it.
 function openBookingForm() {
-  // The header's own "Book Now" button sits next to the hamburger menu,
-  // not inside it — so if the mobile nav menu was left open, tapping it
-  // would scroll to the booking form while that menu's fixed white panel
-  // stayed open on top, hiding the form behind it. Always close the menu
-  // here so that can't happen, no matter which "Book Now" was tapped.
-  const wrap = document.getElementById('bookingWrap');
-  if (wrap) wrap.hidden = false;
-  const section = document.getElementById('book');
-  if (section) section.scrollIntoView({ behavior: 'smooth' });
+  // FLOW CHANGE: this used to un-hide a plain page section and scroll to
+  // it — now opens as a proper floating modal (matching every other
+  // popup on this site: Account Gate, Quick Book, Track Booking, etc.)
+  // instead of being pushed inline into the middle of the page.
+  const backdrop = document.getElementById('bookingModalBackdrop');
+  if (backdrop) backdrop.classList.add('open');
+  // Clears out any lingering success/error message from a previous
+  // booking in the same session, so reopening the form doesn't briefly
+  // flash old text before a new attempt.
+  const msg = document.getElementById('formMsg');
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
   // Reset to the full form by default — see hideRedundantBookingFields()
   // for where/why these get hidden again for the Quick Book shortcut.
   const cityField = document.getElementById('fCityField');
@@ -98,11 +100,17 @@ function openBookingForm() {
   if (addBox) addBox.style.display = '';
 }
 
-// Collapses the form again — used once a booking is successfully placed.
+// Collapses the form again — used once a booking is successfully placed,
+// or when the person taps the ✕ / taps outside the modal.
 function closeBookingForm() {
-  const wrap = document.getElementById('bookingWrap');
-  if (wrap) wrap.hidden = true;
+  const backdrop = document.getElementById('bookingModalBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
 }
+// Tapping the dark backdrop itself (not the form card) closes it too —
+// same pattern as every other modal on the site.
+document.getElementById('bookingModalBackdrop')?.addEventListener('click', (e) => {
+  if (e.target.id === 'bookingModalBackdrop') closeBookingForm();
+});
 
 // My History (order tracking + referral) is hidden until the person taps
 // "Track" or "My Booking" in the nav/footer — every such link points to
@@ -156,7 +164,12 @@ function bindUrlTriggeredSections() {
     }
   }
   if (window.location.hash === '#book') {
-    document.getElementById('book').scrollIntoView({ behavior: 'smooth' });
+    // FLOW CHANGE: #book now opens the booking modal directly instead of
+    // scrolling to a page section — the old target element (a plain
+    // <section id="book">) doesn't exist anymore now that this is a
+    // proper popup, so scrollIntoView would have thrown on a null
+    // element here.
+    openAccountGate('booking');
   }
 }
 // A #track/#book link followed from outside the page (e.g. an SMS/WhatsApp

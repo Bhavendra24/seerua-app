@@ -1015,6 +1015,12 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   .global-toast { bottom: 32px; }
 }
 .modal { background: var(--white); border-radius: var(--radius-md); padding: 28px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-md); overscroll-behavior: contain; }
+/* Wider variant — for modals with genuinely more content to show side by
+   side on bigger screens (currently just the booking form's two-column
+   info+form layout). Falls back to the same width as a normal modal on
+   narrow/mobile screens, where .booking-wrap's own responsive rule
+   already collapses it to one column anyway. */
+.modal.modal-lg { max-width: 900px; }
 
 /* Quick Book modal (opened from tapping an appliance card) */
 .qb-city-select { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 0.95rem; font-family: var(--font-body); }
