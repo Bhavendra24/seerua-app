@@ -377,6 +377,11 @@
           <label for="fAddress">Full Address *</label>
           <textarea id="fAddress" rows="2" required placeholder="House no., street, landmark, pincode"></textarea>
           <button type="button" class="btn btn-outline btn-sm" id="editAddressBtn" style="display:none;margin-top:8px;">✏️ Edit Address</button>
+          <!-- Soft warning only, never blocks submitting — an address
+               legitimately can mention a nearby/other city's name as a
+               landmark (e.g. "near Moradabad road"), so this is just a
+               nudge to double-check, not a hard validation rule. -->
+          <p class="form-msg" id="fAddressCityWarning" style="display:none;color:#b45309;background:#fffbeb;padding:8px 10px;border-radius:8px;margin-top:8px;"></p>
         </div>
 
         <div class="field">

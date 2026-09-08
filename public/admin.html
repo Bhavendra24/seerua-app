@@ -907,6 +907,21 @@
   </div>
 </div>
 
+<!-- EDIT BOOKING LOCATION MODAL -->
+<div class="modal-backdrop" id="editLocationModal">
+  <div class="modal">
+    <h3>Edit City / Address</h3>
+    <p style="color:var(--slate);font-size:0.85rem;margin-bottom:14px;">Use this if a customer picked the wrong city, or the address doesn't match their selected city (e.g. after the site's own address-mismatch warning was missed/ignored). Changing the city here does NOT move this booking to a different technician automatically — reassign it below afterward if needed.</p>
+    <div class="field"><label>City</label><select id="editLocCity"></select></div>
+    <div class="field"><label>Full Address</label><textarea id="editLocAddress" rows="3"></textarea></div>
+    <div class="msg-inline error" id="editLocWarning" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('editLocationModal')">Cancel</button>
+      <button class="btn btn-primary" id="editLocSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD TYPE MODAL -->
 <div class="modal-backdrop" id="typeModal">
   <div class="modal">

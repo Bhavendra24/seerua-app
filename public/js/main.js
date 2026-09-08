@@ -125,6 +125,33 @@ document.getElementById('bookingModalBackdrop')?.addEventListener('click', (e) =
   if (e.target.id === 'bookingModalBackdrop') closeBookingForm();
 });
 
+// Soft nudge (not a hard block) if the typed address mentions a DIFFERENT
+// city than the one selected above it — easy mistake to make (typing
+// fast, copy-pasting an old address, etc.) and worth a gentle "are you
+// sure?" without actually preventing submission, since an address can
+// legitimately reference another nearby place as a landmark.
+function checkAddressCityMismatch() {
+  const addressEl = document.getElementById('fAddress');
+  const cityEl = document.getElementById('fCity');
+  const warningEl = document.getElementById('fAddressCityWarning');
+  if (!addressEl || !cityEl || !warningEl || typeof CITIES === 'undefined') return;
+  const address = addressEl.value.toLowerCase();
+  const selectedCity = CITIES.find(c => c.id === cityEl.value);
+  if (!address.trim() || !selectedCity) { warningEl.style.display = 'none'; return; }
+  const selectedCityName = selectedCity.name.toLowerCase();
+  const mentionedOtherCity = CITIES.find(c =>
+    c.id !== selectedCity.id && address.includes(c.name.toLowerCase())
+  );
+  if (mentionedOtherCity && !address.includes(selectedCityName)) {
+    warningEl.style.display = 'block';
+    warningEl.textContent = `⚠️ You selected ${selectedCity.name} as the city, but this address mentions ${mentionedOtherCity.name} — please double-check it's correct.`;
+  } else {
+    warningEl.style.display = 'none';
+  }
+}
+document.getElementById('fAddress')?.addEventListener('blur', checkAddressCityMismatch);
+document.getElementById('fCity')?.addEventListener('change', checkAddressCityMismatch);
+
 // My History (order tracking + referral) is hidden until the person taps
 // "Track" or "My Booking" in the nav/footer — every such link points to
 // #track, intercepted the same way as the booking form's #book links.
@@ -896,12 +923,13 @@ function loadCartFromStorage() {
     if (Array.isArray(saved.cartItems)) cartItems = saved.cartItems;
     if (saved.appliedCoupon) appliedCoupon = saved.appliedCoupon;
     if (saved.cartPhoneNumber) cartPhoneNumber = saved.cartPhoneNumber;
+    if (saved.cartCityId) cartCityId = saved.cartCityId;
   } catch (e) { /* corrupted/old data — just start with an empty cart */ }
 }
 
 function saveCartToStorage() {
   try {
-    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ cartItems, appliedCoupon, cartPhoneNumber }));
+    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ cartItems, appliedCoupon, cartPhoneNumber, cartCityId }));
   } catch (e) { /* storage full or unavailable — cart just won't survive a refresh this time */ }
 }
 
@@ -910,6 +938,12 @@ let cartItems = [];
 // the first item goes in, cleared when the cart empties out again. See
 // the check in addItemToCart() for why this exists.
 let cartPhoneNumber = null;
+// Same idea, for city — item prices are calculated per-city at the
+// moment each one is added, so switching cities mid-cart would leave
+// already-added items charging the OLD city's rates under the NEW
+// city's name. See the check in addItemToCart() and the City-field lock
+// in renderCart() below.
+let cartCityId = null;
 // SUGGESTION IMPLEMENTED: OTP now happens right when the first item is
 // added to the cart (not at final Submit) — this remembers that
 // verification across the rest of the flow, so Submit doesn't ask again
@@ -942,6 +976,15 @@ function renderCart() {
     phoneField.style.background = shouldLock ? 'var(--mist)' : '';
     if (phoneLockNote) phoneLockNote.style.display = shouldLock ? 'block' : 'none';
     if (!shouldLock) cartPhoneNumber = null; // cart's empty again — free to start over with any number
+  }
+  // Same lock, for the same reason, on City — see cartCityId's comment
+  // above for what goes wrong without this.
+  const cityField = document.getElementById('fCity');
+  if (cityField && quickBookViewStartIndex === null) {
+    const shouldLockCity = cartItems.length > 0;
+    cityField.disabled = shouldLockCity;
+    cityField.style.background = shouldLockCity ? 'var(--mist)' : '';
+    if (!shouldLockCity) cartCityId = null; // cart's empty again — free to start over with any city
   }
   // Clear, visible confirmation that this is an isolated "just this one
   // item" checkout — so it's obvious nothing else from the regular cart
@@ -1176,6 +1219,24 @@ async function addItemToCart() {
     return;
   }
 
+  // BUG FIX: cart items store their price CALCULATED for whichever city
+  // was selected at the moment each one was added — changing the City
+  // dropdown afterward doesn't retroactively re-price anything already
+  // in the list. Without this check, a customer could add an item under
+  // Moradabad, change the dropdown to Kasganj, then add/submit — the
+  // booking's cityId ends up Kasganj but the already-added item(s) keep
+  // charging Moradabad's price, a real mismatch between what the order
+  // says and what it actually charges. Blocked the same way the phone-
+  // number mismatch above already is, rather than silently either
+  // re-pricing or submitting something inconsistent.
+  if (cartItems.length > 0 && cartCityId && cityId !== cartCityId) {
+    const cartCityName = (typeof CITIES !== 'undefined' ? CITIES.find(c => c.id === cartCityId) : null);
+    msg.className = 'form-msg error';
+    msg.textContent = `This booking is already using ${cartCityName ? cartCityName.name : 'a different city'} (item prices are city-specific). Please switch the City field back, or remove the item(s) below first to start over with a different city.`;
+    document.getElementById('fCity').value = cartCityId;
+    return;
+  }
+
   const addBtn = document.getElementById('addItemBtn');
   const originalBtnText = addBtn.textContent;
   addingItem = true;
@@ -1263,6 +1324,7 @@ async function addItemToCart() {
         unitPrice, lineTotal: unitPrice * qty
       });
       cartPhoneNumber = phone; // locks this cart to this number — see the check above and renderCart()
+      cartCityId = cityId; // locks this cart to this city — see the check above and renderCart()
       renderCart();
       document.getElementById('fProblem').value = '';
       document.getElementById('fQty').value = 1;

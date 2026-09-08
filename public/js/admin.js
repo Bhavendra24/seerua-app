@@ -572,6 +572,36 @@ function isFirstBookingForPhone(booking) {
   return earliest && earliest.id === booking.id;
 }
 
+// Opens the Edit City/Address modal for one booking — pre-fills the
+// current city + address, and wires Save to PUT /location (see
+// server.js for exactly what that endpoint does and doesn't touch).
+function openEditBookingLocation(bookingId) {
+  const booking = BOOKINGS.find(b => b.id === bookingId) || (ARCHIVED_BOOKINGS || []).find(b => b.id === bookingId);
+  if (!booking) return;
+  const citySelect = document.getElementById('editLocCity');
+  citySelect.innerHTML = CITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  citySelect.value = booking.cityId;
+  document.getElementById('editLocAddress').value = booking.address;
+  document.getElementById('editLocWarning').style.display = 'none';
+  document.getElementById('editLocationModal').classList.add('open');
+  document.getElementById('editLocSaveBtn').onclick = async () => {
+    const warnEl = document.getElementById('editLocWarning');
+    warnEl.style.display = 'none';
+    try {
+      await api(`/api/admin/bookings/${bookingId}/location`, {
+        method: 'PUT',
+        body: JSON.stringify({ cityId: citySelect.value, address: document.getElementById('editLocAddress').value })
+      });
+      closeModal('editLocationModal');
+      BOOKINGS = await api('/api/admin/bookings');
+      renderOrders();
+    } catch (e) {
+      warnEl.textContent = e.message || 'Could not save. Please try again.';
+      warnEl.style.display = 'block';
+    }
+  };
+}
+
 function renderOrders() {
   const mode = document.getElementById('ordersViewMode').value;
   document.getElementById('archivedNotice').style.display = mode === 'archived' ? 'block' : 'none';
@@ -619,7 +649,7 @@ function renderOrders() {
   document.getElementById('ordersTable').innerHTML = list.length ? list.map(b => `
     <tr>
       <td>${b.id}${isBookingDateLocked(b.bookingDate) ? ' <span class="pill" style="background:#fef3c7;color:#b45309;" title="Locked past date">🔒 Locked</span>' : ''}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${b.timeSlot}</small>` : ''}</td>
-      <td>${esc(b.name)} ${b.source === 'phone' ? '<span class="pill pill-assigned" title="Booked via phone call by Admin">📞 Phone</span>' : ''} ${isFirstBookingForPhone(b) ? '<span class="pill" style="background:#dcfce7;color:#166534;" title="This phone number\'s first-ever booking">🆕 New</span>' : '<span class="pill" style="background:#e0e7ff;color:#3730a3;" title="This phone number has booked before">🔁 Returning</span>'}<br><small style="color:var(--slate)">${esc(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small></td>
+      <td>${esc(b.name)} ${b.source === 'phone' ? '<span class="pill pill-assigned" title="Booked via phone call by Admin">📞 Phone</span>' : ''} ${isFirstBookingForPhone(b) ? '<span class="pill" style="background:#dcfce7;color:#166534;" title="This phone number\'s first-ever booking">🆕 New</span>' : '<span class="pill" style="background:#e0e7ff;color:#3730a3;" title="This phone number has booked before">🔁 Returning</span>'}<br><small style="color:var(--slate)">${esc(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small><br><small style="color:var(--slate)">📍 ${esc(b.cityName || '')}</small><br><button class="btn btn-outline btn-sm" style="margin-top:4px;" onclick="openEditBookingLocation('${b.id}')">✏️ Edit City/Address</button></td>
       <td>
         ${b.items.map(it => `
           <div style="padding:8px 0;border-bottom:1px dashed var(--line);">

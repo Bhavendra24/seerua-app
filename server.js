@@ -3909,6 +3909,36 @@ app.get('/api/admin/bookings/:bookingId/items/:itemId/eligible-technicians', req
   res.json(withStats);
 });
 
+// Corrects a booking's city and/or address after the fact — e.g. the
+// customer selected the wrong city, or their typed address didn't
+// actually match it (see the soft warning for this on the booking form
+// itself; this is the fix path for when that got missed/ignored
+// anyway). Admin-only, not Sub-Admin: this can change which
+// city/technician pool a booking belongs to, close to the same trust
+// level as reassigning a technician.
+app.put('/api/admin/bookings/:bookingId/location', requireAdmin, async (req, res) => {
+  const { cityId, address } = req.body;
+  if (!cityId || !String(address || '').trim()) {
+    return res.status(400).json({ error: 'City and address are both required.' });
+  }
+  const city = readData('cities').find(c => c.id === cityId);
+  if (!city) return res.status(400).json({ error: 'Please select a valid city.' });
+  let found = false;
+  await withLock('bookings', async () => {
+    const bookings = readData('bookings');
+    const booking = bookings.find(b => b.id === req.params.bookingId);
+    if (booking) {
+      found = true;
+      booking.cityId = cityId;
+      booking.cityName = city.name;
+      booking.address = String(address).trim();
+      writeData('bookings', bookings);
+    }
+  });
+  if (!found) return res.status(404).json({ error: 'Booking not found.' });
+  res.json({ success: true });
+});
+
 // Assign a technician to ONE specific item within a booking. This is a hard
 // match check: the technician's city must equal the booking's city AND the
 // technician's specialities must include this item's appliance — otherwise
