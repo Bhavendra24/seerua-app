@@ -2749,12 +2749,8 @@ function bindAccountGateModal() {
     if (e.target.id === 'accountGateModal') closeAccountGate();
   });
 
-  // FLOW CHANGE (back to manual, per explicit request): typing the
-  // number alone no longer auto-fires this — a tap on "Send OTP" does.
-  // Editing the number after a failed attempt and tapping Send OTP
-  // again is a fresh, deliberate attempt (agSending only blocks a
-  // second tap while one is already in flight, via the button's own
-  // disabled state below).
+  // "Send OTP" — same verification either way; the flag below just
+  // stops a re-tap while one's already in flight.
   let agSending = false;
   async function attemptAccountGateVerification() {
     if (agSending) return;
@@ -2847,18 +2843,24 @@ function bindAccountGateModal() {
   }
   document.getElementById('agSendBtn').addEventListener('click', attemptAccountGateVerification);
   // BEHAVIOR CHANGE (per explicit request): auto-sends the moment 10
-  // digits are typed — no separate tap on "Send OTP" needed. A flag
-  // (rather than just checking the input's length) stops this firing a
-  // second time if they backspace and retype within the same 10-digit
-  // number, or if attemptAccountGateVerification() itself already
-  // kicked off from the button being tapped directly.
+  // digits are typed — no separate tap on "Send OTP" needed. Bound to
+  // both 'input' (fires per-keystroke on virtually all browsers) and
+  // 'change'/'keyup' as a safety net for any mobile keyboard/IME
+  // combination that might not fire 'input' reliably on every keystroke.
+  // A flag (rather than just checking the input's length) stops this
+  // firing a second time from multiple events landing back-to-back once
+  // already at 10 digits.
   let agAutoSent = false;
-  document.getElementById('agPhone').addEventListener('input', (e) => {
+  const agAutoSendCheck = (e) => {
     if (e.target.value.length !== 10) { agAutoSent = false; return; }
     if (agAutoSent) return;
     agAutoSent = true;
     attemptAccountGateVerification();
-  });
+  };
+  const agPhoneInput = document.getElementById('agPhone');
+  agPhoneInput.addEventListener('input', agAutoSendCheck);
+  agPhoneInput.addEventListener('keyup', agAutoSendCheck);
+  agPhoneInput.addEventListener('change', agAutoSendCheck);
 
   document.getElementById('agSaveBtn').addEventListener('click', async () => {
     const msg = document.getElementById('agAddressMsg');
