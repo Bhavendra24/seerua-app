@@ -199,6 +199,17 @@ function openBookingForm() {
   if (cityField) cityField.style.display = '';
   const addBox = document.querySelector('.cart-add-box');
   if (addBox) addBox.style.display = '';
+  // BUG FIX: #fPhoneField was hardcoded display:none, on the assumption
+  // that phone is always captured up front by Account Gate before this
+  // form is ever shown — true when opened via the old #book flow, but
+  // no longer true now that #book opens straight to this form instead
+  // (per explicit request: no OTP until they actually try to Add). A
+  // brand new visitor with no saved account had no field at all to type
+  // a phone number into. Show it whenever there's no known account yet;
+  // applyAccountToBookingFields() (for a returning customer) still
+  // hides it again right after, same as before.
+  const phoneField = document.getElementById('fPhoneField');
+  if (phoneField) phoneField.style.display = getAccount() ? 'none' : '';
 }
 
 // Collapses the form again — used once a booking is successfully placed,
