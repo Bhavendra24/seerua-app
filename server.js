@@ -99,7 +99,7 @@ const SITE_URL = 'https://seerua.com';
 // (non-www — the "www" subdomain isn't set up in DNS/hosting, so www.*
 // URLs are unreachable and must NOT be the redirect target), matching
 // SITE_URL above and the canonical tags used across the site.
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (process.env.NODE_ENV !== 'production') return next();
   const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
   const host = (req.headers.host || '').toLowerCase();
@@ -189,7 +189,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // refresh always reflects the current state. Static files (CSS/JS/
 // images) are served by express.static ABOVE this line, so they're
 // unaffected and keep their normal, performance-friendly caching.
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   next();
 });
@@ -218,7 +218,7 @@ const loginAttempts = {}; // `${type}:${ip}` -> { count, firstAttemptAt }
 const LOGIN_MAX_ATTEMPTS = 8;
 const LOGIN_WINDOW_MS = 10 * 60 * 1000;
 function loginRateLimit(type) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const key = `${type}:${req.ip}`;
     const rec = loginAttempts[key];
     if (rec && (Date.now() - rec.firstAttemptAt) < LOGIN_WINDOW_MS && rec.count >= LOGIN_MAX_ATTEMPTS) {
@@ -227,7 +227,7 @@ function loginRateLimit(type) {
     next();
   };
 }
-function recordLoginFailure(type, req) {
+async function recordLoginFailure(type, req) {
   const key = `${type}:${req.ip}`;
   const rec = loginAttempts[key];
   if (!rec || (Date.now() - rec.firstAttemptAt) >= LOGIN_WINDOW_MS) {
@@ -236,7 +236,7 @@ function recordLoginFailure(type, req) {
     rec.count++;
   }
 }
-function clearLoginFailures(type, req) {
+async function clearLoginFailures(type, req) {
   delete loginAttempts[`${type}:${req.ip}`];
 }
 
@@ -249,7 +249,7 @@ function clearLoginFailures(type, req) {
 const aiChatAttempts = {}; // ip -> { count, windowStart }
 const AI_CHAT_MAX_PER_WINDOW = 40;
 const AI_CHAT_WINDOW_MS = 10 * 60 * 1000;
-function aiChatRateLimit(req, res, next) {
+async function aiChatRateLimit(req, res, next) {
   const key = req.ip;
   const rec = aiChatAttempts[key];
   if (rec && (Date.now() - rec.windowStart) < AI_CHAT_WINDOW_MS) {
@@ -276,7 +276,7 @@ const uploadAttempts = {}; // `${type}:${ip}` -> { count, windowStart }
 const UPLOAD_MAX_PER_WINDOW = 20;
 const UPLOAD_WINDOW_MS = 10 * 60 * 1000;
 function uploadRateLimit(type) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const key = `${type}:${req.ip}`;
     const rec = uploadAttempts[key];
     if (rec && (Date.now() - rec.windowStart) < UPLOAD_WINDOW_MS) {
@@ -304,7 +304,7 @@ const FILE_SIGNATURES = [
   { mime: 'image/heic', check: buf => buf.length >= 12 && buf.toString('ascii', 4, 8) === 'ftyp' },
   { mime: 'image/heif', check: buf => buf.length >= 12 && buf.toString('ascii', 4, 8) === 'ftyp' }
 ];
-function verifyUploadedImageSignature(req, res, next) {
+async function verifyUploadedImageSignature(req, res, next) {
   if (!req.file) return next();
   try {
     const fd = fs.openSync(req.file.path, 'r');
@@ -354,7 +354,7 @@ const TIME_SLOTS = [
 // e.g. block AC bookings in a city/date/slot while Washing Machine bookings
 // in that same slot stay open. A block with no applianceId set (the classic
 // "block this date/slot/city" case) still applies to every appliance.
-function getSlotAvailability(date, cityId, applianceIds) {
+async function getSlotAvailability(date, cityId, applianceIds) {
   const cfg = readData('slots-config');
   const bookings = readData('bookings');
   const ids = Array.isArray(applianceIds) ? applianceIds.filter(Boolean) : [];
@@ -394,7 +394,7 @@ function getSlotAvailability(date, cityId, applianceIds) {
   });
 }
 
-app.get('/api/slots', (req, res) => {
+app.get('/api/slots', async (req, res) => {
   const { date, cityId, applianceIds } = req.query;
   if (!date || !cityId) return res.status(400).json({ error: 'Date and city are required' });
   // VALIDATION FIX: same date/future-date check used by /api/bookings —
@@ -410,7 +410,7 @@ app.get('/api/slots', (req, res) => {
 // Checks a coupon code against all its rules. Used both when the customer
 // taps "Apply" and again (independently) at the moment the booking is
 // actually created, so a discount can never be forged from the browser.
-function validateCoupon(code, totalPrice, phone) {
+async function validateCoupon(code, totalPrice, phone) {
   if (!code) return { valid: false, error: 'Please enter a coupon code' };
   const coupons = readData('coupons');
   const coupon = coupons.find(c => c.code.toUpperCase() === String(code).toUpperCase());
@@ -438,7 +438,7 @@ function validateCoupon(code, totalPrice, phone) {
   return { valid: true, coupon, discountAmount: finalDiscount };
 }
 
-app.post('/api/coupons/validate', (req, res) => {
+app.post('/api/coupons/validate', async (req, res) => {
   const { code, totalPrice, phone } = req.body;
   const result = validateCoupon(code, Number(totalPrice) || 0, phone);
   if (!result.valid) return res.status(400).json({ error: result.error });
@@ -447,7 +447,7 @@ app.post('/api/coupons/validate', (req, res) => {
 
 // Public — lets the homepage show any currently-usable coupon/referral code
 // to customers (e.g. "Use code SAVE50"), without exposing internal fields.
-app.get('/api/coupons/active', (req, res) => {
+app.get('/api/coupons/active', async (req, res) => {
   const coupons = readData('coupons');
   const now = new Date();
   const active = coupons.filter(c =>
@@ -468,7 +468,7 @@ app.get('/api/coupons/active', (req, res) => {
 // aggregateRating) on the homepage and each city page, so search engines
 // only ever see a rating that's backed by actual "Rate this service" data.
 // Pass a cityId to scope it to one city's bookings; omit for site-wide.
-function computeSiteRating(cityId) {
+async function computeSiteRating(cityId) {
   const bookings = readData('bookings').filter(b => !cityId || b.cityId === cityId);
   let ratingSum = 0, ratingCount = 0;
   bookings.forEach(b => (b.items || []).forEach(it => { if (it.rating) { ratingSum += it.rating; ratingCount++; } }));
@@ -479,7 +479,7 @@ function computeSiteRating(cityId) {
 // comma so it can be spliced right after another property) — or an empty
 // string when there isn't at least one real rating yet, so no rich-snippet
 // rating stars ever show up in Google results without real data behind them.
-function aggregateRatingJsonFragment(rating) {
+async function aggregateRatingJsonFragment(rating) {
   if (!rating.ratingCount || !rating.avgRating) return '';
   return `,
   "aggregateRating": {
@@ -494,13 +494,13 @@ function aggregateRatingJsonFragment(rating) {
 // The one external profile Admin has verified as real (see Admin > Site
 // Rating) — only included if Admin has actually turned it on and filled it
 // in, same "no fake data" rule as everywhere else on this site.
-function buildSameAsJson() {
+async function buildSameAsJson() {
   const google = readData('google-rating');
   const links = (google.enabled && google.profileUrl) ? [google.profileUrl] : [];
   return JSON.stringify(links);
 }
 
-app.get('/api/stats/public', (req, res) => {
+app.get('/api/stats/public', async (req, res) => {
   const { avgRating, ratingCount } = computeSiteRating();
   let completedCount = 0;
   readData('bookings').forEach(b => (b.items || []).forEach(it => { if (it.itemStatus === 'completed') completedCount++; }));
@@ -530,7 +530,7 @@ app.get('/api/stats/public', (req, res) => {
 // items that have review text — nothing here is written by Admin or made
 // up. Customer's name is shortened to first name + last initial and phone
 // is never included, since this is public-facing.
-app.get('/api/reviews/public', (req, res) => {
+app.get('/api/reviews/public', async (req, res) => {
   const bookings = readData('bookings');
   const reviews = [];
   bookings.forEach(b => {
@@ -569,7 +569,7 @@ app.get('/api/reviews/public', (req, res) => {
 // forged from the browser.
 // =======================================================
 
-function findKnownName(phone) {
+async function findKnownName(phone) {
   const booking = readData('bookings').find(b => b.phone === phone);
   if (booking) return booking.name;
   const customer = readData('customers').find(c => c.phone === phone);
@@ -578,7 +578,7 @@ function findKnownName(phone) {
 
 // Every phone number gets exactly one referral code, created the first time
 // it's needed (e.g. when the customer opens "Refer & Earn" on the homepage).
-function getOrCreateReferralCode(phone, name) {
+async function getOrCreateReferralCode(phone, name) {
   const referrals = readData('referrals');
   let rec = referrals.find(r => r.referrerPhone === phone);
   if (rec) return rec;
@@ -588,14 +588,14 @@ function getOrCreateReferralCode(phone, name) {
   } while (referrals.some(r => r.code === code));
   rec = { id: genId('rf'), code, referrerPhone: phone, referrerName: name || '', createdAt: new Date().toISOString() };
   referrals.push(rec);
-  writeData('referrals', referrals);
+  await writeData('referrals', referrals);
   return rec;
 }
 
 // Validates a referral code against a would-be NEW customer's phone number.
 // Re-run again (independently) at the moment the booking is actually
 // created, exactly like coupons — so it can never be forged from the browser.
-function validateReferral(code, referredPhone, priceForDiscount) {
+async function validateReferral(code, referredPhone, priceForDiscount) {
   if (!code) return { valid: false, error: 'Referral code required' };
   const cfg = readData('referral-config');
   if (!cfg.active) return { valid: false, error: 'The referral program is not active right now' };
@@ -619,7 +619,7 @@ function validateReferral(code, referredPhone, priceForDiscount) {
 // Once a referred customer's booking is actually created, record the
 // redemption (status "pending") so the referrer's reward can be credited
 // later, only once that booking's service is genuinely completed.
-function recordReferralUse(code, referrerPhone, referredPhone, bookingId, discountGiven) {
+async function recordReferralUse(code, referrerPhone, referredPhone, bookingId, discountGiven) {
   const uses = readData('referral-uses');
   uses.push({
     id: genId('ru'),
@@ -629,14 +629,14 @@ function recordReferralUse(code, referrerPhone, referredPhone, bookingId, discou
     rewardCouponCode: '',
     createdAt: new Date().toISOString()
   });
-  writeData('referral-uses', uses);
+  await writeData('referral-uses', uses);
 }
 
 // Called whenever an item's status is set to "completed". If this booking
 // has a pending referral reward waiting on it, generates a one-time,
 // personal reward coupon for the referrer (usable only on their own phone
 // number) and marks the reward as credited.
-function creditReferralRewardIfDue(bookingId) {
+async function creditReferralRewardIfDue(bookingId) {
   const uses = readData('referral-uses');
   const use = uses.find(u => u.bookingId === bookingId && u.rewardStatus === 'pending');
   if (!use) return;
@@ -668,19 +668,19 @@ function creditReferralRewardIfDue(bookingId) {
     createdAt: new Date().toISOString()
   };
   coupons.push(coupon);
-  writeData('coupons', coupons);
+  await writeData('coupons', coupons);
 
   use.rewardStatus = 'credited';
   use.rewardCouponCode = code;
   use.creditedAt = new Date().toISOString();
-  writeData('referral-uses', uses);
+  await writeData('referral-uses', uses);
 }
 
 // Public — safe subset of the referral settings (no phone lookup needed),
 // used by the homepage's top banner to promote "Refer & Earn" without
 // requiring the visitor to enter anything first. Returns active:false once
 // Admin turns the program off, so the banner hides itself automatically.
-app.get('/api/referral/config', (req, res) => {
+app.get('/api/referral/config', async (req, res) => {
   const cfg = readData('referral-config');
   res.json({
     active: !!cfg.active,
@@ -692,7 +692,7 @@ app.get('/api/referral/config', (req, res) => {
 // Public — a customer enters their own phone number on the homepage to get
 // (or create) their personal referral link, plus a summary of who they've
 // referred and any reward coupons they've earned so far.
-app.get('/api/referral/my-info', (req, res) => {
+app.get('/api/referral/my-info', async (req, res) => {
   const { phone } = req.query;
   if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Please enter a valid 10 digit mobile number.' });
   const cfg = readData('referral-config');
@@ -720,7 +720,7 @@ app.get('/api/referral/my-info', (req, res) => {
 
 // Public — checks a ?ref= code from a shared link before showing the
 // "You were referred!" banner on the homepage.
-app.get('/api/referral/validate', (req, res) => {
+app.get('/api/referral/validate', async (req, res) => {
   const { code, phone } = req.query;
   const result = validateReferral(code, phone || '', Infinity);
   if (!result.valid) return res.status(400).json({ error: result.error });
@@ -733,11 +733,11 @@ app.get('/api/referral/validate', (req, res) => {
 // whenever a fix should be independently verifiable this way.
 const BUILD_MARKER = 'mobile-container-padding-fix-2026-09-05';
 const SERVER_STARTED_AT = new Date().toISOString();
-app.get('/api/version', (req, res) => {
+app.get('/api/version', async (req, res) => {
   res.json({ build: BUILD_MARKER, serverStartedAt: SERVER_STARTED_AT });
 });
 
-app.get('/api/cities', (req, res) => {
+app.get('/api/cities', async (req, res) => {
   const cities = readData('cities').filter(c => c.active);
   res.json(cities);
 });
@@ -745,7 +745,7 @@ app.get('/api/cities', (req, res) => {
 // Public — the list of education levels shown in the Careers application
 // form's dropdown. This list is variable, just like Cities — Admin manages
 // it from the Career Applications page, not hardcoded here.
-app.get('/api/education-levels', (req, res) => {
+app.get('/api/education-levels', async (req, res) => {
   res.json(readData('education-levels'));
 });
 
@@ -754,7 +754,7 @@ app.get('/api/education-levels', (req, res) => {
 // separate from the main service-area Cities list, so Admin can decide
 // which cities to accept applications from without it having to match
 // where the business currently offers bookings.
-app.get('/api/career-cities', (req, res) => {
+app.get('/api/career-cities', async (req, res) => {
   res.json(readData('career-cities'));
 });
 
@@ -763,12 +763,12 @@ app.get('/api/career-cities', (req, res) => {
 // own admin-managed list, separate from the main service Appliances list,
 // so Admin can decide which skills to accept applications for without it
 // having to match what's currently offered for booking.
-app.get('/api/career-appliances', (req, res) => {
+app.get('/api/career-appliances', async (req, res) => {
   res.json(readData('career-appliances'));
 });
 
 // Public — lets prospective technicians apply for work in their city.
-app.post('/api/technician-applications', (req, res) => {
+app.post('/api/technician-applications', async (req, res) => {
   if (readData('admin').hiringPaused) {
     return res.status(403).json({ error: 'We are not accepting new applications right now. Please check back later.' });
   }
@@ -825,11 +825,11 @@ app.post('/api/technician-applications', (req, res) => {
     createdAt: new Date().toISOString()
   };
   applications.unshift(application);
-  writeData('technician-applications', applications);
+  await writeData('technician-applications', applications);
   res.json({ success: true, application });
 });
 
-app.get('/api/appliances', (req, res) => {
+app.get('/api/appliances', async (req, res) => {
   const appliances = readData('appliances').filter(a => !a.hidden);
   const { cityId } = req.query;
   // When a city is specified, hide any appliance that's been disabled for
@@ -930,7 +930,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   // stale earlier mention.
   const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const messagesNewestFirst = [message, ...safeHistory.slice().reverse().map(h => h.content)];
-  function findMostRecentMention(items, nameGetter) {
+  async function findMostRecentMention(items, nameGetter) {
     for (const text of messagesNewestFirst) {
       const lower = String(text || '').toLowerCase();
       const match = items.find(item => new RegExp(`\\b${escapeRegex(nameGetter(item).toLowerCase())}\\b`, 'i').test(lower));
@@ -1146,7 +1146,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   res.json({ reply: result.reply, knownCustomer });
 });
 
-app.get('/api/price', (req, res) => {
+app.get('/api/price', async (req, res) => {
   const { cityId, applianceId, typeId } = req.query;
   const pricing = readData('pricing');
   const row = pricing.find(p => p.cityId === cityId && p.applianceId === applianceId && p.typeId === typeId);
@@ -1165,7 +1165,7 @@ app.get('/api/price', (req, res) => {
 // Public — a customer uploads a photo of the appliance/issue while filling
 // the booking form. Returns a URL to attach to that cart item; the actual
 // booking is only created once "Confirm Booking" is submitted separately.
-app.post('/api/upload-photo', uploadRateLimit('booking-photo'), (req, res) => {
+app.post('/api/upload-photo', uploadRateLimit('booking-photo'), async (req, res) => {
   upload.single('photo')(req, res, (err) => {
     if (err) {
       const message = err.code === 'LIMIT_FILE_SIZE'
@@ -1188,7 +1188,7 @@ app.post('/api/upload-photo', uploadRateLimit('booking-photo'), (req, res) => {
 // error, e.g. bad network) before attempting to actually mark the job
 // done, rather than the whole completion silently failing on a slow photo
 // upload.
-app.post('/api/technician/upload-completion-photo', requireTechnician, uploadRateLimit('completion-photo'), (req, res) => {
+app.post('/api/technician/upload-completion-photo', requireTechnician, uploadRateLimit('completion-photo'), async (req, res) => {
   // ADDED: lets Super Admin turn technician completion-photo uploads off
   // entirely — checked here (not just hidden in the technician UI) so a
   // technician can't just call this endpoint directly to bypass a
@@ -1369,7 +1369,7 @@ app.post('/api/bookings', async (req, res) => {
         coupon.usedByPhones = coupon.usedByPhones || [];
         coupon.usedByPhones.push(phone);
       }
-      writeData('coupons', coupons);
+      await writeData('coupons', coupons);
       return { ok: true };
     });
     if (reserveResult.error) {
@@ -1393,7 +1393,7 @@ app.post('/api/bookings', async (req, res) => {
           const idx = coupon.usedByPhones.lastIndexOf(phone);
           if (idx !== -1) coupon.usedByPhones.splice(idx, 1);
         }
-        writeData('coupons', coupons);
+        await writeData('coupons', coupons);
       }
     });
   }
@@ -1498,7 +1498,7 @@ app.post('/api/bookings', async (req, res) => {
 // below), keeping the "hot" `bookings` collection small and fast for
 // day-to-day use, while archived bookings remain fully intact and
 // searchable — nothing is ever deleted.
-function readArchivedBookings() {
+async function readArchivedBookings() {
   try {
     return readData('bookings-archive');
   } catch (e) {
@@ -1551,7 +1551,7 @@ app.get('/api/bookings/track', async (req, res) => {
 // trimmed, length-capped, and stripped of characters that could be used to
 // break out of the HTML it's rendered into — belt-and-suspenders alongside
 // escaping it again at render time.
-function sanitizeReviewText(text) {
+async function sanitizeReviewText(text) {
   if (!text || typeof text !== 'string') return '';
   return text.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 280);
 }
@@ -1560,7 +1560,7 @@ function sanitizeReviewText(text) {
 // check used for Track Order proves it's their own booking. An optional
 // short text review can go alongside the star rating; this is what powers
 // the real testimonials shown on the homepage once there are enough of them.
-app.put('/api/bookings/:bookingId/items/:itemId/rate', (req, res) => {
+app.put('/api/bookings/:bookingId/items/:itemId/rate', async (req, res) => {
   const { rating, phone, reviewText } = req.body;
   const r = Number(rating);
   if (!r || r < 1 || r > 5) return res.status(400).json({ error: 'Rating must be between 1 and 5' });
@@ -1589,11 +1589,11 @@ app.put('/api/bookings/:bookingId/items/:itemId/rate', (req, res) => {
   item.ratingSource = 'customer';
   const cleanReview = sanitizeReviewText(reviewText);
   if (cleanReview) item.reviewText = cleanReview;
-  writeData(inArchive ? 'bookings-archive' : 'bookings', inArchive ? archive : bookings);
+  await writeData(inArchive ? 'bookings-archive' : 'bookings', inArchive ? archive : bookings);
   res.json({ success: true });
 });
 
-app.get('/api/settings', (req, res) => {
+app.get('/api/settings', async (req, res) => {
   const admin = readData('admin');
   res.json({
     companyName: admin.companyName,
@@ -1608,7 +1608,7 @@ app.get('/api/settings', (req, res) => {
 // =======================================================
 
 // Public — safe to expose to the browser (no secret key here)
-app.get('/api/otp-config', (req, res) => {
+app.get('/api/otp-config', async (req, res) => {
   const cfg = readData('otp-config');
   res.json({ enabled: cfg.enabled !== false, widgetId: cfg.widgetId, tokenAuth: cfg.tokenAuth });
 });
@@ -1617,7 +1617,7 @@ app.get('/api/otp-config', (req, res) => {
 // Any staff member can check which dates are currently unlocked (so the
 // Orders UI can show a lock icon / disable buttons accordingly), but only
 // Super Admin can actually change that list.
-app.get('/api/admin/unlocked-dates', requireStaff, (req, res) => {
+app.get('/api/admin/unlocked-dates', requireStaff, async (req, res) => {
   const admin = readData('admin');
   res.json({ unlockedDates: admin.unlockedDates || [] });
 });
@@ -1625,7 +1625,7 @@ app.get('/api/admin/unlocked-dates', requireStaff, (req, res) => {
 // Super Admin only — deliberately unlocks one specific past date so a
 // genuine correction can be made (reassign, reactivate, rate, or delete a
 // booking dated that day). Stays unlocked until explicitly re-locked below.
-app.post('/api/admin/unlock-date', requireAdmin, (req, res) => {
+app.post('/api/admin/unlock-date', requireAdmin, async (req, res) => {
   const { date } = req.body;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'A valid date (YYYY-MM-DD) is required.' });
@@ -1636,17 +1636,17 @@ app.post('/api/admin/unlock-date', requireAdmin, (req, res) => {
   const admin = readData('admin');
   admin.unlockedDates = admin.unlockedDates || [];
   if (!admin.unlockedDates.includes(date)) admin.unlockedDates.push(date);
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true, unlockedDates: admin.unlockedDates });
 });
 
 // Super Admin only — re-locks a date that had been unlocked, once the
 // correction is done, so it's protected again going forward.
-app.post('/api/admin/lock-date', requireAdmin, (req, res) => {
+app.post('/api/admin/lock-date', requireAdmin, async (req, res) => {
   const { date } = req.body;
   const admin = readData('admin');
   admin.unlockedDates = (admin.unlockedDates || []).filter(d => d !== date);
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true, unlockedDates: admin.unlockedDates });
 });
 
@@ -1667,7 +1667,7 @@ app.post('/api/admin/lock-date', requireAdmin, (req, res) => {
 // accepts known, already-existing data keys (never arbitrary new ones) as
 // a safety guard against a malformed or tampered file silently creating
 // unexpected new data files.
-app.post('/api/admin/restore', requireAdmin, (req, res) => {
+app.post('/api/admin/restore', requireAdmin, async (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
     return res.status(400).json({ error: 'Invalid backup file format.' });
@@ -1676,13 +1676,13 @@ app.post('/api/admin/restore', requireAdmin, (req, res) => {
   let restoredCount = 0;
   for (const key of Object.keys(incoming)) {
     if (!existingKeys.includes(key)) continue; // ignore unknown keys — safety guard
-    writeData(key, incoming[key]);
+    await writeData(key, incoming[key]);
     restoredCount++;
   }
   res.json({ success: true, restoredCount });
 });
 
-app.get('/api/admin/backup', requireAdmin, (req, res) => {
+app.get('/api/admin/backup', requireAdmin, async (req, res) => {
   const all = getAllData();
   const filename = `seerua-backup-${new Date().toISOString().slice(0, 10)}.json`;
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -1690,14 +1690,14 @@ app.get('/api/admin/backup', requireAdmin, (req, res) => {
   res.send(JSON.stringify(all, null, 2));
 });
 
-app.get('/api/admin/ai-instructions', requireAdmin, (req, res) => {
+app.get('/api/admin/ai-instructions', requireAdmin, async (req, res) => {
   const admin = readData('admin');
   res.json({ instructions: admin.aiCustomInstructions || '' });
 });
-app.put('/api/admin/ai-instructions', requireAdmin, (req, res) => {
+app.put('/api/admin/ai-instructions', requireAdmin, async (req, res) => {
   const admin = readData('admin');
   admin.aiCustomInstructions = String(req.body.instructions || '').slice(0, 4000); // generous cap — keeps the prompt from growing unbounded if someone pastes something huge
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true, instructions: admin.aiCustomInstructions });
 });
 
@@ -1705,7 +1705,7 @@ app.put('/api/admin/ai-instructions', requireAdmin, (req, res) => {
 // booking skips phone verification entirely (see the check in
 // POST /api/bookings below), which is useful while MSG91 credentials
 // aren't set up yet or during testing.
-app.get('/api/admin/otp-config', requireAdmin, (req, res) => {
+app.get('/api/admin/otp-config', requireAdmin, async (req, res) => {
   const cfg = readData('otp-config');
   // widgetId is shown in full (not really sensitive on its own), tokenAuth
   // is masked to just its last 4 characters — enough for the Super Admin
@@ -1713,7 +1713,7 @@ app.get('/api/admin/otp-config', requireAdmin, (req, res) => {
   // full secret every time the Settings page loads.
   res.json({ enabled: cfg.enabled !== false, widgetId: cfg.widgetId || '', tokenAuth: cfg.tokenAuth || '', authkey: cfg.authkey || '' });
 });
-app.put('/api/admin/otp-config', requireAdmin, (req, res) => {
+app.put('/api/admin/otp-config', requireAdmin, async (req, res) => {
   const cfg = readData('otp-config');
   if (req.body.enabled !== undefined) cfg.enabled = !!req.body.enabled;
   // BUG FIX: this endpoint only ever saved the enabled/disabled toggle —
@@ -1727,7 +1727,7 @@ app.put('/api/admin/otp-config', requireAdmin, (req, res) => {
   if (typeof req.body.widgetId === 'string') cfg.widgetId = req.body.widgetId.trim();
   if (typeof req.body.tokenAuth === 'string') cfg.tokenAuth = req.body.tokenAuth.trim();
   if (typeof req.body.authkey === 'string') cfg.authkey = req.body.authkey.trim();
-  writeData('otp-config', cfg);
+  await writeData('otp-config', cfg);
   res.json({ success: true, enabled: cfg.enabled !== false, widgetId: cfg.widgetId, tokenAuth: cfg.tokenAuth ? '••••••••' + cfg.tokenAuth.slice(-4) : '', authkey: cfg.authkey ? '••••••••' + cfg.authkey.slice(-4) : '' });
 });
 
@@ -1738,14 +1738,14 @@ app.put('/api/admin/otp-config', requireAdmin, (req, res) => {
 // number skip the OTP step entirely. This is enforced here,
 // server-side, so it can't be bypassed from the browser.
 // =======================================================
-function isPhoneVerified(phone) {
+async function isPhoneVerified(phone) {
   return readData('verified-phones').includes(phone);
 }
-function markPhoneVerified(phone) {
+async function markPhoneVerified(phone) {
   const list = readData('verified-phones');
   if (!list.includes(phone)) {
     list.push(phone);
-    writeData('verified-phones', list);
+    await writeData('verified-phones', list);
   }
 }
 
@@ -1756,7 +1756,7 @@ function markPhoneVerified(phone) {
 // bookings.json is stored with the newest entries at the front) — that's
 // the freshest, most likely-still-accurate address on file. Only exposes
 // name/address/cityId here, nothing more sensitive.
-app.get('/api/customer-lookup', (req, res) => {
+app.get('/api/customer-lookup', async (req, res) => {
   const { phone } = req.query;
   if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Valid 10 digit phone number required' });
   const bookings = readData('bookings');
@@ -1831,13 +1831,13 @@ app.post('/api/customer-profile', async (req, res) => {
   } else {
     customers.push({ id: genId('cust'), phone, name: name.trim(), address: address.trim(), cityId, createdAt: new Date().toISOString() });
   }
-  writeData('customers', customers);
+  await writeData('customers', customers);
   res.json({ success: true, name: name.trim(), address: address.trim(), cityId });
 });
 
 // Public — lets the booking form check, before opening the OTP widget,
 // whether this number has already completed OTP verification once before.
-app.get('/api/phone-verified', (req, res) => {
+app.get('/api/phone-verified', async (req, res) => {
   const { phone } = req.query;
   if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Valid 10 digit phone number required' });
   res.json({ verified: isPhoneVerified(phone) });
@@ -1847,12 +1847,12 @@ app.get('/api/phone-verified', (req, res) => {
 // ADMIN AUTH
 // =======================================================
 
-app.post('/api/admin/login', loginRateLimit('admin'), (req, res) => {
+app.post('/api/admin/login', loginRateLimit('admin'), async (req, res) => {
   const { username, password } = req.body;
   const admin = readData('admin');
-  const ok = username === admin.username && password && verifyAndUpgrade(password, admin.password, (hashed) => {
+  const ok = username === admin.username && password && verifyAndUpgrade(password, admin.password, async (hashed) => {
     admin.password = hashed;
-    writeData('admin', admin);
+    await writeData('admin', admin);
   });
   if (ok) {
     clearLoginFailures('admin', req);
@@ -1883,9 +1883,9 @@ app.post('/api/subadmin/login', loginRateLimit('subadmin'), (req, res) => {
   const { username, password } = req.body;
   const subAdmins = readData('sub-admins');
   const sub = subAdmins.find(s => s.username === username && s.active);
-  const ok = sub && password && verifyAndUpgrade(password, sub.password, (hashed) => {
+  const ok = sub && password && verifyAndUpgrade(password, sub.password, async (hashed) => {
     sub.password = hashed;
-    writeData('sub-admins', subAdmins);
+    await writeData('sub-admins', subAdmins);
   });
   if (!ok) {
     recordLoginFailure('subadmin', req);
@@ -1913,7 +1913,7 @@ app.get('/api/admin/subadmins', requireAdmin, (req, res) => {
   res.json(readData('sub-admins').map(s => ({ ...s, password: undefined })));
 });
 
-app.post('/api/admin/subadmins', requireAdmin, (req, res) => {
+app.post('/api/admin/subadmins', requireAdmin, async (req, res) => {
   const { name, username, password, cityIds } = req.body;
   if (!name || !username || !password) return res.status(400).json({ error: 'Name, username and password are required' });
   const subAdmins = readData('sub-admins');
@@ -1922,11 +1922,11 @@ app.post('/api/admin/subadmins', requireAdmin, (req, res) => {
   }
   const sub = { id: genId('sa'), name, username, password: hashPassword(password), active: true, cityIds: Array.isArray(cityIds) ? cityIds : [], createdAt: new Date().toISOString() };
   subAdmins.push(sub);
-  writeData('sub-admins', subAdmins);
+  await writeData('sub-admins', subAdmins);
   res.json({ success: true, subAdmin: { ...sub, password: undefined } });
 });
 
-app.put('/api/admin/subadmins/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/subadmins/:id', requireAdmin, async (req, res) => {
   const subAdmins = readData('sub-admins');
   const sub = subAdmins.find(s => s.id === req.params.id);
   if (!sub) return res.status(404).json({ error: 'Sub-Admin not found' });
@@ -1938,14 +1938,14 @@ app.put('/api/admin/subadmins/:id', requireAdmin, (req, res) => {
   // cityIds is handled separately since [] (unrestricted) is a valid, meaningful value
   // that the generic loop above would otherwise skip as "falsy/empty".
   if (Array.isArray(req.body.cityIds)) sub.cityIds = req.body.cityIds;
-  writeData('sub-admins', subAdmins);
+  await writeData('sub-admins', subAdmins);
   res.json({ success: true, subAdmin: { ...sub, password: undefined } });
 });
 
-app.delete('/api/admin/subadmins/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/subadmins/:id', requireAdmin, async (req, res) => {
   let subAdmins = readData('sub-admins');
   subAdmins = subAdmins.filter(s => s.id !== req.params.id);
-  writeData('sub-admins', subAdmins);
+  await writeData('sub-admins', subAdmins);
   res.json({ success: true });
 });
 
@@ -1972,7 +1972,7 @@ app.get('/api/admin/maintenance', requireAdmin, (req, res) => {
   });
 });
 
-app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
+app.put('/api/admin/maintenance', requireAdmin, async (req, res) => {
   const admin = readData('admin');
   if (req.body.maintenanceMode !== undefined) admin.maintenanceMode = !!req.body.maintenanceMode;
   if (req.body.maintenanceMessage !== undefined) admin.maintenanceMessage = req.body.maintenanceMessage;
@@ -1980,7 +1980,7 @@ app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
     const hrs = Number(req.body.maintenanceExpectedHours);
     admin.maintenanceExpectedHours = (hrs > 0 && hrs <= 72) ? hrs : 2;
   }
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true, maintenanceMode: admin.maintenanceMode, maintenanceMessage: admin.maintenanceMessage, maintenanceExpectedHours: admin.maintenanceExpectedHours });
 });
 
@@ -1997,10 +1997,10 @@ app.get('/api/technician/photo-toggle', requireTechnician, (req, res) => {
   const admin = readData('admin');
   res.json({ technicianPhotoUploadDisabled: !!admin.technicianPhotoUploadDisabled });
 });
-app.put('/api/admin/technician-photo-toggle', requireAdmin, (req, res) => {
+app.put('/api/admin/technician-photo-toggle', requireAdmin, async (req, res) => {
   const admin = readData('admin');
   admin.technicianPhotoUploadDisabled = !!req.body.technicianPhotoUploadDisabled;
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true, technicianPhotoUploadDisabled: admin.technicianPhotoUploadDisabled });
 });
 
@@ -2017,11 +2017,11 @@ app.get('/api/admin/hiring-status', requireAdmin, (req, res) => {
   res.json({ hiringPaused: !!admin.hiringPaused, hiringPausedMessage: admin.hiringPausedMessage || '' });
 });
 
-app.put('/api/admin/hiring-status', requireAdmin, (req, res) => {
+app.put('/api/admin/hiring-status', requireAdmin, async (req, res) => {
   const admin = readData('admin');
   if (req.body.hiringPaused !== undefined) admin.hiringPaused = !!req.body.hiringPaused;
   if (req.body.hiringPausedMessage !== undefined) admin.hiringPausedMessage = req.body.hiringPausedMessage;
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true, hiringPaused: admin.hiringPaused, hiringPausedMessage: admin.hiringPausedMessage });
 });
 
@@ -2039,11 +2039,11 @@ app.get('/api/admin/booking-status', requireAdmin, (req, res) => {
   res.json({ bookingPaused: !!admin.bookingPaused, bookingPausedMessage: admin.bookingPausedMessage || '' });
 });
 
-app.put('/api/admin/booking-status', requireAdmin, (req, res) => {
+app.put('/api/admin/booking-status', requireAdmin, async (req, res) => {
   const admin = readData('admin');
   if (req.body.bookingPaused !== undefined) admin.bookingPaused = !!req.body.bookingPaused;
   if (req.body.bookingPausedMessage !== undefined) admin.bookingPausedMessage = req.body.bookingPausedMessage;
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true, bookingPaused: admin.bookingPaused, bookingPausedMessage: admin.bookingPausedMessage });
 });
 
@@ -2071,7 +2071,7 @@ app.get('/api/admin/slots-config', requireStaff, (req, res) => {
 // getTechDailyLimit / countTechJobsOnDate below) — a separate control from
 // slot capacity, since slot capacity is about a whole city/appliance/slot,
 // while this is about protecting one specific technician from overload.
-app.put('/api/admin/slots-config', requireStaff, (req, res) => {
+app.put('/api/admin/slots-config', requireStaff, async (req, res) => {
   // Capacity/daily-limit settings here are site-wide (not per-city), so a
   // city-scoped Sub-Admin isn't allowed to touch them at all — only an
   // unrestricted Sub-Admin or the Super Admin can.
@@ -2092,7 +2092,7 @@ app.put('/api/admin/slots-config', requireStaff, (req, res) => {
       cfg.dailyJobLimit = limit;
     }
   }
-  writeData('slots-config', cfg);
+  await writeData('slots-config', cfg);
   res.json({ success: true, capacityPerSlot: cfg.capacityPerSlot, dailyJobLimit: cfg.dailyJobLimit });
 });
 
@@ -2100,7 +2100,7 @@ app.put('/api/admin/slots-config', requireStaff, (req, res) => {
 // optionally, a single appliance within that city/slot), even if capacity
 // hasn't been reached (e.g. a technician for that appliance is on leave).
 // Leaving applianceId blank blocks the slot for every appliance, as before.
-app.post('/api/admin/slots-config/blocked', requireStaff, (req, res) => {
+app.post('/api/admin/slots-config/blocked', requireStaff, async (req, res) => {
   const { date, slotId, cityId, applianceId } = req.body;
   if (!date || !slotId || !cityId) return res.status(400).json({ error: 'Date, slot and city are required' });
   if (!TIME_SLOTS.some(s => s.id === slotId)) return res.status(400).json({ error: 'Invalid slot' });
@@ -2110,19 +2110,19 @@ app.post('/api/admin/slots-config/blocked', requireStaff, (req, res) => {
   const applianceKey = applianceId || '';
   if (!cfg.blockedSlots.some(b => b.date === date && b.slotId === slotId && b.cityId === cityId && (b.applianceId || '') === applianceKey)) {
     cfg.blockedSlots.push({ date, slotId, cityId, applianceId: applianceKey });
-    writeData('slots-config', cfg);
+    await writeData('slots-config', cfg);
   }
   res.json({ success: true, blockedSlots: cfg.blockedSlots });
 });
 
-app.delete('/api/admin/slots-config/blocked', requireStaff, (req, res) => {
+app.delete('/api/admin/slots-config/blocked', requireStaff, async (req, res) => {
   const { date, slotId, cityId, applianceId } = req.body;
   const scope = getStaffCityScope(req);
   if (scope && !scope.includes(cityId)) return res.status(403).json({ error: 'You do not have access to this city.' });
   const applianceKey = applianceId || '';
   const cfg = readData('slots-config');
   cfg.blockedSlots = cfg.blockedSlots.filter(b => !(b.date === date && b.slotId === slotId && b.cityId === cityId && (b.applianceId || '') === applianceKey));
-  writeData('slots-config', cfg);
+  await writeData('slots-config', cfg);
   res.json({ success: true, blockedSlots: cfg.blockedSlots });
 });
 
@@ -2136,7 +2136,7 @@ app.get('/api/admin/cities', requireStaff, (req, res) => {
   res.json(scope ? cities.filter(c => scope.includes(c.id)) : cities);
 });
 
-app.post('/api/admin/cities', requireAdmin, (req, res) => {
+app.post('/api/admin/cities', requireAdmin, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'City name required' });
   const cities = readData('cities');
@@ -2149,7 +2149,7 @@ app.post('/api/admin/cities', requireAdmin, (req, res) => {
   }
   const city = { id: genId('c'), name: name.trim(), active: true };
   cities.push(city);
-  writeData('cities', cities);
+  await writeData('cities', cities);
 
   // Auto-create pricing rows for the new city using average of existing prices (or defaults)
   const appliances = readData('appliances');
@@ -2169,11 +2169,11 @@ app.post('/api/admin/cities', requireAdmin, (req, res) => {
       });
     });
   });
-  writeData('pricing', pricing);
+  await writeData('pricing', pricing);
   res.json({ success: true, city });
 });
 
-app.put('/api/admin/cities/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/cities/:id', requireAdmin, async (req, res) => {
   const cities = readData('cities');
   const city = cities.find(c => c.id === req.params.id);
   if (!city) return res.status(404).json({ error: 'City not found' });
@@ -2195,18 +2195,18 @@ app.put('/api/admin/cities/:id', requireAdmin, (req, res) => {
     city.name = trimmed;
   }
   if (req.body.active !== undefined) city.active = req.body.active;
-  writeData('cities', cities);
+  await writeData('cities', cities);
   res.json({ success: true, city });
 });
 
-app.delete('/api/admin/cities/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/cities/:id', requireAdmin, async (req, res) => {
   let cities = readData('cities');
   cities = cities.filter(c => c.id !== req.params.id);
-  writeData('cities', cities);
+  await writeData('cities', cities);
 
   let pricing = readData('pricing');
   pricing = pricing.filter(p => p.cityId !== req.params.id);
-  writeData('pricing', pricing);
+  await writeData('pricing', pricing);
 
   res.json({ success: true });
 });
@@ -2220,7 +2220,7 @@ app.get('/api/admin/education-levels', requireStaff, (req, res) => {
   res.json(readData('education-levels'));
 });
 
-app.post('/api/admin/education-levels', requireAdmin, (req, res) => {
+app.post('/api/admin/education-levels', requireAdmin, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Education level name required' });
   const levels = readData('education-levels');
@@ -2229,14 +2229,14 @@ app.post('/api/admin/education-levels', requireAdmin, (req, res) => {
   }
   const level = { id: genId('ed'), name: name.trim() };
   levels.push(level);
-  writeData('education-levels', levels);
+  await writeData('education-levels', levels);
   res.json({ success: true, level });
 });
 
-app.delete('/api/admin/education-levels/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/education-levels/:id', requireAdmin, async (req, res) => {
   let levels = readData('education-levels');
   levels = levels.filter(l => l.id !== req.params.id);
-  writeData('education-levels', levels);
+  await writeData('education-levels', levels);
   res.json({ success: true });
 });
 
@@ -2251,7 +2251,7 @@ app.get('/api/admin/career-cities', requireStaff, (req, res) => {
   res.json(readData('career-cities'));
 });
 
-app.post('/api/admin/career-cities', requireAdmin, (req, res) => {
+app.post('/api/admin/career-cities', requireAdmin, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'City name required' });
   const cities = readData('career-cities');
@@ -2260,14 +2260,14 @@ app.post('/api/admin/career-cities', requireAdmin, (req, res) => {
   }
   const city = { id: genId('cc'), name: name.trim() };
   cities.push(city);
-  writeData('career-cities', cities);
+  await writeData('career-cities', cities);
   res.json({ success: true, city });
 });
 
-app.delete('/api/admin/career-cities/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/career-cities/:id', requireAdmin, async (req, res) => {
   let cities = readData('career-cities');
   cities = cities.filter(c => c.id !== req.params.id);
-  writeData('career-cities', cities);
+  await writeData('career-cities', cities);
   res.json({ success: true });
 });
 
@@ -2281,7 +2281,7 @@ app.get('/api/admin/career-appliances', requireStaff, (req, res) => {
   res.json(readData('career-appliances'));
 });
 
-app.post('/api/admin/career-appliances', requireAdmin, (req, res) => {
+app.post('/api/admin/career-appliances', requireAdmin, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Appliance name required' });
   const appliances = readData('career-appliances');
@@ -2290,14 +2290,14 @@ app.post('/api/admin/career-appliances', requireAdmin, (req, res) => {
   }
   const appliance = { id: genId('ca'), name: name.trim() };
   appliances.push(appliance);
-  writeData('career-appliances', appliances);
+  await writeData('career-appliances', appliances);
   res.json({ success: true, appliance });
 });
 
-app.delete('/api/admin/career-appliances/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/career-appliances/:id', requireAdmin, async (req, res) => {
   let appliances = readData('career-appliances');
   appliances = appliances.filter(a => a.id !== req.params.id);
-  writeData('career-appliances', appliances);
+  await writeData('career-appliances', appliances);
   res.json({ success: true });
 });
 
@@ -2311,40 +2311,40 @@ app.get('/api/admin/site-content', requireStaff, (req, res) => {
   res.json(readData('site-content'));
 });
 
-app.put('/api/admin/site-content/footer', requireAdmin, (req, res) => {
+app.put('/api/admin/site-content/footer', requireAdmin, async (req, res) => {
   const { footerDescription, footerSlogan } = req.body;
   const content = readData('site-content');
   if (footerDescription !== undefined) content.footerDescription = String(footerDescription).trim();
   if (footerSlogan !== undefined) content.footerSlogan = String(footerSlogan).trim();
-  writeData('site-content', content);
+  await writeData('site-content', content);
   res.json({ success: true, footerDescription: content.footerDescription, footerSlogan: content.footerSlogan });
 });
 
-app.post('/api/admin/site-content/faqs', requireAdmin, (req, res) => {
+app.post('/api/admin/site-content/faqs', requireAdmin, async (req, res) => {
   const { q, a } = req.body;
   if (!q || !q.trim() || !a || !a.trim()) return res.status(400).json({ error: 'Question and answer are both required' });
   const content = readData('site-content');
   const faq = { id: genId('faq'), q: q.trim(), a: a.trim() };
   content.faqs = content.faqs || [];
   content.faqs.push(faq);
-  writeData('site-content', content);
+  await writeData('site-content', content);
   res.json({ success: true, faq });
 });
 
-app.put('/api/admin/site-content/faqs/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/site-content/faqs/:id', requireAdmin, async (req, res) => {
   const content = readData('site-content');
   const faq = (content.faqs || []).find(f => f.id === req.params.id);
   if (!faq) return res.status(404).json({ error: 'FAQ not found' });
   if (req.body.q !== undefined) faq.q = String(req.body.q).trim();
   if (req.body.a !== undefined) faq.a = String(req.body.a).trim();
-  writeData('site-content', content);
+  await writeData('site-content', content);
   res.json({ success: true, faq });
 });
 
-app.delete('/api/admin/site-content/faqs/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/site-content/faqs/:id', requireAdmin, async (req, res) => {
   const content = readData('site-content');
   content.faqs = (content.faqs || []).filter(f => f.id !== req.params.id);
-  writeData('site-content', content);
+  await writeData('site-content', content);
   res.json({ success: true });
 });
 
@@ -2392,7 +2392,7 @@ function findLibraryPhotoForAppliance(name) {
   return null;
 }
 
-app.post('/api/admin/appliances', requireAdmin, (req, res) => {
+app.post('/api/admin/appliances', requireAdmin, async (req, res) => {
   const { name, serviceProcess, aboutText } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Appliance name required' });
   const appliances = readData('appliances');
@@ -2405,7 +2405,7 @@ app.post('/api/admin/appliances', requireAdmin, (req, res) => {
   const libraryPhoto = findLibraryPhotoForAppliance(appliance.name);
   if (libraryPhoto) appliance.photoUrl = libraryPhoto;
   appliances.push(appliance);
-  writeData('appliances', appliances);
+  await writeData('appliances', appliances);
   res.json({ success: true, appliance });
 });
 
@@ -2413,7 +2413,7 @@ app.post('/api/admin/appliances', requireAdmin, (req, res) => {
 // to customers on the homepage and city pages for this appliance — used both
 // to fill it in for existing appliances and, per the same form, for any new
 // appliance Admin adds later.
-app.put('/api/admin/appliances/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/appliances/:id', requireAdmin, async (req, res) => {
   const appliances = readData('appliances');
   const appliance = appliances.find(a => a.id === req.params.id);
   if (!appliance) return res.status(404).json({ error: 'Appliance not found' });
@@ -2426,14 +2426,14 @@ app.put('/api/admin/appliances/:id', requireAdmin, (req, res) => {
   // all (homepage grid, SEO pages, sitemap, chatbot) — used for staging a
   // new category (e.g. Chimney/Geyser/Microwave) before it's ready to launch.
   if (req.body.hidden !== undefined) appliance.hidden = !!req.body.hidden;
-  writeData('appliances', appliances);
+  await writeData('appliances', appliances);
   res.json({ success: true, appliance });
 });
 
 // Toggle a single city's availability for one appliance — used by the
 // per-city checkboxes on the Appliances page, instead of the caller having
 // to resend the whole disabledCities array.
-app.put('/api/admin/appliances/:id/city-availability', requireAdmin, (req, res) => {
+app.put('/api/admin/appliances/:id/city-availability', requireAdmin, async (req, res) => {
   const { cityId, disabled } = req.body;
   if (!cityId) return res.status(400).json({ error: 'cityId is required.' });
   const appliances = readData('appliances');
@@ -2442,7 +2442,7 @@ app.put('/api/admin/appliances/:id/city-availability', requireAdmin, (req, res) 
   const current = new Set(appliance.disabledCities || []);
   if (disabled) current.add(cityId); else current.delete(cityId);
   appliance.disabledCities = [...current];
-  writeData('appliances', appliances);
+  await writeData('appliances', appliances);
   res.json({ success: true, appliance });
 });
 
@@ -2450,7 +2450,7 @@ app.put('/api/admin/appliances/:id/city-availability', requireAdmin, (req, res) 
 // type — e.g. editing the "Gas Filling" service's bullet points for
 // Window AC. Only meaningful for types that already have a services
 // array defined (currently AC's 3 types); does nothing for others.
-app.put('/api/admin/appliances/:applianceId/types/:typeId/services/:serviceId', requireAdmin, (req, res) => {
+app.put('/api/admin/appliances/:applianceId/types/:typeId/services/:serviceId', requireAdmin, async (req, res) => {
   const appliances = readData('appliances');
   const appliance = appliances.find(a => a.id === req.params.applianceId);
   if (!appliance) return res.status(404).json({ error: 'Appliance not found' });
@@ -2462,25 +2462,25 @@ app.put('/api/admin/appliances/:applianceId/types/:typeId/services/:serviceId', 
   if (req.body.checklist !== undefined && Array.isArray(req.body.checklist)) {
     service.checklist = req.body.checklist.map(s => String(s).trim()).filter(Boolean);
   }
-  writeData('appliances', appliances);
+  await writeData('appliances', appliances);
   res.json({ success: true, service });
 });
 
-app.delete('/api/admin/appliances/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/appliances/:id', requireAdmin, async (req, res) => {
   let appliances = readData('appliances');
   const appliance = appliances.find(a => a.id === req.params.id);
   appliances = appliances.filter(a => a.id !== req.params.id);
-  writeData('appliances', appliances);
+  await writeData('appliances', appliances);
 
   if (appliance) {
     let pricing = readData('pricing');
     pricing = pricing.filter(p => p.applianceId !== req.params.id);
-    writeData('pricing', pricing);
+    await writeData('pricing', pricing);
   }
   res.json({ success: true });
 });
 
-app.post('/api/admin/appliances/:id/types', requireAdmin, (req, res) => {
+app.post('/api/admin/appliances/:id/types', requireAdmin, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Type name required' });
   const appliances = readData('appliances');
@@ -2495,7 +2495,7 @@ app.post('/api/admin/appliances/:id/types', requireAdmin, (req, res) => {
   }
   const type = { id: genId('t'), name: name.trim() };
   appliance.types.push(type);
-  writeData('appliances', appliances);
+  await writeData('appliances', appliances);
 
   // Create pricing rows for all cities for this new type
   const cities = readData('cities');
@@ -2510,21 +2510,21 @@ app.post('/api/admin/appliances/:id/types', requireAdmin, (req, res) => {
       repairPrice: 499
     });
   });
-  writeData('pricing', pricing);
+  await writeData('pricing', pricing);
 
   res.json({ success: true, type });
 });
 
-app.delete('/api/admin/appliances/:applianceId/types/:typeId', requireAdmin, (req, res) => {
+app.delete('/api/admin/appliances/:applianceId/types/:typeId', requireAdmin, async (req, res) => {
   const appliances = readData('appliances');
   const appliance = appliances.find(a => a.id === req.params.applianceId);
   if (!appliance) return res.status(404).json({ error: 'Appliance not found' });
   appliance.types = appliance.types.filter(t => t.id !== req.params.typeId);
-  writeData('appliances', appliances);
+  await writeData('appliances', appliances);
 
   let pricing = readData('pricing');
   pricing = pricing.filter(p => p.typeId !== req.params.typeId);
-  writeData('pricing', pricing);
+  await writeData('pricing', pricing);
 
   res.json({ success: true });
 });
@@ -2537,7 +2537,7 @@ app.get('/api/admin/pricing', requireAdmin, (req, res) => {
   res.json(readData('pricing'));
 });
 
-app.put('/api/admin/pricing/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/pricing/:id', requireAdmin, async (req, res) => {
   const pricing = readData('pricing');
   const row = pricing.find(p => p.id === req.params.id);
   if (!row) return res.status(404).json({ error: 'Price row not found' });
@@ -2550,14 +2550,33 @@ app.put('/api/admin/pricing/:id', requireAdmin, (req, res) => {
   if (req.body.servicePrices && typeof req.body.servicePrices === 'object') {
     row.servicePrices = { ...(row.servicePrices || {}), ...req.body.servicePrices };
   }
-  writeData('pricing', pricing);
+  // BUG FIX: this used to fire writeData() without awaiting it — looked
+  // like it saved (the in-memory cache updates immediately either way,
+  // so it appeared correctly in Admin right away), but the actual MySQL
+  // write was happening in the background with nothing checking whether
+  // it succeeded. If the server process restarted for any reason (a
+  // Render free-tier idle spin-down, a redeploy, a crash) before that
+  // write completed or if it silently failed, the price change was
+  // never actually persisted — the next fresh load pulled the OLD price
+  // back out of MySQL, even though Admin had shown the new one moments
+  // earlier. Awaiting it means a genuine failure now surfaces as an
+  // actual error response instead of a false "success".
+  try {
+    await writeData('pricing', pricing);
+  } catch (e) {
+    return res.status(500).json({ error: 'Could not save this price change. Please try again.' });
+  }
   res.json({ success: true, row });
 });
 
-app.delete('/api/admin/pricing/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/pricing/:id', requireAdmin, async (req, res) => {
   let pricing = readData('pricing');
   pricing = pricing.filter(p => p.id !== req.params.id);
-  writeData('pricing', pricing);
+  try {
+    await writeData('pricing', pricing);
+  } catch (e) {
+    return res.status(500).json({ error: 'Could not delete this price row. Please try again.' });
+  }
   res.json({ success: true });
 });
 
@@ -2569,13 +2588,13 @@ app.get('/api/admin/referral-config', requireAdmin, (req, res) => {
   res.json(readData('referral-config'));
 });
 
-app.put('/api/admin/referral-config', requireAdmin, (req, res) => {
+app.put('/api/admin/referral-config', requireAdmin, async (req, res) => {
   const cfg = readData('referral-config');
   if (req.body.active !== undefined) cfg.active = !!req.body.active;
   if (req.body.referredDiscount !== undefined) cfg.referredDiscount = Math.max(0, Number(req.body.referredDiscount) || 0);
   if (req.body.referrerRewardAmount !== undefined) cfg.referrerRewardAmount = Math.max(0, Number(req.body.referrerRewardAmount) || 0);
   if (req.body.rewardExpiryDays !== undefined) cfg.rewardExpiryDays = Math.max(1, Number(req.body.rewardExpiryDays) || 90);
-  writeData('referral-config', cfg);
+  await writeData('referral-config', cfg);
   res.json({ success: true, config: cfg });
 });
 
@@ -2593,7 +2612,7 @@ app.get('/api/admin/commission-config', requireAdmin, (req, res) => {
 // be a flat ₹ amount OR a percentage of the job's price — see
 // lib/commission.js for why (a flat ₹ amount is a very different real
 // cost on a ₹400 job vs a ₹2000 job).
-app.put('/api/admin/commission-config', requireAdmin, (req, res) => {
+app.put('/api/admin/commission-config', requireAdmin, async (req, res) => {
   const { mode, amountPerService, percentValue } = req.body;
   const cfg = readData('commission-config');
   const resolvedMode = mode === 'percent' ? 'percent' : 'flat';
@@ -2612,7 +2631,7 @@ app.put('/api/admin/commission-config', requireAdmin, (req, res) => {
   // default, so overwriting the whole config object here would silently
   // wipe out every appliance-specific rate Admin has already set.
   cfg.mode = resolvedMode;
-  writeData('commission-config', cfg);
+  await writeData('commission-config', cfg);
   res.json({ success: true, config: cfg });
 });
 
@@ -2621,7 +2640,7 @@ app.put('/api/admin/commission-config', requireAdmin, (req, res) => {
 // appliance, unless the technician who did the job has their own personal
 // override set (see getEffectiveCommissionRate()), which wins over both.
 // Also flat-or-percent, same as the global default.
-app.put('/api/admin/commission-config/appliance-rate', requireAdmin, (req, res) => {
+app.put('/api/admin/commission-config/appliance-rate', requireAdmin, async (req, res) => {
   const { applianceId, amount, mode } = req.body;
   if (!applianceId) return res.status(400).json({ error: 'applianceId is required.' });
   const cfg = readData('commission-config');
@@ -2636,7 +2655,7 @@ app.put('/api/admin/commission-config/appliance-rate', requireAdmin, (req, res) 
     }
     cfg.perApplianceRates[applianceId] = { mode: resolvedMode, value: Number(amount) };
   }
-  writeData('commission-config', cfg);
+  await writeData('commission-config', cfg);
   res.json({ success: true, config: cfg });
 });
 
@@ -2920,7 +2939,7 @@ app.get('/api/admin/commission/search/export', requireAdmin, async (req, res) =>
 // review list and found no matching review), which immediately restores
 // the commission owed for that order. Also usable the other way, to mark
 // one Admin verified directly.
-app.put('/api/admin/commission/items/:bookingId/:itemId/review-brought', requireAdmin, (req, res) => {
+app.put('/api/admin/commission/items/:bookingId/:itemId/review-brought', requireAdmin, async (req, res) => {
   const { reviewBrought } = req.body;
   const bookings = readData('bookings');
   const booking = bookings.find(b => b.id === req.params.bookingId);
@@ -2934,7 +2953,7 @@ app.put('/api/admin/commission/items/:bookingId/:itemId/review-brought', require
   item.reviewMarkedBy = item.reviewBrought ? getStaffDisplayName(req) : null;
   item.reviewMarkedAt = item.reviewBrought ? new Date().toISOString() : null;
   item.updatedAt = booking.updatedAt = new Date().toISOString();
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true, reviewBrought: item.reviewBrought, reviewVerifiedByStaff: item.reviewVerifiedByStaff });
 });
 
@@ -2963,7 +2982,7 @@ app.get('/api/admin/referral-uses', requireAdmin, (req, res) => {
 app.delete('/api/admin/referral-uses/:id', requireAdmin, async (req, res) => {
   await withLock('referral-uses', async () => {
     const uses = readData('referral-uses').filter(u => u.id !== req.params.id);
-    writeData('referral-uses', uses);
+    await writeData('referral-uses', uses);
   });
   res.json({ success: true });
 });
@@ -2987,7 +3006,7 @@ app.get('/api/admin/site-rating', requireAdmin, (req, res) => {
   });
 });
 
-app.put('/api/admin/google-rating', requireAdmin, (req, res) => {
+app.put('/api/admin/google-rating', requireAdmin, async (req, res) => {
   const cfg = readData('google-rating');
   if (req.body.enabled !== undefined) cfg.enabled = !!req.body.enabled;
   if (req.body.rating !== undefined) {
@@ -3013,7 +3032,7 @@ app.put('/api/admin/google-rating', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Please fill in the rating and your Google listing link before turning this on.' });
   }
   cfg.updatedAt = new Date().toISOString();
-  writeData('google-rating', cfg);
+  await writeData('google-rating', cfg);
   res.json({ success: true, config: cfg });
 });
 
@@ -3026,14 +3045,14 @@ app.get('/api/admin/notification-config', requireAdmin, (req, res) => {
   res.json(cfg);
 });
 
-app.put('/api/admin/notification-config', requireAdmin, (req, res) => {
+app.put('/api/admin/notification-config', requireAdmin, async (req, res) => {
   const cfg = readData('notification-config');
   const fields = ['smsEnabled', 'whatsappEnabled', 'authkey', 'smsTemplateId', 'smsSenderId', 'whatsappIntegratedNumber', 'whatsappTemplateName', 'completionSmsTemplateId', 'completionWhatsappTemplateName'];
   fields.forEach(f => {
     if (req.body[f] === undefined) return;
     cfg[f] = (f === 'smsEnabled' || f === 'whatsappEnabled') ? !!req.body[f] : String(req.body[f]).trim();
   });
-  writeData('notification-config', cfg);
+  await writeData('notification-config', cfg);
   res.json({ success: true, config: cfg });
 });
 
@@ -3110,7 +3129,7 @@ app.get('/api/admin/coupons', requireAdmin, (req, res) => {
   res.json(readData('coupons'));
 });
 
-app.post('/api/admin/coupons', requireAdmin, (req, res) => {
+app.post('/api/admin/coupons', requireAdmin, async (req, res) => {
   const { code, discountType, discountValue, minOrderValue, maxUses, oncePerCustomer, expiryDate } = req.body;
   if (!code || !discountValue) {
     return res.status(400).json({ error: 'Coupon code and discount value are required' });
@@ -3134,11 +3153,11 @@ app.post('/api/admin/coupons', requireAdmin, (req, res) => {
     createdAt: new Date().toISOString()
   };
   coupons.push(coupon);
-  writeData('coupons', coupons);
+  await writeData('coupons', coupons);
   res.json({ success: true, coupon });
 });
 
-app.put('/api/admin/coupons/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/coupons/:id', requireAdmin, async (req, res) => {
   const coupons = readData('coupons');
   const coupon = coupons.find(c => c.id === req.params.id);
   if (!coupon) return res.status(404).json({ error: 'Coupon not found' });
@@ -3151,14 +3170,14 @@ app.put('/api/admin/coupons/:id', requireAdmin, (req, res) => {
       }
     }
   });
-  writeData('coupons', coupons);
+  await writeData('coupons', coupons);
   res.json({ success: true, coupon });
 });
 
-app.delete('/api/admin/coupons/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/coupons/:id', requireAdmin, async (req, res) => {
   let coupons = readData('coupons');
   coupons = coupons.filter(c => c.id !== req.params.id);
-  writeData('coupons', coupons);
+  await writeData('coupons', coupons);
   res.json({ success: true });
 });
 
@@ -3405,7 +3424,7 @@ app.get('/api/admin/technicians/export', requireAdmin, (req, res) => {
   );
 });
 
-app.post('/api/admin/technicians', requireAdmin, (req, res) => {
+app.post('/api/admin/technicians', requireAdmin, async (req, res) => {
   const { name, phone, email, password, city, specialities, experienceYears, idType, idNumber, dailyJobLimit, variableAmount, variableAmountMode } = req.body;
   if (!name || !phone || !password || !city) {
     return res.status(400).json({ error: 'Name, phone, password and city are required' });
@@ -3440,11 +3459,11 @@ app.post('/api/admin/technicians', requireAdmin, (req, res) => {
     createdAt: new Date().toISOString()
   };
   technicians.push(tech);
-  writeData('technicians', technicians);
+  await writeData('technicians', technicians);
   res.json({ success: true, technician: { ...tech, password: undefined } });
 });
 
-app.put('/api/admin/technicians/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/technicians/:id', requireAdmin, async (req, res) => {
   const technicians = readData('technicians');
   const tech = technicians.find(t => t.id === req.params.id);
   if (!tech) return res.status(404).json({ error: 'Technician not found' });
@@ -3468,7 +3487,7 @@ app.put('/api/admin/technicians/:id', requireAdmin, (req, res) => {
   if (req.body.variableAmountMode !== undefined) {
     tech.variableAmountMode = req.body.variableAmountMode === 'percent' ? 'percent' : 'flat';
   }
-  writeData('technicians', technicians);
+  await writeData('technicians', technicians);
   res.json({ success: true, technician: { ...tech, password: undefined } });
 });
 
@@ -3492,21 +3511,21 @@ app.get('/api/admin/payment-pin/status', requireAdmin, (req, res) => {
 // first — otherwise anyone with a live Admin session could silently swap
 // in their own PIN and defeat the whole point of having one, and Admin
 // would have no way back in if they simply forgot the PIN itself.
-app.put('/api/admin/payment-pin', requireAdmin, (req, res) => {
+app.put('/api/admin/payment-pin', requireAdmin, async (req, res) => {
   const { currentPin, adminPassword, newPin } = req.body;
   if (!/^\d{4}$/.test(newPin || '')) {
     return res.status(400).json({ error: 'PIN must be exactly 4 digits.' });
   }
   const admin = readData('admin');
   if (admin.paymentActionPinHash) {
-    const pinOk = currentPin ? verifyAndUpgrade(currentPin, admin.paymentActionPinHash, () => {}) : false;
-    const passwordOk = adminPassword ? verifyAndUpgrade(adminPassword, admin.password, (hashed) => { admin.password = hashed; }) : false;
+    const pinOk = currentPin ? verifyAndUpgrade(currentPin, admin.paymentActionPinHash, async () => {}) : false;
+    const passwordOk = adminPassword ? verifyAndUpgrade(adminPassword, admin.password, async (hashed) => { admin.password = hashed; }) : false;
     if (!pinOk && !passwordOk) {
       return res.status(401).json({ error: 'Current PIN (or your Admin login password, if you forgot the PIN) is incorrect.' });
     }
   }
   admin.paymentActionPinHash = hashPassword(newPin);
-  writeData('admin', admin);
+  await writeData('admin', admin);
   res.json({ success: true });
 });
 
@@ -3516,11 +3535,11 @@ app.put('/api/admin/payment-pin', requireAdmin, (req, res) => {
 // settled; anything after is outstanding until the marker moves forward
 // again. Deliberately simple (one date, not a per-job ledger) since that's
 // how this kind of periodic in-person settlement actually happens.
-app.put('/api/admin/technicians/:id/commission-paid', requireAdmin, (req, res) => {
+app.put('/api/admin/technicians/:id/commission-paid', requireAdmin, async (req, res) => {
   const { paidUpToDate, pin } = req.body;
   const admin = readData('admin');
   if (admin.paymentActionPinHash) {
-    const ok = verifyAndUpgrade(pin || '', admin.paymentActionPinHash, () => {});
+    const ok = verifyAndUpgrade(pin || '', admin.paymentActionPinHash, async () => {});
     if (!ok) return res.status(401).json({ error: 'Incorrect PIN.' });
   }
   const technicians = readData('technicians');
@@ -3532,14 +3551,14 @@ app.put('/api/admin/technicians/:id/commission-paid', requireAdmin, (req, res) =
     if (!/^\d{4}-\d{2}-\d{2}$/.test(paidUpToDate)) return res.status(400).json({ error: 'Invalid date.' });
     tech.commissionPaidUpTo = paidUpToDate;
   }
-  writeData('technicians', technicians);
+  await writeData('technicians', technicians);
   res.json({ success: true, commissionPaidUpTo: tech.commissionPaidUpTo });
 });
 
-app.delete('/api/admin/technicians/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/technicians/:id', requireAdmin, async (req, res) => {
   let technicians = readData('technicians');
   technicians = technicians.filter(t => t.id !== req.params.id);
-  writeData('technicians', technicians);
+  await writeData('technicians', technicians);
   res.json({ success: true });
 });
 
@@ -3603,19 +3622,19 @@ app.get('/api/admin/technician-applications', requireAdmin, (req, res) => {
   res.json(readData('technician-applications'));
 });
 
-app.put('/api/admin/technician-applications/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/technician-applications/:id', requireAdmin, async (req, res) => {
   const applications = readData('technician-applications');
   const application = applications.find(a => a.id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
   if (req.body.status !== undefined) application.status = req.body.status;
-  writeData('technician-applications', applications);
+  await writeData('technician-applications', applications);
   res.json({ success: true, application });
 });
 
-app.delete('/api/admin/technician-applications/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/technician-applications/:id', requireAdmin, async (req, res) => {
   let applications = readData('technician-applications');
   applications = applications.filter(a => a.id !== req.params.id);
-  writeData('technician-applications', applications);
+  await writeData('technician-applications', applications);
   res.json({ success: true });
 });
 
@@ -3642,7 +3661,7 @@ app.get('/api/admin/bookings/archived', requireStaff, (req, res) => {
 // Lets Admin register a booking taken over a phone call — no OTP needed
 // here since the Admin is already authenticated. Still findable later by
 // the customer's phone number, same as any other booking.
-app.post('/api/admin/bookings', requireStaff, (req, res) => {
+app.post('/api/admin/bookings', requireStaff, async (req, res) => {
   const { name, phone, address, cityId, items, bookingDate, timeSlotId } = req.body;
   if (!name || !phone || !address || !cityId || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Please fill all required fields and add at least one appliance.' });
@@ -3738,14 +3757,14 @@ app.post('/api/admin/bookings', requireStaff, (req, res) => {
     updatedAt: new Date().toISOString()
   };
   bookings.unshift(booking);
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   markPhoneVerified(phone); // Admin has already spoken to them directly — no OTP needed if they later book online too
   res.json({ success: true, booking });
 });
 
 // Admin rates a completed item's technician performance (1-5). This feeds
 // directly into the technician's ranking shown when assigning future work.
-app.put('/api/admin/bookings/:bookingId/items/:itemId/rate', requireAdmin, (req, res) => {
+app.put('/api/admin/bookings/:bookingId/items/:itemId/rate', requireAdmin, async (req, res) => {
   const { rating } = req.body;
   const r = Number(rating);
   if (!r || r < 1 || r > 5) return res.status(400).json({ error: 'Rating must be between 1 and 5' });
@@ -3758,7 +3777,7 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/rate', requireAdmin, (req,
   if (item.itemStatus !== 'completed') return res.status(400).json({ error: 'Only completed items can be rated' });
   item.rating = r;
   item.ratingSource = 'admin';
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true });
 });
 
@@ -3769,7 +3788,7 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/rate', requireAdmin, (req,
 // wrongly marked complete, etc). It goes back to "in-progress" with the
 // same technician still assigned, and any existing rating is cleared since
 // the job isn't actually finished yet.
-app.put('/api/admin/bookings/:bookingId/items/:itemId/reactivate', requireStaff, (req, res) => {
+app.put('/api/admin/bookings/:bookingId/items/:itemId/reactivate', requireStaff, async (req, res) => {
   const bookings = readData('bookings');
   const booking = bookings.find(b => b.id === req.params.bookingId);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
@@ -3793,7 +3812,7 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/reactivate', requireStaff,
   item.reviewMarkedAt = null;
   item.updatedAt = new Date().toISOString();
   booking.updatedAt = new Date().toISOString();
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true, booking });
 });
 
@@ -3811,7 +3830,7 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/reactivate', requireStaff,
 //      more privileged step because it directly affects real company
 //      revenue — a Sub-Admin (or a technician's own unverified claim)
 //      being able to waive it unilaterally had no real oversight.
-app.put('/api/admin/bookings/:bookingId/items/:itemId/review-brought', requireStaff, (req, res) => {
+app.put('/api/admin/bookings/:bookingId/items/:itemId/review-brought', requireStaff, async (req, res) => {
   const bookings = readData('bookings');
   const booking = bookings.find(b => b.id === req.params.bookingId);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
@@ -3826,11 +3845,11 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/review-brought', requireSt
   item.reviewBrought = submitted;
   // Deliberately does NOT touch reviewVerifiedByStaff — flagging is not
   // the same as confirming, and must never silently waive commission.
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true, item });
 });
 
-app.put('/api/admin/bookings/:bookingId/items/:itemId/google-review', requireAdmin, (req, res) => {
+app.put('/api/admin/bookings/:bookingId/items/:itemId/google-review', requireAdmin, async (req, res) => {
   const bookings = readData('bookings');
   const booking = bookings.find(b => b.id === req.params.bookingId);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
@@ -3846,7 +3865,7 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/google-review', requireAdm
   item.reviewVerifiedByStaff = submitted; // the one flag that actually waives commission
   item.reviewMarkedBy = submitted ? getStaffDisplayName(req) : null;
   item.reviewMarkedAt = submitted ? new Date().toISOString() : null;
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true, item });
 });
 
@@ -3932,7 +3951,7 @@ app.put('/api/admin/bookings/:bookingId/location', requireAdmin, async (req, res
       booking.cityId = cityId;
       booking.cityName = city.name;
       booking.address = String(address).trim();
-      writeData('bookings', bookings);
+      await writeData('bookings', bookings);
     }
   });
   if (!found) return res.status(404).json({ error: 'Booking not found.' });
@@ -3943,7 +3962,7 @@ app.put('/api/admin/bookings/:bookingId/location', requireAdmin, async (req, res
 // match check: the technician's city must equal the booking's city AND the
 // technician's specialities must include this item's appliance — otherwise
 // the assignment is rejected outright. There is no override.
-app.put('/api/admin/bookings/:bookingId/items/:itemId/assign', requireStaff, (req, res) => {
+app.put('/api/admin/bookings/:bookingId/items/:itemId/assign', requireStaff, async (req, res) => {
   const { technicianId } = req.body;
   const bookings = readData('bookings');
   const booking = bookings.find(b => b.id === req.params.bookingId);
@@ -3977,16 +3996,16 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/assign', requireStaff, (re
   item.assignedAt = new Date().toISOString();
   item.updatedAt = new Date().toISOString();
   booking.updatedAt = new Date().toISOString();
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true, booking });
 });
 
-app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   let bookings = readData('bookings');
   const booking = bookings.find(b => b.id === req.params.id);
   if (booking && blockIfBookingDateLocked(booking, res)) return;
   bookings = bookings.filter(b => b.id !== req.params.id);
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true });
 });
 
@@ -3998,7 +4017,7 @@ app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
 // /api/bookings/track above) and in this same archive via the search
 // endpoint below. Safe to run repeatedly / on a schedule — only ever
 // moves bookings older than the cutoff that are genuinely done.
-app.post('/api/admin/bookings/archive-old', requireAdmin, (req, res) => {
+app.post('/api/admin/bookings/archive-old', requireAdmin, async (req, res) => {
   const { beforeDate } = req.body; // 'YYYY-MM-DD' — bookings CREATED before this date are eligible
   if (!beforeDate || !/^\d{4}-\d{2}-\d{2}$/.test(beforeDate)) {
     return res.status(400).json({ error: 'Please provide a valid cutoff date (YYYY-MM-DD).' });
@@ -4014,8 +4033,8 @@ app.post('/api/admin/bookings/archive-old', requireAdmin, (req, res) => {
   const remaining = bookings.filter(b => !isFinished(b));
   const archive = readArchivedBookings();
 
-  writeData('bookings', remaining);
-  writeData('bookings-archive', [...archive, ...toArchive]);
+  await writeData('bookings', remaining);
+  await writeData('bookings-archive', [...archive, ...toArchive]);
   res.json({ success: true, archivedCount: toArchive.length, remainingActive: remaining.length });
 });
 
@@ -4072,7 +4091,7 @@ app.delete('/api/admin/customers/:phone', requireAdmin, async (req, res) => {
   const phone = req.params.phone;
   await withLock('bookings', async () => {
     const bookings = readData('bookings').filter(b => b.phone !== phone);
-    writeData('bookings', bookings);
+    await writeData('bookings', bookings);
   });
   // BUG FIX: a booking doesn't disappear just because it's old — it
   // moves into this separate 'bookings-archive' collection (see
@@ -4082,11 +4101,11 @@ app.delete('/api/admin/customers/:phone', requireAdmin, async (req, res) => {
   // checks archive too) even after being "deleted".
   await withLock('bookings-archive', async () => {
     const archived = readData('bookings-archive').filter(b => b.phone !== phone);
-    writeData('bookings-archive', archived);
+    await writeData('bookings-archive', archived);
   });
   await withLock('customers', async () => {
     const customers = readData('customers').filter(c => c.phone !== phone);
-    writeData('customers', customers);
+    await writeData('customers', customers);
   });
   // BUG FIX: 'verified-phones' is a flat array of phone number STRINGS
   // (see isPhoneVerified/markPhoneVerified above — readData('verified-
@@ -4098,7 +4117,7 @@ app.delete('/api/admin/customers/:phone', requireAdmin, async (req, res) => {
   // deleted, and OTP kept getting silently skipped for it.
   await withLock('verified-phones', async () => {
     const verified = readData('verified-phones').filter(v => v !== phone);
-    writeData('verified-phones', verified);
+    await writeData('verified-phones', verified);
   });
   res.json({ success: true });
 });
@@ -4290,11 +4309,11 @@ app.get('/api/admin/reports/daily/export', requireAdmin, (req, res) => {
 // TECHNICIAN AUTH
 // =======================================================
 
-app.post('/api/technician/login', loginRateLimit('technician'), (req, res) => {
+app.post('/api/technician/login', loginRateLimit('technician'), async (req, res) => {
   const { phone, password } = req.body;
   const technicians = readData('technicians');
   const tech = technicians.find(t => t.phone === phone && t.active);
-  const ok = tech && password && verifyAndUpgrade(password, tech.password, (hashed) => {
+  const ok = tech && password && verifyAndUpgrade(password, tech.password, async (hashed) => {
     tech.password = hashed;
   });
   if (!ok) {
@@ -4304,17 +4323,17 @@ app.post('/api/technician/login', loginRateLimit('technician'), (req, res) => {
   clearLoginFailures('technician', req);
   req.session.technicianId = tech.id;
   tech.lastSeenAt = new Date().toISOString();
-  writeData('technicians', technicians);
+  await writeData('technicians', technicians);
   res.json({ success: true, technician: { ...tech, password: undefined } });
 });
 
-app.post('/api/technician/logout', (req, res) => {
+app.post('/api/technician/logout', async (req, res) => {
   // Clears lastSeenAt so a logged-out technician immediately shows as
   // offline instead of appearing "online" for the next few minutes.
   if (req.session && req.session.technicianId) {
     const technicians = readData('technicians');
     const tech = technicians.find(t => t.id === req.session.technicianId);
-    if (tech) { tech.lastSeenAt = null; writeData('technicians', technicians); }
+    if (tech) { tech.lastSeenAt = null; await writeData('technicians', technicians); }
   }
   req.session.destroy(() => res.json({ success: true }));
 });
@@ -4328,12 +4347,12 @@ function isTechOnline(lastSeenAt) {
   if (!lastSeenAt) return false;
   return (Date.now() - new Date(lastSeenAt).getTime()) < ONLINE_THRESHOLD_MS;
 }
-app.put('/api/technician/heartbeat', requireTechnician, (req, res) => {
+app.put('/api/technician/heartbeat', requireTechnician, async (req, res) => {
   const technicians = readData('technicians');
   const tech = technicians.find(t => t.id === req.session.technicianId);
   if (!tech) return res.status(404).json({ error: 'Technician not found' });
   tech.lastSeenAt = new Date().toISOString();
-  writeData('technicians', technicians);
+  await writeData('technicians', technicians);
   res.json({ success: true });
 });
 
@@ -4416,17 +4435,17 @@ function findOwnItem(bookingId, itemId, technicianId) {
   return { bookings, booking, item };
 }
 
-app.put('/api/technician/orders/:bookingId/items/:itemId/accept', requireTechnician, (req, res) => {
+app.put('/api/technician/orders/:bookingId/items/:itemId/accept', requireTechnician, async (req, res) => {
   const { bookings, booking, item } = findOwnItem(req.params.bookingId, req.params.itemId, req.session.technicianId);
   if (!item) return res.status(404).json({ error: 'Task not found' });
   item.itemStatus = 'accepted';
   item.updatedAt = new Date().toISOString();
   booking.updatedAt = new Date().toISOString();
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true });
 });
 
-app.put('/api/technician/orders/:bookingId/items/:itemId/reject', requireTechnician, (req, res) => {
+app.put('/api/technician/orders/:bookingId/items/:itemId/reject', requireTechnician, async (req, res) => {
   const { bookings, booking, item } = findOwnItem(req.params.bookingId, req.params.itemId, req.session.technicianId);
   if (!item) return res.status(404).json({ error: 'Task not found' });
 
@@ -4447,13 +4466,13 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/reject', requireTechnic
   item.assignedAt = null; // clears the stale assignment time — a fresh one is set whenever it's next assigned
   item.updatedAt = new Date().toISOString();
   booking.updatedAt = new Date().toISOString();
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
 
   const technicians = readData('technicians');
   const tech = technicians.find(t => t.id === req.session.technicianId);
   if (tech) {
     tech.rejectedJobs = (tech.rejectedJobs || 0) + 1;
-    writeData('technicians', technicians);
+    await writeData('technicians', technicians);
   }
 
   res.json({ success: true });
@@ -4472,7 +4491,7 @@ const PROGRESS_ALLOWED_FROM = {
   'in-progress': ['accepted', 'in-progress'],
   'completed': ['accepted', 'in-progress']
 };
-app.put('/api/technician/orders/:bookingId/items/:itemId/progress', requireTechnician, (req, res) => {
+app.put('/api/technician/orders/:bookingId/items/:itemId/progress', requireTechnician, async (req, res) => {
   const { status, report, completionPhotoUrl } = req.body;
   const admin = readData('admin');
   const { bookings, booking, item } = findOwnItem(req.params.bookingId, req.params.itemId, req.session.technicianId);
@@ -4510,7 +4529,7 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/progress', requireTechn
   if (report !== undefined) item.technicianReport = report;
   item.updatedAt = new Date().toISOString();
   booking.updatedAt = new Date().toISOString();
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   if (status === 'completed') {
     // If this booking was made via someone's referral link, the person who
     // referred them earns their reward coupon now that real work is done —
@@ -4548,7 +4567,7 @@ const { getEffectiveCommissionRate, computeItemCommission } = require('./lib/com
 // any previous staff verification, so a re-claim after a rejected one
 // starts fresh. The commission itself is only waived once staff confirms
 // via PUT .../google-review below — see computeItemCommission().
-app.put('/api/technician/orders/:bookingId/items/:itemId/review-brought', requireTechnician, (req, res) => {
+app.put('/api/technician/orders/:bookingId/items/:itemId/review-brought', requireTechnician, async (req, res) => {
   const { reviewBrought } = req.body;
   const { bookings, booking, item } = findOwnItem(req.params.bookingId, req.params.itemId, req.session.technicianId);
   if (!item) return res.status(404).json({ error: 'Task not found' });
@@ -4558,7 +4577,7 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/review-brought', requir
   item.reviewMarkedBy = item.reviewBrought ? (item.technicianName || 'Technician') : null;
   item.reviewMarkedAt = item.reviewBrought ? new Date().toISOString() : null;
   item.updatedAt = booking.updatedAt = new Date().toISOString();
-  writeData('bookings', bookings);
+  await writeData('bookings', bookings);
   res.json({ success: true, reviewBrought: item.reviewBrought });
 });
 
@@ -5472,7 +5491,7 @@ app.use((err, req, res, next) => {
 // it gets archived — see /api/admin/bookings/archive-old — so both need
 // checking, not just one).
 const COMPLETION_PHOTO_MAX_AGE_DAYS = 35;
-function cleanupOldCompletionPhotos() {
+async function cleanupOldCompletionPhotos() {
   const cutoff = Date.now() - COMPLETION_PHOTO_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
   let deletedCount = 0;
   for (const key of ['bookings', 'bookings-archive']) {
@@ -5494,7 +5513,7 @@ function cleanupOldCompletionPhotos() {
         deletedCount++;
       }
     }
-    if (changed) writeData(key, collection);
+    if (changed) await writeData(key, collection);
   }
   if (deletedCount > 0) console.log(`[cleanup] Removed ${deletedCount} completion photo(s) older than ${COMPLETION_PHOTO_MAX_AGE_DAYS} days.`);
 }
@@ -5503,7 +5522,7 @@ function cleanupOldCompletionPhotos() {
 // files if MySQL isn't configured — into db.js's in-memory cache) before
 // the server starts accepting requests. Without this, the very first
 // request could hit readData() before any data has been loaded.
-initDb().then(() => {
+initDb().then(async () => {
   // ONE-TIME DEPLOYMENT SAFETY NET: login was reportedly failing on the
   // very first production deploy despite the correct credentials being
   // in data/admin.json in the repo — the exact cause couldn't be
@@ -5520,7 +5539,7 @@ initDb().then(() => {
       admin.username = 'admin';
       admin.password = 'Seerua@2026'; // plaintext — auto-upgrades to a bcrypt hash on first successful login, same as normal
       admin.forceResetApplied = true;
-      writeData('admin', admin);
+      await writeData('admin', admin);
       console.log('[startup] One-time admin credential reset applied (username: admin). This will not run again.');
     }
   } catch (e) {
