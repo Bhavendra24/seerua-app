@@ -4926,7 +4926,7 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
         <p>Repair and regular service available in ${city.name}.</p>
         <div class="service-types">${a.types.map(t => `<span>${t.name}</span>`).join('')}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="/?city=${city.id}&amp;appliance=${a.id}#book" class="btn btn-outline btn-sm">Book Now</a>
+          <a href="/?city=${city.id}&amp;appliance=${a.id}#quickbook" class="btn btn-outline btn-sm">Book Now</a>
           <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="btn btn-sm" style="color:var(--blue-600);">Details →</a>
         </div>
       </div>
@@ -5145,7 +5145,7 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
     }
     const articles = readData('blog-articles');
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
-    const footerServicesHtml = appliances.map(a => `<li><a href="/?city=${city.id}&amp;appliance=${a.id}#book">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
+    const footerServicesHtml = appliances.map(a => `<li><a href="/?city=${city.id}&amp;appliance=${a.id}#quickbook">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
     const articleCardsHtml = articles.map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}/blog`;
 
@@ -5192,7 +5192,7 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
       return res.status(404).send(`<h1>Article not found</h1><p><a href="/appliance-repair/${req.params.citySlug}/blog">Back to ${city.name} appliance care tips</a>.</p>`);
     }
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
-    const footerServicesHtml = appliances.map(a => `<li><a href="/?city=${city.id}&amp;appliance=${a.id}#book">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
+    const footerServicesHtml = appliances.map(a => `<li><a href="/?city=${city.id}&amp;appliance=${a.id}#quickbook">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
     const blogIndexUrl = `/appliance-repair/${slugify(city.name)}/blog`;
     const relatedArticlesHtml = articles.filter(a => a.slug !== article.slug).slice(0, 3).map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}${blogIndexUrl}/${article.slug}`;

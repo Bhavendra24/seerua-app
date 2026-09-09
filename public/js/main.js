@@ -298,6 +298,14 @@ function bindUrlTriggeredSections() {
     // proper popup, so scrollIntoView would have thrown on a null
     // element here.
     openAccountGate('booking');
+  } else if (window.location.hash === '#quickbook') {
+    // Landed here from a City/Appliance-City page's "Book Now" (those
+    // pages don't load this whole script, so their button just
+    // redirects here with the appliance id in the URL instead of
+    // calling openQuickBookModal() directly — see the small polyfill
+    // of that same name in city.template.html).
+    const urlApplianceId = new URLSearchParams(window.location.search).get('appliance');
+    if (urlApplianceId) openQuickBookModal(urlApplianceId);
   }
 }
 // A #track/#book link followed from outside the page (e.g. an SMS/WhatsApp
