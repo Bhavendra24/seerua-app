@@ -268,7 +268,13 @@ document.addEventListener('click', (e) => {
   const link = e.target.closest('a[href="#book"]');
   if (link) {
     e.preventDefault();
-    openAccountGate('booking');
+    // FLOW CHANGE (per explicit request): opens the booking form
+    // directly — no more asking for phone+OTP before they've even
+    // picked an appliance or seen a price. Account-gate (if needed at
+    // all — an existing saved account skips it) now only happens at
+    // actual Add/Submit time, inside addItemToCart(), same as Quick
+    // Book's flow.
+    openBookingForm();
   }
 });
 
@@ -292,12 +298,10 @@ function bindUrlTriggeredSections() {
     }
   }
   if (window.location.hash === '#book') {
-    // FLOW CHANGE: #book now opens the booking modal directly instead of
-    // scrolling to a page section — the old target element (a plain
-    // <section id="book">) doesn't exist anymore now that this is a
-    // proper popup, so scrollIntoView would have thrown on a null
-    // element here.
-    openAccountGate('booking');
+    // FLOW CHANGE (per explicit request): opens the booking form
+    // directly instead of asking for phone+OTP first — see the matching
+    // change on the in-page a[href="#book"] click handler above for why.
+    openBookingForm();
   } else if (window.location.hash === '#quickbook') {
     // Landed here from a City/Appliance-City page's "Book Now" (those
     // pages don't load this whole script, so their button just
@@ -318,7 +322,7 @@ if (new URLSearchParams(window.location.search).get('trackPhone')) {
 } else if (window.location.hash === '#track') {
   openAccountGate('account');
 } else if (window.location.hash === '#book') {
-  openAccountGate('booking');
+  openBookingForm();
 }
 
 async function fetchJSON(url, opts) {
