@@ -3238,7 +3238,15 @@ function bindQuickBookModal() {
       openAccountGate('quickbook', qbApplianceId);
       return false;
     }
-    const phone = document.getElementById('qbPhone').value.trim();
+    // BUG FIX: this used to read #qbPhone's own value — that field is
+    // intentionally hidden once an account exists (see the comment on
+    // its prefill in openQuickBookModalReal), so if it was ever empty at
+    // this exact moment for any reason (e.g. a timing gap right after
+    // the account-gate auto-retry re-opens this modal), the person saw
+    // 'please enter a valid mobile number' with literally no visible
+    // field to type one into. Reading straight from the account itself
+    // removes that fragile dependency entirely.
+    const phone = getAccount().phone;
     if (!/^[0-9]{10}$/.test(phone)) {
       msg.className = 'form-msg error';
       msg.textContent = 'Please enter a valid 10 digit mobile number.';
