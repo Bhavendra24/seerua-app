@@ -197,16 +197,16 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   display: flex; align-items: center; justify-content: center;
   width: 36px; height: 36px;
   border-radius: 50%;
-  background: var(--mist, #eef3f9);
+  background: #000;
   border: none;
-  color: var(--blue-900);
+  color: #fff;
   cursor: pointer;
   padding: 0;
   transition: background 0.15s ease;
 }
-.header-account-btn:hover { background: var(--line, #dde5ee); }
+.header-account-btn:hover { background: #262626; }
 .header-account-btn.has-account {
-  background: var(--accent-500);
+  background: #000;
   color: #fff;
   font-weight: 700;
 }
