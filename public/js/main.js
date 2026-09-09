@@ -2507,6 +2507,14 @@ function bindHeaderAccountMenu() {
     openTrackBookingModal();
   });
 
+  // Opens the same "Add Address" step (in edit mode) the booking form's
+  // own Edit button uses — one shared place a customer can update their
+  // saved name/address/city without needing to start a booking first.
+  document.getElementById('headerAccountEditBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    openEditProfile();
+  });
+
   // One-tap "Refer a Friend" straight from the account menu — its own
   // popup (same pattern as Track Booking), not the old always-on-page
   // section.
@@ -2759,20 +2767,25 @@ function bindAccountGateModal() {
     }
   });
 
-  document.getElementById('editAddressBtn')?.addEventListener('click', () => {
-    const acc = getAccount();
-    if (!acc) return;
-    agEditMode = true;
-    document.getElementById('agAddressTitle').textContent = 'Edit Address / City';
-    document.getElementById('agPhoneStep').style.display = 'none';
-    document.getElementById('agAddressStep').style.display = 'block';
-    document.getElementById('agName').value = acc.name || '';
-    document.getElementById('agAddress').value = acc.address || '';
-    populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
-    if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
-    document.getElementById('agAddressMsg').textContent = '';
-    document.getElementById('accountGateModal').classList.add('open');
-  });
+  document.getElementById('editAddressBtn')?.addEventListener('click', openEditProfile);
+}
+// Shared by the booking form's own "Edit Address / City" button AND the
+// account menu's new "Edit Profile" item — same Account Gate "Add
+// Address" step, reused in edit mode, so there's exactly one place that
+// actually writes to the saved account either way.
+function openEditProfile() {
+  const acc = getAccount();
+  if (!acc) return;
+  agEditMode = true;
+  document.getElementById('agAddressTitle').textContent = 'Edit Address / City';
+  document.getElementById('agPhoneStep').style.display = 'none';
+  document.getElementById('agAddressStep').style.display = 'block';
+  document.getElementById('agName').value = acc.name || '';
+  document.getElementById('agAddress').value = acc.address || '';
+  populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
+  if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
+  document.getElementById('agAddressMsg').textContent = '';
+  document.getElementById('accountGateModal').classList.add('open');
 }
 bindAccountGateModal();
 
