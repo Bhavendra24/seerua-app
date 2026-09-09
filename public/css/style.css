@@ -1757,23 +1757,16 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .bottom-sheet-option:last-child { border-bottom: none; }
 .bottom-sheet-icon { font-size: 1.3rem; width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .bottom-sheet-city-grid {
-  display: grid;
-  /* BUG FIX: smaller minimum column width so more cities fit per row —
-     with the site's current 8 cities, this fits them all in 2 short rows
-     (4 per row) instead of 3 rows (3 per row), which mostly avoids ever
-     needing to scroll for a city list this size in the first place.
-     Also removed this grid's own separate max-height/scroll — nesting a
-     second scrollable area inside the already-scrollable .bottom-sheet
-     was creating confusing, easy-to-miss double-scroll behavior; there's
-     just the one, obvious scroll on the sheet itself now. */
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding-bottom: 8px;
 }
-.bottom-sheet-city-grid a { display: block; text-align: center; padding: 12px 8px; background: var(--mist); border-radius: 12px; text-decoration: none; color: var(--ink); font-weight: 600; font-size: 0.85rem; }
-.bottom-sheet-city-grid a:hover { background: var(--accent-100, #dbeafe); }
-.bottom-sheet-city-btn { display: block; width: 100%; text-align: center; padding: 12px 8px; background: var(--mist); border: none; border-radius: 12px; color: var(--ink); font-weight: 600; font-size: 0.85rem; font-family: var(--font-body); cursor: pointer; }
-.bottom-sheet-city-btn:hover { background: var(--accent-100, #dbeafe); }
+.bottom-sheet-city-grid a { display: block; text-align: left; padding: 14px 16px; background: none; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); font-weight: 600; font-size: 0.95rem; }
+.bottom-sheet-city-grid a:hover { background: var(--mist); }
+.bottom-sheet-city-btn { display: block; width: 100%; text-align: left; padding: 14px 16px; background: none; border: none; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 600; font-size: 0.95rem; font-family: var(--font-body); cursor: pointer; }
+.bottom-sheet-city-btn:hover { background: var(--mist); }
+.bottom-sheet-city-btn:last-child, .bottom-sheet-city-grid a:last-child { border-bottom: none; }
 
 /* Room at the bottom of every page so the fixed bar never covers the
    last bit of content, on any screen size (this bar is no longer
