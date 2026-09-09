@@ -1585,6 +1585,11 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   transition: color 0.15s ease;
 }
 .bottom-nav-item:hover, .bottom-nav-item:active { color: var(--accent-600); }
+/* Explicit transparent background on the City button's own label text —
+   in case any city name (once selected, replacing the default "City"
+   text) ever looked like it had a background from something else on
+   the page showing through oddly. */
+#bottomNavCityBtn span { background: transparent; }
 .bottom-nav-cart-wrap { position: relative; }
 .bottom-nav-badge {
   position: absolute;
