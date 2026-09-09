@@ -4693,7 +4693,7 @@ function buildServicesGridHtml(appliances) {
         ? `<img class="service-card-photo" src="${escapeHtml(a.photoUrl)}" alt="${escapeHtml(a.name)} service technician at work" loading="lazy">`
         : `<div class="service-icon-wrap"><div class="service-icon">${SERVER_SERVICE_ICONS[a.icon] || SERVER_SERVICE_ICONS.wrench}</div></div>`}
       <h3>${escapeHtml(a.name)}</h3>
-      <a href="#book" class="btn btn-outline btn-sm">Book Now</a>
+      <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
     </div>
   `).join('');
 }

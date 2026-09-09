@@ -27,6 +27,12 @@ let cityBrowsedManually = false;
 // trying to make, instead of leaving them to notice and retry it
 // themselves after fixing exactly what was asked.
 let pendingCityFixRetry = false;
+// Same idea as pendingCityFixRetry, for Quick Book's own account-gate
+// pause (see qbDoAdd()) — remembers whether "Add" or "Book Now" was the
+// one being attempted, so it can resume automatically once the phone+
+// OTP step completes, instead of leaving the customer to notice and
+// press it again themselves.
+let qbPendingRetryAction = null; // 'add' | 'book' | null
 let BOOKING_PAUSED_STATUS = null; // set once at page load from /api/booking-status; checked by openQuickBookModal() too, so a paused booking is caught right when someone tries to start, not just deep in the old checkout form
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -982,7 +988,7 @@ function renderServicesGrid() {
         ? `<img class="service-card-photo" src="${a.photoUrl}" alt="${a.name} service technician at work" loading="lazy">`
         : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
       <h3>${a.name}</h3>
-      <a href="#book" class="btn btn-outline btn-sm">Book Now</a>
+      <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
     </div>
   `).join('');
 
@@ -2655,6 +2661,7 @@ function closeAccountGate() {
   // If they cancelled out of Edit Profile instead of saving, don't leave
   // this armed for some unrelated future save to accidentally trigger.
   pendingCityFixRetry = false;
+  qbPendingRetryAction = null;
 }
 
 // Called once the phone+address chain is fully complete (either just
@@ -2662,6 +2669,7 @@ function closeAccountGate() {
 // straight on to whatever they originally asked for. This is the
 // "chain advances itself" part: no extra taps needed in between.
 function proceedAfterAccountGate(acc) {
+  const resumeQbAction = qbPendingRetryAction; // capture before closeAccountGate() clears it
   closeAccountGate();
   if (agIntent === 'account') {
     // FLOW CHANGE: opens the Track Booking popup directly — no more
@@ -2674,6 +2682,16 @@ function proceedAfterAccountGate(acc) {
   } else if (agIntent === 'quickbook') {
     applyAccountToBookingFields(acc);
     openQuickBookModalReal(agPendingApplianceId);
+    // Resume whichever action (Add / Book Now) was actually being
+    // attempted when this got paused for phone+OTP — see qbDoAdd() and
+    // the qbAddBtn/qbBookBtn click handlers. Small delay so the modal's
+    // own price/type refresh (openQuickBookModalReal is itself async
+    // internally) has a moment to settle first.
+    if (resumeQbAction === 'add') {
+      setTimeout(() => document.getElementById('qbAddBtn')?.click(), 300);
+    } else if (resumeQbAction === 'book') {
+      setTimeout(() => document.getElementById('qbBookBtn')?.click(), 300);
+    }
   } else {
     openBookingForm();
     applyAccountToBookingFields(acc);
@@ -2872,12 +2890,15 @@ function openQuickBookModal(applianceId) {
     if (typeof openBookingForm === 'function') openBookingForm();
     return;
   }
+  // BUG FIX (per explicit request): this used to gate on having an
+  // account BEFORE ever showing appliance type/price — meaning "Book
+  // Now" on a card asked for a phone number + OTP immediately, before
+  // the customer had seen anything about what they were even booking.
+  // Now opens straight to type/price; account (and OTP, if this number
+  // isn't already verified) is only ever asked for once they actually
+  // try to Add/Book — see qbDoAdd().
   const acc = getAccount();
-  if (!acc) {
-    openAccountGate('quickbook', applianceId);
-    return;
-  }
-  applyAccountToBookingFields(acc);
+  if (acc) applyAccountToBookingFields(acc);
   openQuickBookModalReal(applianceId);
 }
 
@@ -3205,6 +3226,18 @@ function bindQuickBookModal() {
   // actually added to the cart first.
   async function qbDoAdd() {
     const msg = document.getElementById('qbMsg');
+    // BUG FIX: this used to be unreachable without an account (the old
+    // gate in openQuickBookModal() already forced sign-in before the
+    // modal ever opened) — now that browsing type/price needs no
+    // account at all, this is the actual point that needs one. Pauses
+    // here, remembers exactly what was being tried (Add vs Book Now)
+    // via qbPendingRetryAction, and resumes it automatically once
+    // account-gate succeeds — see the 'quickbook' branch in
+    // proceedAfterAccountGate().
+    if (!getAccount()) {
+      openAccountGate('quickbook', qbApplianceId);
+      return false;
+    }
     const phone = document.getElementById('qbPhone').value.trim();
     if (!/^[0-9]{10}$/.test(phone)) {
       msg.className = 'form-msg error';
@@ -3244,8 +3277,10 @@ function bindQuickBookModal() {
 
 document.getElementById('qbAddBtn').addEventListener('click', async () => {
   quickBookViewStartIndex = null;
+  qbPendingRetryAction = 'add';
   const ok = await qbDoAdd();
   if (ok) {
+    qbPendingRetryAction = null;
     // BEHAVIOR CHANGE (per explicit request): close the Appliance Details
     // modal immediately after a successful Add, instead of leaving it
     // open with an inline message — a toast confirms it worked without
@@ -3258,6 +3293,7 @@ document.getElementById('qbAddBtn').addEventListener('click', async () => {
   document.getElementById('qbBookBtn').addEventListener('click', async () => {
     const expectedIndex = cartItems.length;
     quickBookViewStartIndex = expectedIndex;
+    qbPendingRetryAction = 'book';
     const ok = await qbDoAdd();
     // SAFETY CHECK: even if qbDoAdd() reported success, confirm a new item
     // actually landed at the expected index before treating this as a
@@ -3266,12 +3302,16 @@ document.getElementById('qbAddBtn').addEventListener('click', async () => {
     // submitting nothing) if some other edge case slips past qbDoAdd's
     // own check.
     if (ok && cartItems.length > expectedIndex) {
+      qbPendingRetryAction = null;
       closeQuickBookModal();
       openBookingForm();
       hideRedundantBookingFields();
-    } else {
+    } else if (ok) {
       quickBookViewStartIndex = null;
     }
+    // else: account-gate just opened (qbDoAdd returned false because no
+    // account existed yet) — leave qbPendingRetryAction set, so success
+    // there resumes this exact action automatically.
   });
 }
 
