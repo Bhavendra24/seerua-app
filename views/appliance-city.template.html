@@ -62,10 +62,35 @@
       <a class="call-link" href="tel:+919389585479">
         📞 <span class="call-text">9389585479</span>
       </a>
+      <!-- Full OTP/registration flow only lives in main.js on the
+           homepage — rather than duplicating that whole system here,
+           this just shows the same icon (reading the same saved account
+           from localStorage so it still shows the right initial) and
+           sends taps through to the homepage's Account Gate. -->
+      <a href="/#track" class="header-account-btn" id="headerAccountBtn" aria-label="My Account">
+        <svg id="headerAccountIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span id="headerAccountInitial" class="header-account-initial" style="display:none;"></span>
+      </a>
       <a class="btn btn-primary btn-sm" href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}#book">Book Now</a>
     </div>
   </div>
 </header>
+<script>
+(function() {
+  try {
+    const raw = localStorage.getItem('seerua_account_v1');
+    const acc = raw ? JSON.parse(raw) : null;
+    if (acc && acc.name) {
+      const btn = document.getElementById('headerAccountBtn');
+      const icon = document.getElementById('headerAccountIcon');
+      const initialEl = document.getElementById('headerAccountInitial');
+      if (btn) btn.classList.add('has-account');
+      if (icon) icon.style.display = 'none';
+      if (initialEl) { initialEl.style.display = 'block'; initialEl.textContent = acc.name.trim().charAt(0).toUpperCase(); }
+    }
+  } catch (e) { /* private/incognito mode, etc. — default icon is fine */ }
+})();
+</script>
 
 <nav aria-label="Breadcrumb" class="container" style="padding-top:18px;font-size:0.85rem;color:var(--slate);">
   <a href="/" style="color:var(--slate);">Home</a> /

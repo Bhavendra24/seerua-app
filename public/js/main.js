@@ -1,6 +1,21 @@
 // ------------------------------------------------------------------
 // Seerua Appliance Care — customer site logic
 // ------------------------------------------------------------------
+// BUG FIX: these 3 used to be declared much further down the file
+// (right before applyAccountToBookingFields) — but the #track/#book
+// hash-triggered code near the very top of this same script (see
+// bindUrlTriggeredSections and the plain if/else right below it) calls
+// openAccountGate(), which reads agIntent, BEFORE that later `let`
+// statement had ever run. `let`/`const` (unlike `function`) aren't
+// hoisted usably — that's a genuine "Cannot access 'agIntent' before
+// initialization" crash, not just a style issue. Declaring them here,
+// before anything that could possibly reference them, fixes it for
+// every entry point (in-page click, #track/#book on load, this
+// session's new City/Appliance-City page header icon linking to
+// /#track, etc.) at once.
+let agIntent = null; // 'booking' | 'account' | 'quickbook'
+let agPendingApplianceId = null;
+let agEditMode = false;
 let BOOKING_PAUSED_STATUS = null; // set once at page load from /api/booking-status; checked by openQuickBookModal() too, so a paused booking is caught right when someone tries to start, not just deep in the old checkout form
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -2516,10 +2531,6 @@ function bindHeaderAccountMenu() {
 }
 bindHeaderAccountMenu();
 updateHeaderAccountUI();
-
-let agIntent = null; // 'booking' | 'account' | 'quickbook'
-let agPendingApplianceId = null;
-let agEditMode = false;
 
 // Pushes a known account's details into the shared hidden fields the
 // rest of the app (cart, submit, Quick Book) already reads from, and
