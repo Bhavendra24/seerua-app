@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609080f">
+<link rel="stylesheet" href="/css/style.css?v=202609080g">
 
 <script type="application/ld+json">
 {
@@ -258,6 +258,22 @@
      just sat inline in the page flow, pushing content below it down
      whenever it opened, instead of floating above everything like every
      other modal on this site). -->
+<!-- CITY MISMATCH CHOICE — shown when someone with a saved account
+     browses a DIFFERENT city's prices (via the City picker) and then
+     tries to actually add something to their booking. Lets them pick
+     between a one-off booking in the browsed city, or actually moving
+     their account there — rather than either silently mixing prices
+     from two different cities, or blocking city-browsing outright. -->
+<div class="modal-backdrop" id="cityMismatchModal">
+  <div class="modal">
+    <h3>Different City Selected</h3>
+    <p style="color:var(--slate);font-size:0.9rem;margin-bottom:16px;" id="cityMismatchText"></p>
+    <button type="button" class="btn btn-primary btn-block" id="cityMismatchUseOnceBtn" style="margin-bottom:10px;"></button>
+    <button type="button" class="btn btn-outline btn-block" id="cityMismatchUpdateAccountBtn" style="margin-bottom:10px;"></button>
+    <button type="button" class="btn btn-outline btn-block" onclick="document.getElementById('cityMismatchModal').classList.remove('open')">Cancel</button>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="bookingModalBackdrop">
   <div class="modal modal-lg">
     <div class="booking-wrap" id="bookingWrap">
@@ -940,7 +956,7 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609080p"></script>
+<script src="/js/main.js?v=202609080q"></script>
 <script src="/js/i18n.js?v=202609080a"></script>
 <script src="/js/chatbot.js?v=202609080a"></script>
 </body>

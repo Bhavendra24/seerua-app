@@ -980,6 +980,12 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 
 /* ---------- Careers modal (fill & submit right on this page) ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(15,42,67,0.55); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; overscroll-behavior: contain; }
+/* Needs to appear ON TOP of the booking form modal when both happen to
+   be open at once (the city-mismatch choice pops up WHILE the booking
+   form is still open behind it) — same z-index as .modal-backdrop
+   otherwise means whichever is later in the HTML paints over the
+   other, which happened to hide this one entirely. */
+#cityMismatchModal { z-index: 260; }
 .modal-backdrop.open { display: flex; animation: modalBackdropFadeIn 0.18s ease; }
 /* Design polish: every modal in the site (Account Gate, OTP entry,
    Track Booking, Refer a Friend, date calendar, Quick Book, Careers)

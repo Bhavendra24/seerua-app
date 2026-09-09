@@ -1228,7 +1228,47 @@ function clearPendingPhoto() {
 
 let addingItem = false;
 
-async function addItemToCart() {
+// Shown when a saved account's home city differs from whatever the page
+// is currently browsing (via the City picker) — see the check in
+// addItemToCart(). Gives an explicit choice instead of silently mixing
+// prices from two cities into one booking, or blocking browsing outright.
+function showCityMismatchChoice(browsedCityId, acc) {
+  const browsedCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === browsedCityId) : null;
+  const accountCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === acc.cityId) : null;
+  if (!browsedCity || !accountCity) return;
+  document.getElementById('cityMismatchText').textContent =
+    `Your account is set to ${accountCity.name}, but you're currently viewing ${browsedCity.name}'s prices. How would you like to proceed?`;
+  const useOnceBtn = document.getElementById('cityMismatchUseOnceBtn');
+  const updateBtn = document.getElementById('cityMismatchUpdateAccountBtn');
+  useOnceBtn.textContent = `Use ${browsedCity.name} for this booking only`;
+  updateBtn.textContent = `Update my account to ${browsedCity.name}`;
+  useOnceBtn.onclick = () => {
+    document.getElementById('cityMismatchModal').classList.remove('open');
+    addItemToCart(true); // skipCityCheck — they've explicitly chosen this city just for this one booking, account stays as-is
+  };
+  updateBtn.onclick = async () => {
+    updateBtn.disabled = true;
+    updateBtn.textContent = 'Updating...';
+    try {
+      await fetchJSON('/api/customer-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: acc.phone, name: acc.name, address: acc.address, cityId: browsedCityId, accessToken: verifiedBookingAccessToken || undefined })
+      });
+      const updatedAcc = { ...acc, cityId: browsedCityId };
+      saveAccount(updatedAcc);
+      applyAccountToBookingFields(updatedAcc); // re-locks the form to the new city + updates the City button labels
+      document.getElementById('cityMismatchModal').classList.remove('open');
+      addItemToCart(true); // now matches the (just-updated) account, but skip re-checking anyway to avoid any race
+    } catch (e) {
+      updateBtn.disabled = false;
+      updateBtn.textContent = `Update my account to ${browsedCity.name}`;
+      alert('Could not update your account: ' + (e.message || 'Please try again.'));
+    }
+  };
+  document.getElementById('cityMismatchModal').classList.add('open');
+}
+
+async function addItemToCart(skipCityCheck) {
   if (addingItem) return; // already processing a click — ignore extra clicks (prevents double-adds from a fast double tap on mobile)
   // Uses its own message box right under the "+ Add to Booking" button —
   // not the form's #formMsg way down near Submit, which used to leave
@@ -1251,6 +1291,17 @@ async function addItemToCart() {
   if (!cityId) {
     msg.className = 'form-msg error';
     msg.textContent = 'Please select your city first.';
+    return;
+  }
+  // A saved account has its own "home" city — if the page is currently
+  // showing a DIFFERENT city's prices (someone free to browse via the
+  // City picker at any time, account or not), pause here and let them
+  // choose explicitly, rather than silently either mixing prices from
+  // two different cities into one booking, or blocking city-browsing
+  // outright for anyone with an account.
+  const accForCityCheck = getAccount();
+  if (!skipCityCheck && accForCityCheck && accForCityCheck.cityId && accForCityCheck.cityId !== cityId) {
+    showCityMismatchChoice(cityId, accForCityCheck);
     return;
   }
   if (!applianceId || !typeId) {
@@ -1594,7 +1645,7 @@ function bindDateCalendar() {
 
 function bindFormEvents() {
   document.getElementById('fAppliance').addEventListener('change', refreshFormTypes);
-  document.getElementById('addItemBtn').addEventListener('click', addItemToCart);
+  document.getElementById('addItemBtn').addEventListener('click', () => addItemToCart());
   document.getElementById('fDate').addEventListener('change', refreshSlots);
   bindDateCalendar();
 
