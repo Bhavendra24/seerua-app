@@ -2840,24 +2840,29 @@ function bindAccountGateModal() {
     }
   }
   // BEHAVIOR CHANGE (per explicit request): auto-sends the moment 10
-  // digits are typed — no separate tap on "Send OTP" needed. Bound to
-  // both 'input' (fires per-keystroke on virtually all browsers) and
-  // 'change'/'keyup' as a safety net for any mobile keyboard/IME
-  // combination that might not fire 'input' reliably on every keystroke.
-  // A flag (rather than just checking the input's length) stops this
-  // firing a second time from multiple events landing back-to-back once
-  // already at 10 digits.
+  // digits are typed — no separate tap on "Send OTP" needed. A flag
+  // stops this firing a second time while already at 10 digits (only
+  // resets if the number changes away from 10 first).
+  //
+  // BUG FIX: this used to ALSO bind 'keyup' and 'change' as an extra
+  // safety net — but 'change' specifically fires on blur (losing focus)
+  // as well as on value-change, and the phone field loses focus as a
+  // natural side effect of the very verification flow this triggers
+  // (moving to the next step, the field getting disabled, etc.). That
+  // let a SECOND verification attempt re-fire off the same still-
+  // 10-digit value moments after the first one already succeeded —
+  // exactly the "OTP asked again immediately" and "Something went
+  // wrong" (MSG91 correctly rejecting a token/session it had already
+  // used once) reports this caused. Plain 'input' alone is the
+  // correct, sufficient signal for "the digits just changed by typing"
+  // — already confirmed reliable on its own.
   let agAutoSent = false;
-  const agAutoSendCheck = (e) => {
+  document.getElementById('agPhone').addEventListener('input', (e) => {
     if (e.target.value.length !== 10) { agAutoSent = false; return; }
     if (agAutoSent) return;
     agAutoSent = true;
     attemptAccountGateVerification();
-  };
-  const agPhoneInput = document.getElementById('agPhone');
-  agPhoneInput.addEventListener('input', agAutoSendCheck);
-  agPhoneInput.addEventListener('keyup', agAutoSendCheck);
-  agPhoneInput.addEventListener('change', agAutoSendCheck);
+  });
 
   document.getElementById('agSaveBtn').addEventListener('click', async () => {
     const msg = document.getElementById('agAddressMsg');
