@@ -112,11 +112,9 @@ if (navCityBtn) {
   });
 }
 function populateCitySheetGrid() {
-  const select = document.getElementById('citySheetSelect');
-  if (!select || typeof CITIES === 'undefined') return;
-  const currentCityId = document.getElementById('fCity')?.value;
-  select.innerHTML = CITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-  if (currentCityId) select.value = currentCityId;
+  const grid = document.getElementById('bottomSheetCityGrid');
+  if (!grid || typeof CITIES === 'undefined') return;
+  grid.innerHTML = CITIES.map(c => `<button type="button" class="bottom-sheet-city-btn" data-city-id="${c.id}">${c.name}</button>`).join('');
 }
 // Updates the mobile bottom-nav's and desktop header's own "City"
 // button label to show whichever city is currently active — called
@@ -133,14 +131,16 @@ function updateCityButtonLabels(cityId) {
   const desktopBtn = document.getElementById('navCityBtn');
   if (desktopBtn) desktopBtn.textContent = city.name;
 }
-// BEHAVIOR CHANGE (per explicit request): the city picker sheet's list
-// of separate city buttons is now a single <select> dropdown + one
-// "Confirm City" button, instead of tapping a city button directly.
-document.getElementById('citySheetConfirmBtn')?.addEventListener('click', async () => {
-  const select = document.getElementById('citySheetSelect');
-  const cityId = select?.value;
-  if (!cityId) return;
-  const cityName = select.options[select.selectedIndex]?.textContent || '';
+// BEHAVIOR CHANGE (per explicit request, reverted back from a dropdown+
+// confirm-button): tapping a city selects it immediately and closes the
+// sheet — no separate confirm step. Event delegation on the grid's
+// container (bound once, ever) rather than re-attaching a listener to
+// each button on every open.
+document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-city-id]');
+  if (!btn) return;
+  const cityId = btn.getAttribute('data-city-id');
+  const cityName = btn.textContent;
   const cityEl = document.getElementById('fCity');
   if (cityEl) {
     cityEl.value = cityId;
@@ -2790,7 +2790,6 @@ function bindAccountGateModal() {
 
       let accessToken = null;
       if (otpEnabled && !phoneAlreadyVerified) {
-        msg.textContent = 'Sending OTP — please complete the verification that just opened.';
         accessToken = await verifyPhoneWithOtp(phone);
       }
       verifiedBookingPhone = phone;
@@ -2847,6 +2846,19 @@ function bindAccountGateModal() {
     }
   }
   document.getElementById('agSendBtn').addEventListener('click', attemptAccountGateVerification);
+  // BEHAVIOR CHANGE (per explicit request): auto-sends the moment 10
+  // digits are typed — no separate tap on "Send OTP" needed. A flag
+  // (rather than just checking the input's length) stops this firing a
+  // second time if they backspace and retype within the same 10-digit
+  // number, or if attemptAccountGateVerification() itself already
+  // kicked off from the button being tapped directly.
+  let agAutoSent = false;
+  document.getElementById('agPhone').addEventListener('input', (e) => {
+    if (e.target.value.length !== 10) { agAutoSent = false; return; }
+    if (agAutoSent) return;
+    agAutoSent = true;
+    attemptAccountGateVerification();
+  });
 
   document.getElementById('agSaveBtn').addEventListener('click', async () => {
     const msg = document.getElementById('agAddressMsg');
