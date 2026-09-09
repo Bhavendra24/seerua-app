@@ -33,6 +33,14 @@ let pendingCityFixRetry = false;
 // OTP step completes, instead of leaving the customer to notice and
 // press it again themselves.
 let qbPendingRetryAction = null; // 'add' | 'book' | null
+// BUG FIX: the per-service-card Add/Book buttons (qbAddService(), used by
+// AC's Window/Split/Cassette service list) had their own separate
+// account-gate pause, tracked here — same idea as qbPendingRetryAction
+// above, but remembers *which specific service card* (svc.id) and
+// whether it was "Add" or "Book Now", so that action resumes automatically
+// once phone+OTP completes instead of leaving the customer stuck on an
+// error with no visible field to fix it.
+let qbPendingServiceAction = null; // { svcId, thenBook } | null
 let BOOKING_PAUSED_STATUS = null; // set once at page load from /api/booking-status; checked by openQuickBookModal() too, so a paused booking is caught right when someone tries to start, not just deep in the old checkout form
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -2685,6 +2693,7 @@ function closeAccountGate() {
   // this armed for some unrelated future save to accidentally trigger.
   pendingCityFixRetry = false;
   qbPendingRetryAction = null;
+  qbPendingServiceAction = null;
 }
 
 // Called once the phone+address chain is fully complete (either just
@@ -2693,6 +2702,7 @@ function closeAccountGate() {
 // "chain advances itself" part: no extra taps needed in between.
 function proceedAfterAccountGate(acc) {
   const resumeQbAction = qbPendingRetryAction; // capture before closeAccountGate() clears it
+  const resumeQbServiceAction = qbPendingServiceAction; // same, for the per-service-card Add/Book buttons
   closeAccountGate();
   if (agIntent === 'account') {
     // FLOW CHANGE: opens the Track Booking popup directly — no more
@@ -2714,6 +2724,17 @@ function proceedAfterAccountGate(acc) {
       setTimeout(() => document.getElementById('qbAddBtn')?.click(), 300);
     } else if (resumeQbAction === 'book') {
       setTimeout(() => document.getElementById('qbBookBtn')?.click(), 300);
+    } else if (resumeQbServiceAction) {
+      // Same idea, but for the per-service-card Add/Book buttons (AC's
+      // Window/Split/Cassette Service/Repair/Installation/... cards) —
+      // re-click the exact card+action that was interrupted, once the
+      // service list has re-rendered for this appliance.
+      const action = resumeQbServiceAction.thenBook ? 'book' : 'add';
+      setTimeout(() => {
+        document.querySelector(
+          `#qbServicesList button[data-action="${action}"][data-service-id="${resumeQbServiceAction.svcId}"]`
+        )?.click();
+      }, 300);
     }
   } else {
     openBookingForm();
@@ -3110,7 +3131,24 @@ async function qbRenderServicesList(type) {
 // categories), then reuses the same tested addItemToCart()/OTP logic.
 async function qbAddService(svc, price, thenBook) {
   const msg = document.getElementById('qbMsg');
-  const phone = document.getElementById('qbPhone').value.trim();
+  // BUG FIX: this used to read #qbPhone's own value — that field is
+  // permanently hidden (see the comment on it in the template), and
+  // nothing ever fills it in for this per-service-card path, so it was
+  // always empty. That made every service card's Add/Book fail with
+  // "please enter a valid mobile number" and no visible field to type
+  // one into. Same fix as qbDoAdd(): if we already have a signed-in
+  // account, read its verified phone directly; if not, pause here,
+  // remember exactly which card/action was being tried, and resume it
+  // automatically once the Account Gate (phone + OTP) succeeds — see
+  // qbPendingServiceAction and the 'quickbook' branch of
+  // proceedAfterAccountGate().
+  const acc = getAccount();
+  if (!acc) {
+    qbPendingServiceAction = { svcId: svc.id, thenBook };
+    openAccountGate('quickbook', qbApplianceId);
+    return;
+  }
+  const phone = acc.phone;
   if (!/^[0-9]{10}$/.test(phone)) {
     msg.className = 'form-msg error';
     msg.textContent = 'Please enter a valid 10 digit mobile number.';
