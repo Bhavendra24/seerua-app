@@ -16,6 +16,11 @@
 let agIntent = null; // 'booking' | 'account' | 'quickbook'
 let agPendingApplianceId = null;
 let agEditMode = false;
+// See the comment where this gets set to true (City picker's click
+// handler) — tells applyAccountToBookingFields() not to silently
+// overwrite a deliberately-browsed different city back to the account's
+// saved one.
+let cityBrowsedManually = false;
 let BOOKING_PAUSED_STATUS = null; // set once at page load from /api/booking-status; checked by openQuickBookModal() too, so a paused booking is caught right when someone tries to start, not just deep in the old checkout form
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -118,6 +123,15 @@ document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async 
   const cityEl = document.getElementById('fCity');
   if (cityEl) {
     cityEl.value = cityId;
+    // BUG FIX: applyAccountToBookingFields() used to unconditionally
+    // reset #fCity back to the SAVED account's city every time it ran
+    // (e.g. simply opening the booking form again after this) — so
+    // browsing a different city here, then opening/reopening the
+    // booking form, silently wiped out this exact selection before the
+    // city-mismatch check ever got a chance to see it. This flag tells
+    // that function "someone deliberately browsed a different city in
+    // this session — don't overwrite it".
+    cityBrowsedManually = true;
     if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
   }
   closeBottomSheet('citySheetBackdrop');
@@ -1054,6 +1068,10 @@ function renderCart() {
     cityField.style.background = shouldLockCity ? 'var(--mist)' : '';
     if (!shouldLockCity) cartCityId = null; // cart's empty again — free to start over with any city
   }
+  // Once the cart's genuinely empty again, this one-off "browsed a
+  // different city than my account" episode is over — back to normal
+  // auto-sync behavior for whatever comes next.
+  if (cartItems.length === 0) cityBrowsedManually = false;
   // Clear, visible confirmation that this is an isolated "just this one
   // item" checkout — so it's obvious nothing else from the regular cart
   // is quietly being bundled into this booking.
@@ -1256,6 +1274,7 @@ function showCityMismatchChoice(browsedCityId, acc) {
       });
       const updatedAcc = { ...acc, cityId: browsedCityId };
       saveAccount(updatedAcc);
+      cityBrowsedManually = false; // account now genuinely matches what's browsed — back to normal auto-sync behavior
       applyAccountToBookingFields(updatedAcc); // re-locks the form to the new city + updates the City button labels
       document.getElementById('cityMismatchModal').classList.remove('open');
       addItemToCart(true); // now matches the (just-updated) account, but skip re-checking anyway to avoid any race
@@ -2604,7 +2623,7 @@ function applyAccountToBookingFields(acc) {
   if (phoneEl) phoneEl.value = acc.phone;
   if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
   if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
-  if (cityEl && acc.cityId && cityEl.value !== acc.cityId) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
+  if (cityEl && acc.cityId && cityEl.value !== acc.cityId && !cityBrowsedManually) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
   // Locked to match Name/Address just above — was left as a fully open
   // dropdown even for a returning customer with a saved city, which
   // looked inconsistent ("why can I still change just this one thing?")
