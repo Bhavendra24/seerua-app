@@ -21,6 +21,12 @@ let agEditMode = false;
 // overwrite a deliberately-browsed different city back to the account's
 // saved one.
 let cityBrowsedManually = false;
+// Set true right before sending someone to Edit Profile from the
+// "please update your city" warning — tells the save-success handler
+// above to automatically finish the booking they were originally
+// trying to make, instead of leaving them to notice and retry it
+// themselves after fixing exactly what was asked.
+let pendingCityFixRetry = false;
 let BOOKING_PAUSED_STATUS = null; // set once at page load from /api/booking-status; checked by openQuickBookModal() too, so a paused booking is caught right when someone tries to start, not just deep in the old checkout form
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -1248,41 +1254,18 @@ let addingItem = false;
 
 // Shown when a saved account's home city differs from whatever the page
 // is currently browsing (via the City picker) — see the check in
-// addItemToCart(). Gives an explicit choice instead of silently mixing
-// prices from two cities into one booking, or blocking browsing outright.
+// addItemToCart(). Simple, blocking message: booking must match the
+// city on file, so the only way forward is updating the profile.
 function showCityMismatchChoice(browsedCityId, acc) {
   const browsedCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === browsedCityId) : null;
   const accountCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === acc.cityId) : null;
   if (!browsedCity || !accountCity) return;
   document.getElementById('cityMismatchText').textContent =
-    `Your account is set to ${accountCity.name}, but you're currently viewing ${browsedCity.name}'s prices. How would you like to proceed?`;
-  const useOnceBtn = document.getElementById('cityMismatchUseOnceBtn');
-  const updateBtn = document.getElementById('cityMismatchUpdateAccountBtn');
-  useOnceBtn.textContent = `Use ${browsedCity.name} for this booking only`;
-  updateBtn.textContent = `Update my account to ${browsedCity.name}`;
-  useOnceBtn.onclick = () => {
+    `Your profile city is ${accountCity.name}. You are trying to book in ${browsedCity.name}. Please change your city in your profile to book in ${browsedCity.name}.`;
+  document.getElementById('cityMismatchEditBtn').onclick = () => {
     document.getElementById('cityMismatchModal').classList.remove('open');
-    addItemToCart(true); // skipCityCheck — they've explicitly chosen this city just for this one booking, account stays as-is
-  };
-  updateBtn.onclick = async () => {
-    updateBtn.disabled = true;
-    updateBtn.textContent = 'Updating...';
-    try {
-      await fetchJSON('/api/customer-profile', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: acc.phone, name: acc.name, address: acc.address, cityId: browsedCityId, accessToken: verifiedBookingAccessToken || undefined })
-      });
-      const updatedAcc = { ...acc, cityId: browsedCityId };
-      saveAccount(updatedAcc);
-      cityBrowsedManually = false; // account now genuinely matches what's browsed — back to normal auto-sync behavior
-      applyAccountToBookingFields(updatedAcc); // re-locks the form to the new city + updates the City button labels
-      document.getElementById('cityMismatchModal').classList.remove('open');
-      addItemToCart(true); // now matches the (just-updated) account, but skip re-checking anyway to avoid any race
-    } catch (e) {
-      updateBtn.disabled = false;
-      updateBtn.textContent = `Update my account to ${browsedCity.name}`;
-      alert('Could not update your account: ' + (e.message || 'Please try again.'));
-    }
+    pendingCityFixRetry = true;
+    openEditProfile();
   };
   document.getElementById('cityMismatchModal').classList.add('open');
 }
@@ -2669,6 +2652,9 @@ function openAccountGate(intent, applianceId) {
 
 function closeAccountGate() {
   document.getElementById('accountGateModal').classList.remove('open');
+  // If they cancelled out of Edit Profile instead of saving, don't leave
+  // this armed for some unrelated future save to accidentally trigger.
+  pendingCityFixRetry = false;
 }
 
 // Called once the phone+address chain is fully complete (either just
@@ -2823,8 +2809,19 @@ function bindAccountGateModal() {
       const acc = { phone, name, address, cityId, accessToken: verifiedBookingAccessToken };
       saveAccount(acc);
       if (agEditMode) {
+        const shouldRetryCityFix = pendingCityFixRetry; // read before closeAccountGate() clears it
         closeAccountGate();
+        cityBrowsedManually = false; // profile now genuinely says this city — resume normal auto-sync
         applyAccountToBookingFields(acc);
+        // If this edit was triggered by the "please update your city"
+        // warning (see showCityMismatchChoice), automatically finish
+        // the booking they were originally trying to make — they
+        // shouldn't have to notice and re-tap "Add to Booking" a second
+        // time after fixing exactly what it asked them to fix.
+        if (shouldRetryCityFix) {
+          pendingCityFixRetry = false;
+          addItemToCart(true);
+        }
       } else {
         proceedAfterAccountGate(acc);
       }

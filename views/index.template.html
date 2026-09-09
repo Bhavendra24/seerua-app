@@ -258,18 +258,17 @@
      just sat inline in the page flow, pushing content below it down
      whenever it opened, instead of floating above everything like every
      other modal on this site). -->
-<!-- CITY MISMATCH CHOICE — shown when someone with a saved account
+<!-- CITY MISMATCH WARNING — shown when someone with a saved account
      browses a DIFFERENT city's prices (via the City picker) and then
-     tries to actually add something to their booking. Lets them pick
-     between a one-off booking in the browsed city, or actually moving
-     their account there — rather than either silently mixing prices
-     from two different cities, or blocking city-browsing outright. -->
+     tries to actually add something to their booking. Simple, blocking
+     message — booking a different city than the one on file isn't
+     allowed until they actually update their profile to that city
+     (via the same Edit Profile step used elsewhere). -->
 <div class="modal-backdrop" id="cityMismatchModal">
   <div class="modal">
-    <h3>Different City Selected</h3>
-    <p style="color:var(--slate);font-size:0.9rem;margin-bottom:16px;" id="cityMismatchText"></p>
-    <button type="button" class="btn btn-primary btn-block" id="cityMismatchUseOnceBtn" style="margin-bottom:10px;"></button>
-    <button type="button" class="btn btn-outline btn-block" id="cityMismatchUpdateAccountBtn" style="margin-bottom:10px;"></button>
+    <h3>Please Update Your City</h3>
+    <p style="color:var(--slate);font-size:0.95rem;margin-bottom:20px;line-height:1.6;" id="cityMismatchText"></p>
+    <button type="button" class="btn btn-primary btn-block" id="cityMismatchEditBtn" style="margin-bottom:10px;">✏️ Edit City in Profile</button>
     <button type="button" class="btn btn-outline btn-block" onclick="document.getElementById('cityMismatchModal').classList.remove('open')">Cancel</button>
   </div>
 </div>
@@ -956,7 +955,7 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609080r"></script>
+<script src="/js/main.js?v=202609080s"></script>
 <script src="/js/i18n.js?v=202609080a"></script>
 <script src="/js/chatbot.js?v=202609080a"></script>
 </body>
