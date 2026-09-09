@@ -1762,10 +1762,10 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   gap: 4px;
   padding-bottom: 8px;
 }
-.bottom-sheet-city-grid a { display: block; text-align: left; padding: 14px 16px; background: none; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); font-weight: 600; font-size: 0.95rem; }
-.bottom-sheet-city-grid a:hover { background: var(--mist); }
-.bottom-sheet-city-btn { display: block; width: 100%; text-align: left; padding: 14px 16px; background: none; border: none; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 600; font-size: 0.95rem; font-family: var(--font-body); cursor: pointer; }
-.bottom-sheet-city-btn:hover { background: var(--mist); }
+.bottom-sheet-city-grid a { display: block; text-align: left; padding: 14px 16px; background: none; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); font-weight: 400; font-size: 0.95rem; }
+.bottom-sheet-city-grid a:hover { background: none; }
+.bottom-sheet-city-btn { display: block; width: 100%; text-align: left; padding: 14px 16px; background: none; border: none; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 400; font-size: 0.95rem; font-family: var(--font-body); cursor: pointer; }
+.bottom-sheet-city-btn:hover { background: none; }
 .bottom-sheet-city-btn:last-child, .bottom-sheet-city-grid a:last-child { border-bottom: none; }
 
 /* Room at the bottom of every page so the fixed bar never covers the
