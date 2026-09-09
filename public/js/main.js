@@ -2755,16 +2755,15 @@ function bindAccountGateModal() {
   async function attemptAccountGateVerification() {
     if (agSending) return;
     const msg = document.getElementById('agPhoneMsg');
-    const phone = document.getElementById('agPhone').value.trim();
-    const btn = document.getElementById('agSendBtn');
+    const phoneField = document.getElementById('agPhone');
+    const phone = phoneField.value.trim();
     if (!/^[0-9]{10}$/.test(phone)) {
       msg.className = 'form-msg error';
       msg.textContent = 'Please enter a valid 10 digit mobile number.';
       return;
     }
     agSending = true;
-    btn.disabled = true;
-    btn.textContent = 'Sending...';
+    phoneField.disabled = true;
     msg.className = 'form-msg';
     msg.textContent = '';
     try {
@@ -2837,11 +2836,9 @@ function bindAccountGateModal() {
       msg.textContent = err.message || 'OTP verification failed. Please try again.';
     } finally {
       agSending = false;
-      btn.disabled = false;
-      btn.textContent = 'Send OTP';
+      phoneField.disabled = false;
     }
   }
-  document.getElementById('agSendBtn').addEventListener('click', attemptAccountGateVerification);
   // BEHAVIOR CHANGE (per explicit request): auto-sends the moment 10
   // digits are typed — no separate tap on "Send OTP" needed. Bound to
   // both 'input' (fires per-keystroke on virtually all browsers) and

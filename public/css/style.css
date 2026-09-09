@@ -1118,6 +1118,11 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .date-cal-day.is-selected { background: var(--accent-500); color: #fff; }
 .date-cal-day.is-empty { visibility: hidden; }
 .modal h3 { margin-bottom: 4px; }
+/* Lighter styling for the phone-entry step specifically (per request) —
+   scoped to just this step rather than changing .field label globally,
+   which is shared by every other form's labels across the site. */
+#agPhoneStep h3 { font-weight: 500; }
+#agPhoneStep label { font-weight: 400; color: var(--slate); }
 .modal p.modal-sub { color: var(--slate); font-size: 0.88rem; margin: 0 0 18px; }
 .modal-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
 
