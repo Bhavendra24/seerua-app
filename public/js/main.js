@@ -112,14 +112,12 @@ if (navCityBtn) {
   });
 }
 function populateCitySheetGrid() {
-  const grid = document.getElementById('bottomSheetCityGrid');
-  if (!grid || typeof CITIES === 'undefined') return;
-  grid.innerHTML = CITIES.map(c => `<button type="button" class="bottom-sheet-city-btn" data-city-id="${c.id}">${c.name}</button>`).join('');
+  const select = document.getElementById('citySheetSelect');
+  if (!select || typeof CITIES === 'undefined') return;
+  const currentCityId = document.getElementById('fCity')?.value;
+  select.innerHTML = CITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  if (currentCityId) select.value = currentCityId;
 }
-// Event delegation on the grid's container (bound ONCE, ever) instead of
-// re-attaching a listener to each button every time the sheet reopens —
-// simpler and avoids any chance of stale/duplicate listeners piling up
-// across repeated opens.
 // Updates the mobile bottom-nav's and desktop header's own "City"
 // button label to show whichever city is currently active — called
 // both when someone explicitly picks one from this sheet, AND from
@@ -135,11 +133,14 @@ function updateCityButtonLabels(cityId) {
   const desktopBtn = document.getElementById('navCityBtn');
   if (desktopBtn) desktopBtn.textContent = city.name;
 }
-document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-city-id]');
-  if (!btn) return;
-  const cityId = btn.getAttribute('data-city-id');
-  const cityName = btn.textContent;
+// BEHAVIOR CHANGE (per explicit request): the city picker sheet's list
+// of separate city buttons is now a single <select> dropdown + one
+// "Confirm City" button, instead of tapping a city button directly.
+document.getElementById('citySheetConfirmBtn')?.addEventListener('click', async () => {
+  const select = document.getElementById('citySheetSelect');
+  const cityId = select?.value;
+  if (!cityId) return;
+  const cityName = select.options[select.selectedIndex]?.textContent || '';
   const cityEl = document.getElementById('fCity');
   if (cityEl) {
     cityEl.value = cityId;
