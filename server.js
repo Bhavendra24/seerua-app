@@ -4934,7 +4934,24 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
       a.types.map(t => {
         const row = pricing.find(p => p.cityId === city.id && p.applianceId === a.id && p.typeId === t.id);
         if (!row) return '';
-        return `<tr><td>${a.name}</td><td>${t.name}</td><td>₹${row.servicePrice} onwards</td><td>₹${row.repairPrice} onwards</td></tr>`;
+        // BUG FIX: appliances with a defined services list (basically all
+        // of them now) are actually priced per-SKU via row.servicePrices
+        // (see Admin > Pricing, which only shows editable inputs for
+        // these SKUs, not the old flat fields below). This table kept
+        // reading row.servicePrice/row.repairPrice directly — fields
+        // Admin's own UI doesn't even expose an input for anymore on
+        // these appliances, so they just sat at whatever old/seed value
+        // they started with, never reflecting a single price change
+        // made afterward. Falls back to the old flat fields only for an
+        // appliance type that genuinely has no services list at all.
+        const hasServices = Array.isArray(t.services) && t.services.length;
+        const serviceSku = hasServices ? t.services.find(s => s.id === 'svc-service') : null;
+        const repairSku = hasServices ? t.services.find(s => s.id === 'svc-repair') : null;
+        const servicePrice = serviceSku && row.servicePrices && row.servicePrices[serviceSku.id] != null
+          ? row.servicePrices[serviceSku.id] : row.servicePrice;
+        const repairPrice = repairSku && row.servicePrices && row.servicePrices[repairSku.id] != null
+          ? row.servicePrices[repairSku.id] : row.repairPrice;
+        return `<tr><td>${a.name}</td><td>${t.name}</td><td>₹${servicePrice} onwards</td><td>₹${repairPrice} onwards</td></tr>`;
       })
     ).join('\n          ');
 
@@ -5046,15 +5063,36 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
     const pricingRowsHtml = appliance.types.map(t => {
       const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
       if (!row) return '';
-      return `<tr><td>${t.name}</td><td>₹${row.servicePrice} onwards</td><td>₹${row.repairPrice} onwards</td></tr>`;
+      // BUG FIX: see the matching fix + comment on the City page's own
+      // pricing table (buildServicesGridHtml's neighbour above) — same
+      // stale-flat-field issue, just in this appliance-specific page's
+      // own separate copy of this table.
+      const hasServices = Array.isArray(t.services) && t.services.length;
+      const serviceSku = hasServices ? t.services.find(s => s.id === 'svc-service') : null;
+      const repairSku = hasServices ? t.services.find(s => s.id === 'svc-repair') : null;
+      const servicePrice = serviceSku && row.servicePrices && row.servicePrices[serviceSku.id] != null
+        ? row.servicePrices[serviceSku.id] : row.servicePrice;
+      const repairPrice = repairSku && row.servicePrices && row.servicePrices[repairSku.id] != null
+        ? row.servicePrices[repairSku.id] : row.repairPrice;
+      return `<tr><td>${t.name}</td><td>₹${servicePrice} onwards</td><td>₹${repairPrice} onwards</td></tr>`;
     }).join('\n          ');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
     // every appliance), so it stays an honest, specific number.
     const applianceServicePrices = appliance.types
-      .map(t => pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id))
+      .map(t => {
+        const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
+        if (!row) return null;
+        const hasServices = Array.isArray(t.services) && t.services.length;
+        if (hasServices && row.servicePrices) {
+          // Every priced SKU on this type — not just Service/Repair, so
+          // Installation/Gas Filling etc. are correctly reflected too.
+          return Object.values(row.servicePrices).filter(v => v != null);
+        }
+        return [row.servicePrice, row.repairPrice];
+      })
       .filter(Boolean)
-      .flatMap(row => [row.servicePrice, row.repairPrice]);
+      .flat();
     const priceRange = applianceServicePrices.length
       ? `₹${Math.min(...applianceServicePrices)}-₹${Math.max(...applianceServicePrices)}`
       : '';
