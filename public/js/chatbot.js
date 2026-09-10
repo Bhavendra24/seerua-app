@@ -241,6 +241,54 @@
     utterance.rate = 1;
     window.speechSynthesis.speak(utterance);
   }
+  // Voice INPUT (per request, in addition to voice replies above) —
+  // speech-to-text via the browser's SpeechRecognition API so the
+  // customer can speak their message instead of typing it. Hidden
+  // entirely if the browser doesn't support it at all (older/less common
+  // mobile browsers), rather than showing a mic button that does nothing.
+  function wireMicButton() {
+    const micBtn = document.getElementById('chatMicBtn');
+    const input = document.getElementById('chatMainInput');
+    if (!micBtn || !input) return;
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      micBtn.style.display = 'none';
+      return;
+    }
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = 'hi-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    let listening = false;
+    recognition.addEventListener('result', (e) => {
+      const transcript = e.results && e.results[0] && e.results[0][0] && e.results[0][0].transcript;
+      if (transcript) input.value = transcript;
+      input.focus();
+    });
+    const stopListeningUi = () => {
+      listening = false;
+      micBtn.classList.remove('listening');
+    };
+    recognition.addEventListener('end', stopListeningUi);
+    recognition.addEventListener('error', stopListeningUi);
+    micBtn.addEventListener('click', () => {
+      if (listening) {
+        recognition.stop();
+        return;
+      }
+      // Stop Bella's own voice reply first — trying to listen while she's
+      // still talking would just pick up her own voice as the "input".
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      listening = true;
+      micBtn.classList.add('listening');
+      try {
+        recognition.start();
+      } catch (e) {
+        stopListeningUi(); // already running, or genuinely unavailable right now
+      }
+    });
+  }
+
   function wireVoiceToggle() {
     const btn = document.getElementById('chatVoiceBtn');
     if (!btn) return;
@@ -798,12 +846,16 @@
         <div class="chat-panel-body" id="chatPanelBody"></div>
         <div class="chat-panel-input">
           <input type="text" id="chatMainInput" maxlength="500" placeholder="Apna sawaal ya booking likhein..." autocomplete="off">
+          <button id="chatMicBtn" type="button" aria-label="Bolkar type karein" title="Bolkar type karein">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+          </button>
           <button id="chatMainSendBtn" type="button" aria-label="Send message">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>
         </div>
       </div>
     `;
+    wireMicButton();
     wireVoiceToggle();
     wireInputBar();
     document.getElementById('chatCloseBtn').addEventListener('click', closeChatPanel);

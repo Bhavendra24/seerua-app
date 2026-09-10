@@ -1529,7 +1529,10 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .chat-panel-input button svg { width: 21px; height: 21px; }
 .chat-panel-input button:hover:not(:disabled) { background: var(--accent-600); transform: scale(1.05); }
 .chat-panel-input button:disabled { opacity: 0.5; cursor: default; }
-.chat-panel-input button svg { transform: translateX(-1px); } /* optically centers the paper-plane icon */
+#chatMainSendBtn svg { transform: translateX(-1px); } /* optically centers the paper-plane icon */
+#chatMicBtn { background: var(--slate); }
+#chatMicBtn.listening { background: var(--red, #dc2626); animation: chatMicPulse 1.2s ease-in-out infinite; }
+@keyframes chatMicPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
 
 .chat-typing { font-size: 0.85rem; color: var(--slate); align-self: flex-start; font-style: italic; }
 
