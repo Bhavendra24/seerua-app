@@ -227,7 +227,7 @@ function loginRateLimit(type) {
     next();
   };
 }
-async function recordLoginFailure(type, req) {
+function recordLoginFailure(type, req) {
   const key = `${type}:${req.ip}`;
   const rec = loginAttempts[key];
   if (!rec || (Date.now() - rec.firstAttemptAt) >= LOGIN_WINDOW_MS) {
@@ -236,7 +236,7 @@ async function recordLoginFailure(type, req) {
     rec.count++;
   }
 }
-async function clearLoginFailures(type, req) {
+function clearLoginFailures(type, req) {
   delete loginAttempts[`${type}:${req.ip}`];
 }
 
@@ -249,7 +249,7 @@ async function clearLoginFailures(type, req) {
 const aiChatAttempts = {}; // ip -> { count, windowStart }
 const AI_CHAT_MAX_PER_WINDOW = 40;
 const AI_CHAT_WINDOW_MS = 10 * 60 * 1000;
-async function aiChatRateLimit(req, res, next) {
+function aiChatRateLimit(req, res, next) {
   const key = req.ip;
   const rec = aiChatAttempts[key];
   if (rec && (Date.now() - rec.windowStart) < AI_CHAT_WINDOW_MS) {
@@ -304,7 +304,7 @@ const FILE_SIGNATURES = [
   { mime: 'image/heic', check: buf => buf.length >= 12 && buf.toString('ascii', 4, 8) === 'ftyp' },
   { mime: 'image/heif', check: buf => buf.length >= 12 && buf.toString('ascii', 4, 8) === 'ftyp' }
 ];
-async function verifyUploadedImageSignature(req, res, next) {
+function verifyUploadedImageSignature(req, res, next) {
   if (!req.file) return next();
   try {
     const fd = fs.openSync(req.file.path, 'r');
@@ -354,7 +354,7 @@ const TIME_SLOTS = [
 // e.g. block AC bookings in a city/date/slot while Washing Machine bookings
 // in that same slot stay open. A block with no applianceId set (the classic
 // "block this date/slot/city" case) still applies to every appliance.
-async function getSlotAvailability(date, cityId, applianceIds) {
+function getSlotAvailability(date, cityId, applianceIds) {
   const cfg = readData('slots-config');
   const bookings = readData('bookings');
   const ids = Array.isArray(applianceIds) ? applianceIds.filter(Boolean) : [];
@@ -410,7 +410,7 @@ app.get('/api/slots', async (req, res) => {
 // Checks a coupon code against all its rules. Used both when the customer
 // taps "Apply" and again (independently) at the moment the booking is
 // actually created, so a discount can never be forged from the browser.
-async function validateCoupon(code, totalPrice, phone) {
+function validateCoupon(code, totalPrice, phone) {
   if (!code) return { valid: false, error: 'Please enter a coupon code' };
   const coupons = readData('coupons');
   const coupon = coupons.find(c => c.code.toUpperCase() === String(code).toUpperCase());
@@ -468,7 +468,7 @@ app.get('/api/coupons/active', async (req, res) => {
 // aggregateRating) on the homepage and each city page, so search engines
 // only ever see a rating that's backed by actual "Rate this service" data.
 // Pass a cityId to scope it to one city's bookings; omit for site-wide.
-async function computeSiteRating(cityId) {
+function computeSiteRating(cityId) {
   const bookings = readData('bookings').filter(b => !cityId || b.cityId === cityId);
   let ratingSum = 0, ratingCount = 0;
   bookings.forEach(b => (b.items || []).forEach(it => { if (it.rating) { ratingSum += it.rating; ratingCount++; } }));
@@ -479,7 +479,7 @@ async function computeSiteRating(cityId) {
 // comma so it can be spliced right after another property) — or an empty
 // string when there isn't at least one real rating yet, so no rich-snippet
 // rating stars ever show up in Google results without real data behind them.
-async function aggregateRatingJsonFragment(rating) {
+function aggregateRatingJsonFragment(rating) {
   if (!rating.ratingCount || !rating.avgRating) return '';
   return `,
   "aggregateRating": {
@@ -494,7 +494,7 @@ async function aggregateRatingJsonFragment(rating) {
 // The one external profile Admin has verified as real (see Admin > Site
 // Rating) — only included if Admin has actually turned it on and filled it
 // in, same "no fake data" rule as everywhere else on this site.
-async function buildSameAsJson() {
+function buildSameAsJson() {
   const google = readData('google-rating');
   const links = (google.enabled && google.profileUrl) ? [google.profileUrl] : [];
   return JSON.stringify(links);
@@ -569,7 +569,7 @@ app.get('/api/reviews/public', async (req, res) => {
 // forged from the browser.
 // =======================================================
 
-async function findKnownName(phone) {
+function findKnownName(phone) {
   const booking = readData('bookings').find(b => b.phone === phone);
   if (booking) return booking.name;
   const customer = readData('customers').find(c => c.phone === phone);
@@ -595,7 +595,7 @@ async function getOrCreateReferralCode(phone, name) {
 // Validates a referral code against a would-be NEW customer's phone number.
 // Re-run again (independently) at the moment the booking is actually
 // created, exactly like coupons — so it can never be forged from the browser.
-async function validateReferral(code, referredPhone, priceForDiscount) {
+function validateReferral(code, referredPhone, priceForDiscount) {
   if (!code) return { valid: false, error: 'Referral code required' };
   const cfg = readData('referral-config');
   if (!cfg.active) return { valid: false, error: 'The referral program is not active right now' };
@@ -1257,7 +1257,7 @@ app.post('/api/bookings', async (req, res) => {
       if (!otpValid) {
         return res.status(401).json({ error: 'OTP verification failed, expired, or does not match this phone number. Please verify your number again.' });
       }
-      markPhoneVerified(phone); // remembered — no OTP needed for this number's future bookings
+      await markPhoneVerified(phone); // remembered — no OTP needed for this number's future bookings
     } catch (e) {
       console.error('OTP verify error:', e);
       return res.status(500).json({ error: 'Could not verify OTP right now. Please try again in a moment.' });
@@ -1498,7 +1498,7 @@ app.post('/api/bookings', async (req, res) => {
 // below), keeping the "hot" `bookings` collection small and fast for
 // day-to-day use, while archived bookings remain fully intact and
 // searchable — nothing is ever deleted.
-async function readArchivedBookings() {
+function readArchivedBookings() {
   try {
     return readData('bookings-archive');
   } catch (e) {
@@ -1551,7 +1551,7 @@ app.get('/api/bookings/track', async (req, res) => {
 // trimmed, length-capped, and stripped of characters that could be used to
 // break out of the HTML it's rendered into — belt-and-suspenders alongside
 // escaping it again at render time.
-async function sanitizeReviewText(text) {
+function sanitizeReviewText(text) {
   if (!text || typeof text !== 'string') return '';
   return text.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 280);
 }
@@ -1738,7 +1738,7 @@ app.put('/api/admin/otp-config', requireAdmin, async (req, res) => {
 // number skip the OTP step entirely. This is enforced here,
 // server-side, so it can't be bypassed from the browser.
 // =======================================================
-async function isPhoneVerified(phone) {
+function isPhoneVerified(phone) {
   return readData('verified-phones').includes(phone);
 }
 async function markPhoneVerified(phone) {
@@ -1814,7 +1814,7 @@ app.post('/api/customer-profile', async (req, res) => {
       if (!otpValid) {
         return res.status(401).json({ error: 'OTP verification failed, expired, or does not match this phone number. Please verify your number again.' });
       }
-      markPhoneVerified(phone); // remembered from here on — no OTP needed for this number ever again
+      await markPhoneVerified(phone); // remembered from here on — no OTP needed for this number ever again
     } catch (e) {
       console.error('OTP verify error (customer-profile):', e);
       return res.status(500).json({ error: 'Could not verify OTP right now. Please try again in a moment.' });
@@ -3758,7 +3758,7 @@ app.post('/api/admin/bookings', requireStaff, async (req, res) => {
   };
   bookings.unshift(booking);
   await writeData('bookings', bookings);
-  markPhoneVerified(phone); // Admin has already spoken to them directly — no OTP needed if they later book online too
+  await markPhoneVerified(phone); // Admin has already spoken to them directly — no OTP needed if they later book online too
   res.json({ success: true, booking });
 });
 
