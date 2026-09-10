@@ -1445,7 +1445,10 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 .chat-panel-head strong { font-family: var(--font-display); font-size: 0.95rem; display: block; }
 .chat-panel-head .chat-sub { display: block; font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
+.chat-panel-head-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .chat-close-btn { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; padding: 4px; }
+.chat-voice-btn { background: transparent; border: none; color: #fff; font-size: 17px; cursor: pointer; line-height: 1; padding: 4px; opacity: 0.85; }
+.chat-voice-btn:hover { opacity: 1; }
 
 .chat-panel-body {
   flex: 1;

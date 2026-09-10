@@ -212,7 +212,46 @@
     const msg = el('div', 'chat-msg bot', html);
     body.appendChild(msg);
     scrollToBottom();
+    if (voiceEnabled) speakText(msg.textContent);
     return msg;
+  }
+
+  // Text-to-voice for Bella's replies (per request) — off by default (an
+  // AI chat suddenly talking without being asked is jarring), toggled via
+  // the speaker button in the chat header, remembered for the session so
+  // it doesn't reset every time the panel's closed and reopened.
+  let voiceEnabled = sessionStorage.getItem('bellaVoiceEnabled') === 'true';
+  let hindiVoice = null;
+  if ('speechSynthesis' in window) {
+    const pickHindiVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      hindiVoice = voices.find(v => v.lang === 'hi-IN') || voices.find(v => v.lang && v.lang.startsWith('hi')) || null;
+    };
+    pickHindiVoice();
+    // Voice list loads asynchronously on first page visit in most
+    // browsers — this fires once it's actually populated.
+    window.speechSynthesis.onvoiceschanged = pickHindiVoice;
+  }
+  function speakText(text) {
+    if (!('speechSynthesis' in window) || !text) return;
+    window.speechSynthesis.cancel(); // don't let replies queue up and speak on top of each other
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = hindiVoice ? hindiVoice.lang : 'hi-IN';
+    if (hindiVoice) utterance.voice = hindiVoice;
+    utterance.rate = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+  function wireVoiceToggle() {
+    const btn = document.getElementById('chatVoiceBtn');
+    if (!btn) return;
+    const updateIcon = () => { btn.textContent = voiceEnabled ? '🔊' : '🔇'; };
+    updateIcon();
+    btn.addEventListener('click', () => {
+      voiceEnabled = !voiceEnabled;
+      sessionStorage.setItem('bellaVoiceEnabled', String(voiceEnabled));
+      updateIcon();
+      if (!voiceEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    });
   }
 
   function addUserMessage(text) {
@@ -751,7 +790,10 @@
       <div class="chat-panel" id="chatPanel">
         <div class="chat-panel-head">
           <div><strong>${ASSISTANT_NAME}</strong><span class="chat-sub">Seerua AI Assistant · Usually replies instantly</span></div>
-          <button class="chat-close-btn" id="chatCloseBtn" aria-label="Close chat" type="button">✕</button>
+          <div class="chat-panel-head-actions">
+            <button class="chat-voice-btn" id="chatVoiceBtn" type="button" aria-label="Toggle voice replies" title="Bella ke jawab bolke sunein">🔇</button>
+            <button class="chat-close-btn" id="chatCloseBtn" aria-label="Close chat" type="button">✕</button>
+          </div>
         </div>
         <div class="chat-panel-body" id="chatPanelBody"></div>
         <div class="chat-panel-input">
@@ -762,6 +804,7 @@
         </div>
       </div>
     `;
+    wireVoiceToggle();
     wireInputBar();
     document.getElementById('chatCloseBtn').addEventListener('click', closeChatPanel);
     // Exposed so the bottom-nav Support sheet can open/close this panel.
