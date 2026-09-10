@@ -1747,6 +1747,25 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    bottom nav it's opened from instead of stretching toward the middle
    of the screen. */
 .bottom-sheet-compact { max-height: 50vh; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
+/* City picker specifically (per request): a small popover anchored just
+   above the City button itself, instead of a full-width bottom sheet.
+   Position (left/bottom) is set dynamically in JS from the button's own
+   actual location — see openCityPickerPopover() in main.js — so it
+   lines up correctly on any screen size and for both the mobile
+   bottom-nav button and the desktop header button. */
+.city-picker-popover {
+  position: fixed;
+  width: 180px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(15,42,67,0.22);
+  padding: 6px 0;
+  z-index: 220;
+  display: none;
+}
+.city-picker-popover.open { display: block; }
 .bottom-sheet-handle { width: 40px; height: 4px; background: var(--line); border-radius: 999px; margin: 0 auto 14px; }
 .bottom-sheet h3 { font-size: 1.05rem; margin-bottom: 8px; }
 .bottom-sheet-option {

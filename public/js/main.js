@@ -80,36 +80,52 @@ function bindBottomSheet(id) {
     el.addEventListener('click', () => closeBottomSheet(id));
   });
 }
-['menuSheetBackdrop', 'citySheetBackdrop', 'supportSheetBackdrop'].forEach(bindBottomSheet);
+['menuSheetBackdrop', 'supportSheetBackdrop'].forEach(bindBottomSheet);
 
 const bottomNavMenuBtn = document.getElementById('bottomNavMenuBtn');
 if (bottomNavMenuBtn) bottomNavMenuBtn.addEventListener('click', () => openBottomSheet('menuSheetBackdrop'));
 
+// City picker (per request): a small popover positioned right above
+// whichever "City" button opened it, instead of a full-width bottom
+// sheet. Reused for both the mobile bottom-nav button and the desktop
+// header button — position just adapts to whichever one was tapped.
+function openCityPickerPopover(anchorBtn) {
+  populateCitySheetGrid();
+  const popover = document.getElementById('citySheetBackdrop');
+  const rect = anchorBtn.getBoundingClientRect();
+  popover.style.display = 'block'; // needed before measuring its own width below
+  const popoverWidth = popover.offsetWidth;
+  // Centers the popover over the button, then nudges it back on-screen
+  // if that would push it past either edge — same idea as a native
+  // dropdown menu's own edge-avoidance.
+  let left = rect.left + (rect.width / 2) - (popoverWidth / 2);
+  left = Math.max(8, Math.min(left, window.innerWidth - popoverWidth - 8));
+  popover.style.left = `${left}px`;
+  popover.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+  popover.classList.add('open');
+}
+function closeCityPickerPopover() {
+  const popover = document.getElementById('citySheetBackdrop');
+  popover.classList.remove('open');
+  popover.style.display = ''; // clears the inline style openCityPickerPopover() set for measurement, letting the .open CSS class (or its absence) control visibility again
+}
+document.addEventListener('click', (e) => {
+  const popover = document.getElementById('citySheetBackdrop');
+  if (!popover.classList.contains('open')) return;
+  if (popover.contains(e.target) || e.target.closest('#bottomNavCityBtn, #navCityBtn')) return;
+  closeCityPickerPopover();
+});
+
 const bottomNavCityBtn = document.getElementById('bottomNavCityBtn');
 if (bottomNavCityBtn) {
-  bottomNavCityBtn.addEventListener('click', () => {
-    // BUG FIX: this used to render <a href="/appliance-repair/...">
-    // links — tapping a city there navigated to that city's separate
-    // SEO page instead of actually setting anything on THIS page's own
-    // booking form. The booking form's #fCity dropdown (and everything
-    // priced/filtered from it) never changed, so it kept showing
-    // whatever city was already in there (often Moradabad, from the
-    // saved account) no matter which city someone picked from this
-    // sheet — confusing since it looks like a plain city switcher.
-    // Now sets #fCity directly and stays on this page.
-    populateCitySheetGrid();
-    openBottomSheet('citySheetBackdrop');
-  });
+  bottomNavCityBtn.addEventListener('click', () => openCityPickerPopover(bottomNavCityBtn));
 }
 
 // Desktop header's own "City" button (bottomNavCityBtn above is mobile
-// bottom-nav only) — opens the exact same city-picker sheet.
+// bottom-nav only) — opens the exact same city-picker popover.
 const navCityBtn = document.getElementById('navCityBtn');
 if (navCityBtn) {
-  navCityBtn.addEventListener('click', () => {
-    populateCitySheetGrid();
-    openBottomSheet('citySheetBackdrop');
-  });
+  navCityBtn.addEventListener('click', () => openCityPickerPopover(navCityBtn));
 }
 function populateCitySheetGrid() {
   const grid = document.getElementById('bottomSheetCityGrid');
@@ -155,7 +171,7 @@ document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async 
     cityBrowsedManually = true;
     if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
   }
-  closeBottomSheet('citySheetBackdrop');
+  closeCityPickerPopover();
   // BUG FIX: setting #fCity's value silently had NO visible effect
   // anywhere on the page — no confirmation text, no change to the
   // "City" button itself — so even though the selection genuinely did
