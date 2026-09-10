@@ -511,7 +511,13 @@
     try {
       await fetchJSON(`/api/price?cityId=${city.id}&applianceId=${appliance.id}&typeId=${type.id}`);
     } catch (e) {
-      addBotMessage(`Maaf kijiye, <strong>${escapeHtml(appliance.name)} — ${escapeHtml(type.name)}</strong> abhi <strong>${escapeHtml(city.name)}</strong> mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`);
+      // DEFENSIVE FIX: falls back to a generic message instead of ever
+      // showing a literal "undefined" if either name is somehow
+      // missing/empty on the matched object.
+      const unavailableMsg = (appliance.name && type.name && city.name)
+        ? `Maaf kijiye, <strong>${escapeHtml(appliance.name)} — ${escapeHtml(type.name)}</strong> abhi <strong>${escapeHtml(city.name)}</strong> mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`
+        : 'Maaf kijiye, ye service abhi aapke shahar mein available nahi hai. Hum jald hi shuru karenge!';
+      addBotMessage(unavailableMsg);
       addQuickReplies([{ label: '🛒 Kisi aur city/appliance ke liye try karein', onClick: startBookFlow }]);
       return;
     }

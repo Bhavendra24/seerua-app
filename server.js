@@ -965,7 +965,15 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
     // turned this city off" case. Checking disabledCities too now.
     const hasPricing = context.pricing.some(p => p.cityId === mentionedCity.id && p.applianceId === mentionedAppliance.id);
     const isDisabledInThisCity = (mentionedAppliance.disabledCities || []).includes(mentionedCity.id);
-    if (!hasPricing || isDisabledInThisCity) {
+    // DEFENSIVE FIX: only set this if both names are actually valid,
+    // non-empty strings — guards against ever showing the customer a
+    // literal "undefined" in this message for any reason (a malformed
+    // city/appliance record, an unexpected data shape, etc.), even
+    // though mentionedCity/mentionedAppliance are matched objects that
+    // normally always have a name. Worst case without this: the
+    // customer just gets the AI's own natural-language handling of the
+    // situation instead of this canned notice — never a broken message.
+    if ((!hasPricing || isDisabledInThisCity) && mentionedCity.name && mentionedAppliance.name) {
       context.forcedUnavailableNotice = { cityName: mentionedCity.name, applianceName: mentionedAppliance.name };
     }
   }
@@ -977,7 +985,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   // not. Using the SAME single most-recent-mention result from above
   // (not a separate search) — if that one mention happens to be hidden,
   // that's the actual most current thing the customer is asking about.
-  if (!context.forcedUnavailableNotice && mostRecentApplianceMention && mostRecentApplianceMention.hidden) {
+  if (!context.forcedUnavailableNotice && mostRecentApplianceMention && mostRecentApplianceMention.hidden && mostRecentApplianceMention.name) {
     context.forcedNotOfferedNotice = { applianceName: mostRecentApplianceMention.name };
   }
   // Third case: the customer names a real Indian city that Seerua simply
@@ -1120,7 +1128,15 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
         // isn't enough to call this genuinely available.
         const isDisabledInThisCity = (draftAppliance.disabledCities || []).includes(draftCity.id);
         if (!hasPricing || isDisabledInThisCity) {
-          blockReason = `Maaf kijiye, ${draftAppliance.name} abhi ${draftCity.name} mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`;
+          // DEFENSIVE FIX: falls back to a generic message instead of
+          // ever showing a literal "undefined" if either name is
+          // somehow missing — this still correctly BLOCKS the booking
+          // either way (safety first), just avoids a broken-looking
+          // message in the rare case the name lookup itself has an
+          // issue.
+          blockReason = (draftAppliance.name && draftCity.name)
+            ? `Maaf kijiye, ${draftAppliance.name} abhi ${draftCity.name} mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`
+            : 'Maaf kijiye, ye service abhi aapke shahar mein available nahi hai. Hum jald hi shuru karenge!';
         }
       }
       if (blockReason) {
