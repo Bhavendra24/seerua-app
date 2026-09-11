@@ -3303,16 +3303,24 @@ function computeTechCommission(bookings, techId, tech, commissionCfg) {
 // fell through (rejected/cancelled), since those don't take up their time.
 // This is what protects a technician from silently ending up overbooked
 // just because they're the highest-rated match for every new job.
-function countTechJobsOnDate(bookings, techId, dateStr) {
-  if (!dateStr) return 0; // undated (phone/ASAP) bookings aren't limited — nothing to compare against
-  let count = 0;
+// Same job set as an earlier plain-count version of this, but broken
+// down by status — used in the Assign dropdown so Admin/Sub-Admin can
+// see at a glance how loaded a technician already is today (and how
+// much of that is actually done vs still ahead of them), not just a
+// single combined number.
+function getTechDayBreakdown(bookings, techId, dateStr) {
+  const breakdown = { total: 0, completed: 0, pending: 0 };
+  if (!dateStr) return breakdown;
   bookings.forEach(b => {
     if (b.bookingDate !== dateStr) return;
     b.items.forEach(it => {
-      if (it.technicianId === techId && it.itemStatus !== 'rejected' && it.itemStatus !== 'cancelled') count++;
+      if (it.technicianId !== techId || it.itemStatus === 'rejected' || it.itemStatus === 'cancelled') return;
+      breakdown.total++;
+      if (it.itemStatus === 'completed') breakdown.completed++;
+      else breakdown.pending++;
     });
   });
-  return count;
+  return breakdown;
 }
 
 // ---------- Day-lock system: past days' records are protected from edits ----------
@@ -3913,16 +3921,18 @@ app.get('/api/admin/bookings/:bookingId/items/:itemId/eligible-technicians', req
     const stats = computeTechStats(bookings, t.id, t);
     const forThisAppliance = stats.applianceBreakdown[item.applianceId] || null;
     const dailyLimit = getTechDailyLimit(t, slotsConfig);
-    const jobsOnDate = countTechJobsOnDate(bookings, t.id, booking.bookingDate);
+    const dayBreakdown = getTechDayBreakdown(bookings, t.id, booking.bookingDate);
     return {
       id: t.id, name: t.name, phone: t.phone, experienceYears: t.experienceYears || 0,
       ...stats,
       applianceRating: forThisAppliance ? forThisAppliance.avgRating : null,
       applianceJobs: forThisAppliance ? forThisAppliance.completedJobs : 0,
       isOnline: isTechOnline(t.lastSeenAt),
-      jobsOnDate,
+      jobsOnDate: dayBreakdown.total,
+      jobsOnDateCompleted: dayBreakdown.completed,
+      jobsOnDatePending: dayBreakdown.pending,
       dailyLimit,
-      atCapacity: dailyLimit != null && jobsOnDate >= dailyLimit
+      atCapacity: dailyLimit != null && dayBreakdown.total >= dailyLimit
     };
   });
   withStats.sort((a, b) => {
