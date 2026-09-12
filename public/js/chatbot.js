@@ -16,7 +16,7 @@
 (function () {
   const WHATSAPP_URL = 'https://wa.me/919389585479';
   const PHONE_TEL = 'tel:+919389585479';
-  const ASSISTANT_NAME = 'Bella';
+  const ASSISTANT_NAME = 'Tia';
 
   let citiesCache = null;
   let appliancesCache = null; // full, unfiltered list

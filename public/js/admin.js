@@ -3174,7 +3174,7 @@ document.getElementById('saveAiInstructionsBtn').addEventListener('click', async
       body: JSON.stringify({ instructions: document.getElementById('aiInstructionsInput').value })
     });
     msg.className = 'msg-inline success';
-    msg.textContent = 'Saved! Bella will follow this starting with the next message.';
+    msg.textContent = 'Saved! Tia will follow this starting with the next message.';
     setTimeout(() => { if (msg.textContent.startsWith('Saved!')) msg.textContent = ''; }, 3500);
   } catch (err) {
     msg.className = 'msg-inline error';

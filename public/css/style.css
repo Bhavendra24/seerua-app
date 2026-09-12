@@ -1498,7 +1498,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .chat-panel-input {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 12px 14px;
   border-top: 1px solid var(--line);
   background: var(--white);
@@ -1506,6 +1506,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 .chat-panel-input input {
   flex: 1;
+  min-width: 0;
   padding: 14px 18px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1516,7 +1517,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .chat-panel-input input:focus { outline: none; border-color: var(--accent-500); background: var(--white); }
 .chat-panel-input input:disabled { opacity: 0.6; }
 .chat-panel-input button {
-  width: 48px; height: 48px;
+  width: 44px; height: 44px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent-500);
