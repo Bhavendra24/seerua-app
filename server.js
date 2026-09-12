@@ -4682,6 +4682,22 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// WebP versions of appliance photos are generated alongside the original
+// JPG at the same path (see the conversion this comment documents — same
+// filename, .webp extension) — Admin-uploaded photoUrl values themselves
+// stay .jpg/.png for simplicity, this just tells browsers that support
+// WebP to prefer the smaller file via <picture>, falling back to the
+// original for any browser that doesn't. If no .webp counterpart actually
+// exists on disk for a given photo (e.g. one uploaded after this without
+// a matching conversion step), the browser just silently ignores that
+// <source> and uses the fallback <img> anyway — never a broken image.
+function toWebpUrl(url) {
+  return String(url || '').replace(/\.(jpe?g|png)$/i, '.webp');
+}
+function buildPictureHtml(photoUrl, imgAttrs) {
+  return `<picture><source srcset="${escapeHtml(toWebpUrl(photoUrl))}" type="image/webp"><img src="${escapeHtml(photoUrl)}" ${imgAttrs}></picture>`;
+}
+
 // Turns the Admin-written "what we do during service" text (plain text,
 // blank line between paragraphs) into safe HTML paragraphs for the
 // server-rendered city pages. main.js has an identical client-side version
@@ -4735,7 +4751,7 @@ function buildServicesGridHtml(appliances) {
   return appliances.map(a => `
     <div class="service-card" data-appliance="${a.id}">
       ${a.photoUrl
-        ? `<img class="service-card-photo" src="${escapeHtml(a.photoUrl)}" alt="${escapeHtml(a.name)} service technician at work" loading="lazy">`
+        ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${escapeHtml(a.name)} service technician at work" loading="lazy"`)
         : `<div class="service-icon-wrap"><div class="service-icon">${SERVER_SERVICE_ICONS[a.icon] || SERVER_SERVICE_ICONS.wrench}</div></div>`}
       <h3>${escapeHtml(a.name)}</h3>
       <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
@@ -5148,7 +5164,7 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
     // Fridge) simply get the original single-column hero instead of a
     // broken image.
     const appliancePhotoHtml = appliance.photoUrl
-      ? `<img src="${appliance.photoUrl}" alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);">`
+      ? buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"`)
       : '';
 
     const template = fs.readFileSync(APPLIANCE_CITY_TEMPLATE_PATH, 'utf-8');

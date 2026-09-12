@@ -376,6 +376,19 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// Same idea as server.js's identical pair of helpers — WebP versions of
+// appliance photos sit alongside the original at the same path (same
+// filename, .webp extension), so <picture> lets a supporting browser use
+// the smaller file while any other browser silently falls back to the
+// original. If no .webp file actually exists for a given photo, the
+// <source> is just ignored — the <img> fallback always still works.
+function toWebpUrl(url) {
+  return String(url || '').replace(/\.(jpe?g|png)$/i, '.webp');
+}
+function buildPictureHtml(photoUrl, imgAttrs) {
+  return `<picture><source srcset="${escapeHtml(toWebpUrl(photoUrl))}" type="image/webp"><img src="${escapeHtml(photoUrl)}" ${imgAttrs}></picture>`;
+}
+
 // Turns the Admin-written "what we do during service" text (plain text,
 // blank line between paragraphs) into safe HTML paragraphs. Mirrors
 // formatServiceProcessHtml() in server.js, which does the same for the
@@ -1033,7 +1046,7 @@ function renderServicesGrid() {
   grid.innerHTML = ALL_APPLIANCES.map(a => `
     <div class="service-card" data-appliance="${a.id}">
       ${a.photoUrl
-        ? `<img class="service-card-photo" src="${a.photoUrl}" alt="${a.name} service technician at work" loading="lazy">`
+        ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${a.name} service technician at work" loading="lazy"`)
         : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
       <h3>${a.name}</h3>
       <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
@@ -3054,8 +3067,13 @@ async function qbShowDetails() {
   }
   qbSetNotAvailable(false); // clear any notice left over from a previous appliance in this same modal session
   document.getElementById('qbApplianceTitle').textContent = appliance.name + ' Service';
-  document.getElementById('qbPriceImg').src = appliance.photoUrl || '';
-  document.getElementById('qbPriceImg').alt = appliance.name;
+  const qbImgEl = document.getElementById('qbPriceImg');
+  // Tries the smaller WebP version first; if it 404s (no .webp counterpart
+  // exists for this specific photo), onerror falls back to the original
+  // once, then clears itself so a genuinely-missing original doesn't loop.
+  qbImgEl.onerror = () => { qbImgEl.onerror = null; qbImgEl.src = appliance.photoUrl || ''; };
+  qbImgEl.src = appliance.photoUrl ? toWebpUrl(appliance.photoUrl) : '';
+  qbImgEl.alt = appliance.name;
 
   const tabsEl = document.getElementById('qbTypeTabs');
   tabsEl.innerHTML = appliance.types.map((t, i) =>
