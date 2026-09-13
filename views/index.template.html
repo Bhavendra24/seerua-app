@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609080p">
+<link rel="stylesheet" href="/css/style.css?v=202609080q">
 
 <script type="application/ld+json">
 {
@@ -106,6 +106,11 @@
 <section class="hero hero-coded-section">
   <div class="container hero-coded-grid hero-coded-grid-solo">
     <div class="hero-coded-text">
+      <!-- Only shown when arriving with ?city=X in the URL (e.g. a City
+           page's "Book Service" link) — a small reassurance that
+           landing on the homepage is expected, not a mistake. Hidden by
+           default; populateCityArrivalBanner() in main.js reveals it. -->
+      <p class="city-arrival-banner" id="cityArrivalBanner" style="display:none;"></p>
       <h1>One stop solution for all your <span class="hero-accent-wrap">home appliances<svg class="hero-underline" viewBox="0 0 220 14" preserveAspectRatio="none"><path d="M2 10c40-10 160-10 216 0" stroke="var(--accent-500)" stroke-width="4" stroke-linecap="round" fill="none"/></svg></span></h1>
       <p class="hero-sub">From {{APPLIANCE_LIST_TEXT}} — repair and service for every essential home appliance.</p>
       <div class="hero-badges">
@@ -959,7 +964,7 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609081e"></script>
+<script src="/js/main.js?v=202609081h"></script>
 <script src="/js/i18n.js?v=202609080a"></script>
 <script src="/js/chatbot.js?v=202609080d"></script>
 </body>
