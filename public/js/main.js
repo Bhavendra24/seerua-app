@@ -2823,7 +2823,24 @@ function bindAccountGateModal() {
         } catch (e) { /* non-fatal — worst case, later steps re-check phone-verified the normal way */ }
         const acc = { phone, name: lookup.name, address: lookup.address, cityId: lookup.cityId, accessToken };
         saveAccount(acc);
-        proceedAfterAccountGate(acc);
+        // BUG FIX: if this re-verification was triggered by openEditProfile()
+        // finding the phone no longer server-side verified (see above), the
+        // customer came here specifically to edit their address — silently
+        // continuing on with proceedAfterAccountGate() would skip the edit
+        // entirely and just re-use whatever was already on file. Land back
+        // on the (now pre-filled, freshly-verified) address form instead so
+        // Save actually works this time.
+        if (agEditMode) {
+          document.getElementById('agPhoneStep').style.display = 'none';
+          document.getElementById('agAddressStep').style.display = 'block';
+          document.getElementById('agName').value = acc.name;
+          document.getElementById('agAddress').value = acc.address;
+          populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
+          document.getElementById('agCity').value = acc.cityId;
+          document.getElementById('agAddressMsg').textContent = '';
+        } else {
+          proceedAfterAccountGate(acc);
+        }
       } else {
         // Brand new number — one more step (Add Address) before the
         // account actually exists. This step opens itself — no tap
@@ -2902,19 +2919,50 @@ function bindAccountGateModal() {
 // account menu's new "Edit Profile" item — same Account Gate "Add
 // Address" step, reused in edit mode, so there's exactly one place that
 // actually writes to the saved account either way.
-function openEditProfile() {
+async function openEditProfile() {
   const acc = getAccount();
   if (!acc) return;
   agEditMode = true;
   document.getElementById('agAddressTitle').textContent = 'Edit Address / City';
-  document.getElementById('agPhoneStep').style.display = 'none';
-  document.getElementById('agAddressStep').style.display = 'block';
-  document.getElementById('agName').value = acc.name || '';
-  document.getElementById('agAddress').value = acc.address || '';
-  populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
-  if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
   document.getElementById('agAddressMsg').textContent = '';
   document.getElementById('accountGateModal').classList.add('open');
+
+  // BUG FIX: a saved account lives in the browser (localStorage)
+  // basically forever, but the server's memory of "this phone passed
+  // OTP once" (data/verified-phones.json) can be lost independently —
+  // e.g. a redeploy without a database configured. When that happens,
+  // this used to jump straight to the address form using the old
+  // (now-unrecognized) accessToken from localStorage, and Save always
+  // failed with a confusing "OTP verification failed, expired, or does
+  // not match this phone number" error with no way to recover short of
+  // logging out. Now it re-checks with the server first: if the phone
+  // is still verified, behaves exactly as before; if not, it asks for
+  // OTP again first (attemptAccountGateVerification below already knows,
+  // via agEditMode, to land back on this same address form afterwards
+  // instead of just logging them in).
+  let stillVerified = true;
+  try {
+    const check = await fetchJSON(`/api/phone-verified?phone=${acc.phone}`);
+    stillVerified = !!check.verified;
+  } catch (e) { /* can't tell — assume still verified, Save will surface any real problem */ }
+
+  if (stillVerified) {
+    document.getElementById('agPhoneStep').style.display = 'none';
+    document.getElementById('agAddressStep').style.display = 'block';
+    document.getElementById('agName').value = acc.name || '';
+    document.getElementById('agAddress').value = acc.address || '';
+    populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
+    if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
+  } else {
+    document.getElementById('agPhoneMsg').textContent = '';
+    document.getElementById('agPhone').value = acc.phone;
+    document.getElementById('agPhoneStep').style.display = 'block';
+    document.getElementById('agAddressStep').style.display = 'none';
+    const title = document.getElementById('agPhoneTitle');
+    const sub = document.getElementById('agPhoneSub');
+    if (title) title.textContent = 'Please verify again';
+    if (sub) sub.textContent = 'Your verification expired — please verify your mobile number again to edit your address.';
+  }
 }
 bindAccountGateModal();
 
