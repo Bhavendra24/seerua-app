@@ -511,6 +511,13 @@ async function init() {
   if (urlCityId && CITIES.some(c => c.id === urlCityId)) {
     document.getElementById('fCity').value = urlCityId;
     await refreshAppliancesForCity(urlCityId);
+    // BUG FIX: this set the hidden #fCity value correctly, but never
+    // updated the visible bottom-nav/header "City" button label — so a
+    // customer arriving here from a City page's link (their city
+    // already correctly pre-filled internally) would still just see
+    // the generic word "City" on that button, with no visible
+    // confirmation their city was picked up at all.
+    if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(urlCityId);
   }
   if (urlApplianceId && APPLIANCES.some(a => a.id === urlApplianceId)) {
     document.getElementById('fAppliance').value = urlApplianceId;
