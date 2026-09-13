@@ -511,29 +511,6 @@ async function init() {
   if (urlCityId && CITIES.some(c => c.id === urlCityId)) {
     document.getElementById('fCity').value = urlCityId;
     await refreshAppliancesForCity(urlCityId);
-    // Small reassurance banner for anyone who landed here via a City
-    // page's "Book Service" link — confirms they're in the right place
-    // (city already picked up) rather than looking like a generic,
-    // unrelated homepage. "Change city" just reopens the same picker
-    // used everywhere else.
-    const cityName = CITIES.find(c => c.id === urlCityId)?.name;
-    const banner = document.getElementById('cityArrivalBanner');
-    if (cityName && banner) {
-      banner.innerHTML = `📍 Showing services for <strong>${cityName}</strong> — <a href="#" id="cityArrivalChangeLink">change city</a>`;
-      banner.style.display = 'block';
-      document.getElementById('cityArrivalChangeLink')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        // BUG FIX: without this, the click bubbles up to the global
-        // "click outside the popover closes it" listener (bound on
-        // document, see openCityPickerPopover's setup) — which fires
-        // right after this SAME click just opened it, since the click
-        // originated on neither the popover nor its anchor button, and
-        // immediately closes it again in the same event cycle.
-        e.stopPropagation();
-        const anchorBtn = document.getElementById('bottomNavCityBtn') || document.getElementById('navCityBtn');
-        if (anchorBtn) openCityPickerPopover(anchorBtn);
-      });
-    }
   }
   if (urlApplianceId && APPLIANCES.some(a => a.id === urlApplianceId)) {
     document.getElementById('fAppliance').value = urlApplianceId;
