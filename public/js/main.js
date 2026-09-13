@@ -16,10 +16,22 @@
 let agIntent = null; // 'booking' | 'account' | 'quickbook'
 let agPendingApplianceId = null;
 let agEditMode = false;
-// Remembers whether "Add" or "Book Now" was the one being attempted
-// when Quick Book paused for phone+OTP (see qbDoAdd()) — resumes
-// automatically once that completes, instead of leaving the customer
-// to notice and press it again themselves.
+// See the comment where this gets set to true (City picker's click
+// handler) — tells applyAccountToBookingFields() not to silently
+// overwrite a deliberately-browsed different city back to the account's
+// saved one.
+let cityBrowsedManually = false;
+// Set true right before sending someone to Edit Profile from the
+// "please update your city" warning — tells the save-success handler
+// above to automatically finish the booking they were originally
+// trying to make, instead of leaving them to notice and retry it
+// themselves after fixing exactly what was asked.
+let pendingCityFixRetry = false;
+// Same idea as pendingCityFixRetry, for Quick Book's own account-gate
+// pause (see qbDoAdd()) — remembers whether "Add" or "Book Now" was the
+// one being attempted, so it can resume automatically once the phone+
+// OTP step completes, instead of leaving the customer to notice and
+// press it again themselves.
 let qbPendingRetryAction = null; // 'add' | 'book' | null
 // BUG FIX: the per-service-card Add/Book buttons (qbAddService(), used by
 // AC's Window/Split/Cassette service list) had their own separate
@@ -68,58 +80,46 @@ function bindBottomSheet(id) {
     el.addEventListener('click', () => closeBottomSheet(id));
   });
 }
-['menuSheetBackdrop', 'supportSheetBackdrop'].forEach(bindBottomSheet);
+['menuSheetBackdrop', 'citySheetBackdrop', 'supportSheetBackdrop'].forEach(bindBottomSheet);
 
 const bottomNavMenuBtn = document.getElementById('bottomNavMenuBtn');
 if (bottomNavMenuBtn) bottomNavMenuBtn.addEventListener('click', () => openBottomSheet('menuSheetBackdrop'));
 
-// City picker (per request): a small popover positioned right above
-// whichever "City" button opened it, instead of a full-width bottom
-// sheet. Reused for both the mobile bottom-nav button and the desktop
-// header button — position just adapts to whichever one was tapped.
-function openCityPickerPopover(anchorBtn) {
-  populateCitySheetGrid();
-  const popover = document.getElementById('citySheetBackdrop');
-  const rect = anchorBtn.getBoundingClientRect();
-  popover.style.display = 'block'; // needed before measuring its own width below
-  const popoverWidth = popover.offsetWidth;
-  // Centers the popover over the button, then nudges it back on-screen
-  // if that would push it past either edge — same idea as a native
-  // dropdown menu's own edge-avoidance.
-  let left = rect.left + (rect.width / 2) - (popoverWidth / 2);
-  left = Math.max(8, Math.min(left, window.innerWidth - popoverWidth - 8));
-  popover.style.left = `${left}px`;
-  popover.style.bottom = `${window.innerHeight - rect.top + 8}px`;
-  popover.classList.add('open');
-}
-function closeCityPickerPopover() {
-  const popover = document.getElementById('citySheetBackdrop');
-  popover.classList.remove('open');
-  popover.style.display = ''; // clears the inline style openCityPickerPopover() set for measurement, letting the .open CSS class (or its absence) control visibility again
-}
-document.addEventListener('click', (e) => {
-  const popover = document.getElementById('citySheetBackdrop');
-  if (!popover.classList.contains('open')) return;
-  if (popover.contains(e.target) || e.target.closest('#bottomNavCityBtn, #navCityBtn')) return;
-  closeCityPickerPopover();
-});
-
 const bottomNavCityBtn = document.getElementById('bottomNavCityBtn');
 if (bottomNavCityBtn) {
-  bottomNavCityBtn.addEventListener('click', () => openCityPickerPopover(bottomNavCityBtn));
+  bottomNavCityBtn.addEventListener('click', () => {
+    // BUG FIX: this used to render <a href="/appliance-repair/...">
+    // links — tapping a city there navigated to that city's separate
+    // SEO page instead of actually setting anything on THIS page's own
+    // booking form. The booking form's #fCity dropdown (and everything
+    // priced/filtered from it) never changed, so it kept showing
+    // whatever city was already in there (often Moradabad, from the
+    // saved account) no matter which city someone picked from this
+    // sheet — confusing since it looks like a plain city switcher.
+    // Now sets #fCity directly and stays on this page.
+    populateCitySheetGrid();
+    openBottomSheet('citySheetBackdrop');
+  });
 }
 
 // Desktop header's own "City" button (bottomNavCityBtn above is mobile
-// bottom-nav only) — opens the exact same city-picker popover.
+// bottom-nav only) — opens the exact same city-picker sheet.
 const navCityBtn = document.getElementById('navCityBtn');
 if (navCityBtn) {
-  navCityBtn.addEventListener('click', () => openCityPickerPopover(navCityBtn));
+  navCityBtn.addEventListener('click', () => {
+    populateCitySheetGrid();
+    openBottomSheet('citySheetBackdrop');
+  });
 }
 function populateCitySheetGrid() {
   const grid = document.getElementById('bottomSheetCityGrid');
   if (!grid || typeof CITIES === 'undefined') return;
   grid.innerHTML = CITIES.map(c => `<button type="button" class="bottom-sheet-city-btn" data-city-id="${c.id}">${c.name}</button>`).join('');
 }
+// Event delegation on the grid's container (bound ONCE, ever) instead of
+// re-attaching a listener to each button every time the sheet reopens —
+// simpler and avoids any chance of stale/duplicate listeners piling up
+// across repeated opens.
 // Updates the mobile bottom-nav's and desktop header's own "City"
 // button label to show whichever city is currently active — called
 // both when someone explicitly picks one from this sheet, AND from
@@ -135,11 +135,6 @@ function updateCityButtonLabels(cityId) {
   const desktopBtn = document.getElementById('navCityBtn');
   if (desktopBtn) desktopBtn.textContent = city.name;
 }
-// BEHAVIOR CHANGE (per explicit request, reverted back from a dropdown+
-// confirm-button): tapping a city selects it immediately and closes the
-// sheet — no separate confirm step. Event delegation on the grid's
-// container (bound once, ever) rather than re-attaching a listener to
-// each button on every open.
 document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-city-id]');
   if (!btn) return;
@@ -148,9 +143,18 @@ document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async 
   const cityEl = document.getElementById('fCity');
   if (cityEl) {
     cityEl.value = cityId;
+    // BUG FIX: applyAccountToBookingFields() used to unconditionally
+    // reset #fCity back to the SAVED account's city every time it ran
+    // (e.g. simply opening the booking form again after this) — so
+    // browsing a different city here, then opening/reopening the
+    // booking form, silently wiped out this exact selection before the
+    // city-mismatch check ever got a chance to see it. This flag tells
+    // that function "someone deliberately browsed a different city in
+    // this session — don't overwrite it".
+    cityBrowsedManually = true;
     if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
   }
-  closeCityPickerPopover();
+  closeBottomSheet('citySheetBackdrop');
   // BUG FIX: setting #fCity's value silently had NO visible effect
   // anywhere on the page — no confirmation text, no change to the
   // "City" button itself — so even though the selection genuinely did
@@ -355,19 +359,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Same idea as server.js's identical pair of helpers — WebP versions of
-// appliance photos sit alongside the original at the same path (same
-// filename, .webp extension), so <picture> lets a supporting browser use
-// the smaller file while any other browser silently falls back to the
-// original. If no .webp file actually exists for a given photo, the
-// <source> is just ignored — the <img> fallback always still works.
-function toWebpUrl(url) {
-  return String(url || '').replace(/\.(jpe?g|png)$/i, '.webp');
-}
-function buildPictureHtml(photoUrl, imgAttrs) {
-  return `<picture><source srcset="${escapeHtml(toWebpUrl(photoUrl))}" type="image/webp"><img src="${escapeHtml(photoUrl)}" ${imgAttrs}></picture>`;
-}
-
 // Turns the Admin-written "what we do during service" text (plain text,
 // blank line between paragraphs) into safe HTML paragraphs. Mirrors
 // formatServiceProcessHtml() in server.js, which does the same for the
@@ -490,13 +481,6 @@ async function init() {
   if (urlCityId && CITIES.some(c => c.id === urlCityId)) {
     document.getElementById('fCity').value = urlCityId;
     await refreshAppliancesForCity(urlCityId);
-    // BUG FIX: this set the hidden #fCity value correctly, but never
-    // updated the visible bottom-nav/header "City" button label — so a
-    // customer arriving here from a City page's link (their city
-    // already correctly pre-filled internally) would still just see
-    // the generic word "City" on that button, with no visible
-    // confirmation their city was picked up at all.
-    if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(urlCityId);
   }
   if (urlApplianceId && APPLIANCES.some(a => a.id === urlApplianceId)) {
     document.getElementById('fAppliance').value = urlApplianceId;
@@ -1032,7 +1016,7 @@ function renderServicesGrid() {
   grid.innerHTML = ALL_APPLIANCES.map(a => `
     <div class="service-card" data-appliance="${a.id}">
       ${a.photoUrl
-        ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${a.name} service technician at work" loading="lazy"`)
+        ? `<img class="service-card-photo" src="${a.photoUrl}" alt="${a.name} service technician at work" loading="lazy">`
         : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
       <h3>${a.name}</h3>
       <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
@@ -1112,20 +1096,25 @@ function renderCart() {
     if (phoneLockNote) phoneLockNote.style.display = shouldLock ? 'block' : 'none';
     if (!shouldLock) cartPhoneNumber = null; // cart's empty again — free to start over with any number
   }
-  // Same lock, for the same reason, on City: items already in the cart
-  // were priced for whichever city was active when each was added, so
-  // switching cities mid-cart would leave them silently charging the
-  // OLD city's rates under the NEW city's name. Locks the field while
-  // the cart has anything in it, regardless of account status — City
-  // isn't tied to the account anymore (see applyAccountToBookingFields),
-  // so there's no separate account-level lock to defer to here either.
+  // Same lock, for the same reason, on City — see cartCityId's comment
+  // above for what goes wrong without this. BUG FIX: this used to
+  // unconditionally UNLOCK the field again once the cart emptied out —
+  // which also undid the separate, persistent lock applied in
+  // applyAccountToBookingFields() for a returning customer's saved
+  // city, re-opening the exact mismatch risk that lock exists to
+  // prevent. Now only touches the field if there's no saved account
+  // locking it for an unrelated reason.
   const cityField = document.getElementById('fCity');
-  if (cityField && quickBookViewStartIndex === null) {
+  if (cityField && quickBookViewStartIndex === null && !getAccount()) {
     const shouldLockCity = cartItems.length > 0;
     cityField.disabled = shouldLockCity;
     cityField.style.background = shouldLockCity ? 'var(--mist)' : '';
     if (!shouldLockCity) cartCityId = null; // cart's empty again — free to start over with any city
   }
+  // Once the cart's genuinely empty again, this one-off "browsed a
+  // different city than my account" episode is over — back to normal
+  // auto-sync behavior for whatever comes next.
+  if (cartItems.length === 0) cityBrowsedManually = false;
   // Clear, visible confirmation that this is an isolated "just this one
   // item" checkout — so it's obvious nothing else from the regular cart
   // is quietly being bundled into this booking.
@@ -1300,7 +1289,25 @@ function clearPendingPhoto() {
 
 let addingItem = false;
 
-async function addItemToCart() {
+// Shown when a saved account's home city differs from whatever the page
+// is currently browsing (via the City picker) — see the check in
+// addItemToCart(). Simple, blocking message: booking must match the
+// city on file, so the only way forward is updating the profile.
+function showCityMismatchChoice(browsedCityId, acc) {
+  const browsedCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === browsedCityId) : null;
+  const accountCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === acc.cityId) : null;
+  if (!browsedCity || !accountCity) return;
+  document.getElementById('cityMismatchText').textContent =
+    `Your profile city is ${accountCity.name}. You are trying to book in ${browsedCity.name}. Please change your city in your profile to book in ${browsedCity.name}.`;
+  document.getElementById('cityMismatchEditBtn').onclick = () => {
+    document.getElementById('cityMismatchModal').classList.remove('open');
+    pendingCityFixRetry = true;
+    openEditProfile();
+  };
+  document.getElementById('cityMismatchModal').classList.add('open');
+}
+
+async function addItemToCart(skipCityCheck) {
   if (addingItem) return; // already processing a click — ignore extra clicks (prevents double-adds from a fast double tap on mobile)
   // Uses its own message box right under the "+ Add to Booking" button —
   // not the form's #formMsg way down near Submit, which used to leave
@@ -1323,6 +1330,17 @@ async function addItemToCart() {
   if (!cityId) {
     msg.className = 'form-msg error';
     msg.textContent = 'Please select your city first.';
+    return;
+  }
+  // A saved account has its own "home" city — if the page is currently
+  // showing a DIFFERENT city's prices (someone free to browse via the
+  // City picker at any time, account or not), pause here and let them
+  // choose explicitly, rather than silently either mixing prices from
+  // two different cities into one booking, or blocking city-browsing
+  // outright for anyone with an account.
+  const accForCityCheck = getAccount();
+  if (!skipCityCheck && accForCityCheck && accForCityCheck.cityId && accForCityCheck.cityId !== cityId) {
+    showCityMismatchChoice(cityId, accForCityCheck);
     return;
   }
   if (!applianceId || !typeId) {
@@ -2625,19 +2643,15 @@ function applyAccountToBookingFields(acc) {
   if (phoneEl) phoneEl.value = acc.phone;
   if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
   if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
-  // SIMPLIFIED (per explicit request): City is no longer locked to the
-  // account, or cross-checked against it at all — Name/Address/Phone
-  // are the same everywhere, but City is a per-booking choice, since a
-  // customer can legitimately book different cities across visits (a
-  // different address, a relative's place, browsing a City SEO page,
-  // etc.). Only pre-fills #fCity as a convenience default when it's
-  // currently empty — never overwrites a choice already sitting there,
-  // and never disables the field. This replaces the old
-  // cityBrowsedManually/cityFromUrlParam flag pair and the whole
-  // city-mismatch modal entirely — nothing left to protect a selection
-  // from being overridden, since nothing overrides it anymore.
-  if (cityEl && acc.cityId && !cityEl.value) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
-  if (cityEl && cityEl.value && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityEl.value);
+  if (cityEl && acc.cityId && cityEl.value !== acc.cityId && !cityBrowsedManually) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
+  // Locked to match Name/Address just above — was left as a fully open
+  // dropdown even for a returning customer with a saved city, which
+  // looked inconsistent ("why can I still change just this one thing?")
+  // and was an easy way to accidentally cause the exact price/technician
+  // mismatch bugs fixed earlier. "Edit Address" (renamed below) already
+  // covers changing city too, via the same Account Gate step.
+  if (cityEl) { cityEl.disabled = true; cityEl.style.background = 'var(--mist)'; }
+  if (acc.cityId && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(acc.cityId);
   const editBtn = document.getElementById('editAddressBtn');
   if (editBtn) editBtn.style.display = 'inline-block';
   verifiedBookingPhone = acc.phone;
@@ -2675,9 +2689,9 @@ function openAccountGate(intent, applianceId) {
 
 function closeAccountGate() {
   document.getElementById('accountGateModal').classList.remove('open');
-  // If they cancelled instead of completing whatever this was for, don't
-  // leave these armed for some unrelated future save to accidentally
-  // trigger.
+  // If they cancelled out of Edit Profile instead of saving, don't leave
+  // this armed for some unrelated future save to accidentally trigger.
+  pendingCityFixRetry = false;
   qbPendingRetryAction = null;
   qbPendingServiceAction = null;
 }
@@ -2734,20 +2748,26 @@ function bindAccountGateModal() {
     if (e.target.id === 'accountGateModal') closeAccountGate();
   });
 
-  // "Send OTP" — same verification either way; the flag below just
-  // stops a re-tap while one's already in flight.
+  // FLOW CHANGE (back to manual, per explicit request): typing the
+  // number alone no longer auto-fires this — a tap on "Send OTP" does.
+  // Editing the number after a failed attempt and tapping Send OTP
+  // again is a fresh, deliberate attempt (agSending only blocks a
+  // second tap while one is already in flight, via the button's own
+  // disabled state below).
   let agSending = false;
   async function attemptAccountGateVerification() {
     if (agSending) return;
     const msg = document.getElementById('agPhoneMsg');
-    const phoneField = document.getElementById('agPhone');
-    const phone = phoneField.value.trim();
+    const phone = document.getElementById('agPhone').value.trim();
+    const btn = document.getElementById('agSendBtn');
     if (!/^[0-9]{10}$/.test(phone)) {
       msg.className = 'form-msg error';
       msg.textContent = 'Please enter a valid 10 digit mobile number.';
       return;
     }
     agSending = true;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
     msg.className = 'form-msg';
     msg.textContent = '';
     try {
@@ -2769,6 +2789,7 @@ function bindAccountGateModal() {
 
       let accessToken = null;
       if (otpEnabled && !phoneAlreadyVerified) {
+        msg.textContent = 'Sending OTP — please complete the verification that just opened.';
         accessToken = await verifyPhoneWithOtp(phone);
       }
       verifiedBookingPhone = phone;
@@ -2820,16 +2841,11 @@ function bindAccountGateModal() {
       msg.textContent = err.message || 'OTP verification failed. Please try again.';
     } finally {
       agSending = false;
+      btn.disabled = false;
+      btn.textContent = 'Send OTP';
     }
   }
-  // REVERTED (safety — real SMS not arriving with auto-submit enabled):
-  // typing the number alone no longer auto-fires this. A tap on "Send
-  // OTP" is a single, explicit, one-at-a-time attempt — the auto-submit
-  // version risked firing multiple send attempts in quick succession
-  // (e.g. editing the number after a first attempt was already in
-  // flight), which can confuse MSG91's widget state enough that no SMS
-  // actually goes out at all, exactly what real-world testing hit here.
-  document.getElementById('agSendBtn')?.addEventListener('click', attemptAccountGateVerification);
+  document.getElementById('agSendBtn').addEventListener('click', attemptAccountGateVerification);
 
   document.getElementById('agSaveBtn').addEventListener('click', async () => {
     const msg = document.getElementById('agAddressMsg');
@@ -2855,8 +2871,19 @@ function bindAccountGateModal() {
       const acc = { phone, name, address, cityId, accessToken: verifiedBookingAccessToken };
       saveAccount(acc);
       if (agEditMode) {
+        const shouldRetryCityFix = pendingCityFixRetry; // read before closeAccountGate() clears it
         closeAccountGate();
+        cityBrowsedManually = false; // profile now genuinely says this city — resume normal auto-sync
         applyAccountToBookingFields(acc);
+        // If this edit was triggered by the "please update your city"
+        // warning (see showCityMismatchChoice), automatically finish
+        // the booking they were originally trying to make — they
+        // shouldn't have to notice and re-tap "Add to Booking" a second
+        // time after fixing exactly what it asked them to fix.
+        if (shouldRetryCityFix) {
+          pendingCityFixRetry = false;
+          addItemToCart(true);
+        }
       } else {
         proceedAfterAccountGate(acc);
       }
@@ -2994,13 +3021,8 @@ async function qbShowDetails() {
   }
   qbSetNotAvailable(false); // clear any notice left over from a previous appliance in this same modal session
   document.getElementById('qbApplianceTitle').textContent = appliance.name + ' Service';
-  const qbImgEl = document.getElementById('qbPriceImg');
-  // Tries the smaller WebP version first; if it 404s (no .webp counterpart
-  // exists for this specific photo), onerror falls back to the original
-  // once, then clears itself so a genuinely-missing original doesn't loop.
-  qbImgEl.onerror = () => { qbImgEl.onerror = null; qbImgEl.src = appliance.photoUrl || ''; };
-  qbImgEl.src = appliance.photoUrl ? toWebpUrl(appliance.photoUrl) : '';
-  qbImgEl.alt = appliance.name;
+  document.getElementById('qbPriceImg').src = appliance.photoUrl || '';
+  document.getElementById('qbPriceImg').alt = appliance.name;
 
   const tabsEl = document.getElementById('qbTypeTabs');
   tabsEl.innerHTML = appliance.types.map((t, i) =>
@@ -3297,7 +3319,6 @@ function bindQuickBookModal() {
     document.getElementById('fServiceType').value = qbServiceType;
     document.getElementById('fQty').value = 1;
     document.getElementById('fPhone').value = phone;
-    const cartLengthBefore = cartItems.length;
     await addItemToCart();
     const addMsg = document.getElementById('addItemMsg');
     if (addMsg && addMsg.className.includes('error')) {
@@ -3318,20 +3339,6 @@ function bindQuickBookModal() {
     if (addMsg && addMsg.className.includes('notice')) {
       msg.className = 'form-msg notice';
       msg.textContent = addMsg.textContent;
-      return false;
-    }
-    // BUG FIX: the city-mismatch check inside addItemToCart() (a saved
-    // account's city differing from what's currently being booked) opens
-    // its OWN separate modal and does a bare `return` — setting neither
-    // the 'error' nor 'notice' class checked above. That meant THIS
-    // function still fell through to `return true`, and the caller (see
-    // qbAddBtn's own handler right below) showed a "✅ Added to your
-    // cart!" success toast — while the mismatch modal was still open in
-    // the background and NOTHING had actually been added. Checking
-    // whether cartItems' length genuinely grew is a definitive,
-    // mechanism-agnostic way to catch this (and any other future path
-    // that blocks the add without setting one of those two classes).
-    if (cartItems.length <= cartLengthBefore) {
       return false;
     }
     return true;

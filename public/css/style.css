@@ -980,6 +980,12 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 
 /* ---------- Careers modal (fill & submit right on this page) ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(15,42,67,0.55); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; overscroll-behavior: contain; }
+/* Needs to appear ON TOP of the booking form modal when both happen to
+   be open at once (the city-mismatch choice pops up WHILE the booking
+   form is still open behind it) — same z-index as .modal-backdrop
+   otherwise means whichever is later in the HTML paints over the
+   other, which happened to hide this one entirely. */
+#cityMismatchModal { z-index: 260; }
 .modal-backdrop.open { display: flex; animation: modalBackdropFadeIn 0.18s ease; }
 /* Design polish: every modal in the site (Account Gate, OTP entry,
    Track Booking, Refer a Friend, date calendar, Quick Book, Careers)
@@ -1112,11 +1118,6 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .date-cal-day.is-selected { background: var(--accent-500); color: #fff; }
 .date-cal-day.is-empty { visibility: hidden; }
 .modal h3 { margin-bottom: 4px; }
-/* Lighter styling for the phone-entry step specifically (per request) —
-   scoped to just this step rather than changing .field label globally,
-   which is shared by every other form's labels across the site. */
-#agPhoneStep h3 { font-weight: 500; }
-#agPhoneStep label { font-weight: 400; color: var(--slate); }
 .modal p.modal-sub { color: var(--slate); font-size: 0.88rem; margin: 0 0 18px; }
 .modal-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
 
@@ -1439,10 +1440,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 .chat-panel-head strong { font-family: var(--font-display); font-size: 0.95rem; display: block; }
 .chat-panel-head .chat-sub { display: block; font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
-.chat-panel-head-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .chat-close-btn { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; padding: 4px; }
-.chat-voice-btn { background: transparent; border: none; color: #fff; font-size: 17px; cursor: pointer; line-height: 1; padding: 4px; opacity: 0.85; }
-.chat-voice-btn:hover { opacity: 1; }
 
 .chat-panel-body {
   flex: 1;
@@ -1492,7 +1490,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .chat-panel-input {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 12px 14px;
   border-top: 1px solid var(--line);
   background: var(--white);
@@ -1500,7 +1498,6 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 .chat-panel-input input {
   flex: 1;
-  min-width: 0;
   padding: 14px 18px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1511,7 +1508,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .chat-panel-input input:focus { outline: none; border-color: var(--accent-500); background: var(--white); }
 .chat-panel-input input:disabled { opacity: 0.6; }
 .chat-panel-input button {
-  width: 44px; height: 44px;
+  width: 48px; height: 48px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent-500);
@@ -1524,10 +1521,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .chat-panel-input button svg { width: 21px; height: 21px; }
 .chat-panel-input button:hover:not(:disabled) { background: var(--accent-600); transform: scale(1.05); }
 .chat-panel-input button:disabled { opacity: 0.5; cursor: default; }
-#chatMainSendBtn svg { transform: translateX(-1px); } /* optically centers the paper-plane icon */
-#chatMicBtn { background: var(--slate); }
-#chatMicBtn.listening { background: var(--red, #dc2626); animation: chatMicPulse 1.2s ease-in-out infinite; }
-@keyframes chatMicPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
+.chat-panel-input button svg { transform: translateX(-1px); } /* optically centers the paper-plane icon */
 
 .chat-typing { font-size: 0.85rem; color: var(--slate); align-self: flex-start; font-style: italic; }
 
@@ -1586,11 +1580,6 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   transition: color 0.15s ease;
 }
 .bottom-nav-item:hover, .bottom-nav-item:active { color: var(--accent-600); }
-/* Explicit transparent background on the City button's own label text —
-   in case any city name (once selected, replacing the default "City"
-   text) ever looked like it had a background from something else on
-   the page showing through oddly. */
-#bottomNavCityBtn span { background: transparent; }
 .bottom-nav-cart-wrap { position: relative; }
 .bottom-nav-badge {
   position: absolute;
@@ -1743,30 +1732,6 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .bottom-sheet::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
 .bottom-sheet::-webkit-scrollbar-thumb:hover { background: var(--slate); }
 .bottom-sheet-backdrop.open .bottom-sheet { transform: translateY(0); }
-/* Smaller variant — for short lists like the City picker, so it doesn't
-   take up most of the screen for just 3-4 items. Sits closer to the
-   bottom nav it's opened from instead of stretching toward the middle
-   of the screen. */
-.bottom-sheet-compact { max-height: 50vh; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
-/* City picker specifically (per request): a small popover anchored just
-   above the City button itself, instead of a full-width bottom sheet.
-   Position (left/bottom) is set dynamically in JS from the button's own
-   actual location — see openCityPickerPopover() in main.js — so it
-   lines up correctly on any screen size and for both the mobile
-   bottom-nav button and the desktop header button. */
-.city-picker-popover {
-  position: fixed;
-  width: 180px;
-  max-height: 60vh;
-  overflow-y: auto;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 8px 28px rgba(15,42,67,0.22);
-  padding: 6px 0;
-  z-index: 220;
-  display: none;
-}
-.city-picker-popover.open { display: block; }
 .bottom-sheet-handle { width: 40px; height: 4px; background: var(--line); border-radius: 999px; margin: 0 auto 14px; }
 .bottom-sheet h3 { font-size: 1.05rem; margin-bottom: 8px; }
 .bottom-sheet-option {
@@ -1787,16 +1752,23 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .bottom-sheet-option:last-child { border-bottom: none; }
 .bottom-sheet-icon { font-size: 1.3rem; width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .bottom-sheet-city-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  /* BUG FIX: smaller minimum column width so more cities fit per row —
+     with the site's current 8 cities, this fits them all in 2 short rows
+     (4 per row) instead of 3 rows (3 per row), which mostly avoids ever
+     needing to scroll for a city list this size in the first place.
+     Also removed this grid's own separate max-height/scroll — nesting a
+     second scrollable area inside the already-scrollable .bottom-sheet
+     was creating confusing, easy-to-miss double-scroll behavior; there's
+     just the one, obvious scroll on the sheet itself now. */
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
   padding-bottom: 8px;
 }
-.bottom-sheet-city-grid a { display: block; text-align: left; padding: 14px 16px; background: none; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); font-weight: 400; font-size: 0.95rem; }
-.bottom-sheet-city-grid a:hover { background: none; }
-.bottom-sheet-city-btn { display: block; width: 100%; text-align: left; padding: 14px 16px; background: none; border: none; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 400; font-size: 0.95rem; font-family: var(--font-body); cursor: pointer; }
-.bottom-sheet-city-btn:hover { background: none; }
-.bottom-sheet-city-btn:last-child, .bottom-sheet-city-grid a:last-child { border-bottom: none; }
+.bottom-sheet-city-grid a { display: block; text-align: center; padding: 12px 8px; background: var(--mist); border-radius: 12px; text-decoration: none; color: var(--ink); font-weight: 600; font-size: 0.85rem; }
+.bottom-sheet-city-grid a:hover { background: var(--accent-100, #dbeafe); }
+.bottom-sheet-city-btn { display: block; width: 100%; text-align: center; padding: 12px 8px; background: var(--mist); border: none; border-radius: 12px; color: var(--ink); font-weight: 600; font-size: 0.85rem; font-family: var(--font-body); cursor: pointer; }
+.bottom-sheet-city-btn:hover { background: var(--accent-100, #dbeafe); }
 
 /* Room at the bottom of every page so the fixed bar never covers the
    last bit of content, on any screen size (this bar is no longer

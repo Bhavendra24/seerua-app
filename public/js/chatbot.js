@@ -16,7 +16,7 @@
 (function () {
   const WHATSAPP_URL = 'https://wa.me/919389585479';
   const PHONE_TEL = 'tel:+919389585479';
-  const ASSISTANT_NAME = 'Tia';
+  const ASSISTANT_NAME = 'Bella';
 
   let citiesCache = null;
   let appliancesCache = null; // full, unfiltered list
@@ -212,94 +212,7 @@
     const msg = el('div', 'chat-msg bot', html);
     body.appendChild(msg);
     scrollToBottom();
-    if (voiceEnabled) speakText(msg.textContent);
     return msg;
-  }
-
-  // Text-to-voice for Bella's replies (per request) — off by default (an
-  // AI chat suddenly talking without being asked is jarring), toggled via
-  // the speaker button in the chat header, remembered for the session so
-  // it doesn't reset every time the panel's closed and reopened.
-  let voiceEnabled = sessionStorage.getItem('bellaVoiceEnabled') === 'true';
-  let hindiVoice = null;
-  if ('speechSynthesis' in window) {
-    const pickHindiVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-      hindiVoice = voices.find(v => v.lang === 'hi-IN') || voices.find(v => v.lang && v.lang.startsWith('hi')) || null;
-    };
-    pickHindiVoice();
-    // Voice list loads asynchronously on first page visit in most
-    // browsers — this fires once it's actually populated.
-    window.speechSynthesis.onvoiceschanged = pickHindiVoice;
-  }
-  function speakText(text) {
-    if (!('speechSynthesis' in window) || !text) return;
-    window.speechSynthesis.cancel(); // don't let replies queue up and speak on top of each other
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = hindiVoice ? hindiVoice.lang : 'hi-IN';
-    if (hindiVoice) utterance.voice = hindiVoice;
-    utterance.rate = 1;
-    window.speechSynthesis.speak(utterance);
-  }
-  // Voice INPUT (per request, in addition to voice replies above) —
-  // speech-to-text via the browser's SpeechRecognition API so the
-  // customer can speak their message instead of typing it. Hidden
-  // entirely if the browser doesn't support it at all (older/less common
-  // mobile browsers), rather than showing a mic button that does nothing.
-  function wireMicButton() {
-    const micBtn = document.getElementById('chatMicBtn');
-    const input = document.getElementById('chatMainInput');
-    if (!micBtn || !input) return;
-    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognitionCtor) {
-      micBtn.style.display = 'none';
-      return;
-    }
-    const recognition = new SpeechRecognitionCtor();
-    recognition.lang = 'hi-IN';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    let listening = false;
-    recognition.addEventListener('result', (e) => {
-      const transcript = e.results && e.results[0] && e.results[0][0] && e.results[0][0].transcript;
-      if (transcript) input.value = transcript;
-      input.focus();
-    });
-    const stopListeningUi = () => {
-      listening = false;
-      micBtn.classList.remove('listening');
-    };
-    recognition.addEventListener('end', stopListeningUi);
-    recognition.addEventListener('error', stopListeningUi);
-    micBtn.addEventListener('click', () => {
-      if (listening) {
-        recognition.stop();
-        return;
-      }
-      // Stop Bella's own voice reply first — trying to listen while she's
-      // still talking would just pick up her own voice as the "input".
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-      listening = true;
-      micBtn.classList.add('listening');
-      try {
-        recognition.start();
-      } catch (e) {
-        stopListeningUi(); // already running, or genuinely unavailable right now
-      }
-    });
-  }
-
-  function wireVoiceToggle() {
-    const btn = document.getElementById('chatVoiceBtn');
-    if (!btn) return;
-    const updateIcon = () => { btn.textContent = voiceEnabled ? '🔊' : '🔇'; };
-    updateIcon();
-    btn.addEventListener('click', () => {
-      voiceEnabled = !voiceEnabled;
-      sessionStorage.setItem('bellaVoiceEnabled', String(voiceEnabled));
-      updateIcon();
-      if (!voiceEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
-    });
   }
 
   function addUserMessage(text) {
@@ -598,13 +511,7 @@
     try {
       await fetchJSON(`/api/price?cityId=${city.id}&applianceId=${appliance.id}&typeId=${type.id}`);
     } catch (e) {
-      // DEFENSIVE FIX: falls back to a generic message instead of ever
-      // showing a literal "undefined" if either name is somehow
-      // missing/empty on the matched object.
-      const unavailableMsg = (appliance.name && type.name && city.name)
-        ? `Maaf kijiye, <strong>${escapeHtml(appliance.name)} — ${escapeHtml(type.name)}</strong> abhi <strong>${escapeHtml(city.name)}</strong> mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`
-        : 'Maaf kijiye, ye service abhi aapke shahar mein available nahi hai. Hum jald hi shuru karenge!';
-      addBotMessage(unavailableMsg);
+      addBotMessage(`Maaf kijiye, <strong>${escapeHtml(appliance.name)} — ${escapeHtml(type.name)}</strong> abhi <strong>${escapeHtml(city.name)}</strong> mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`);
       addQuickReplies([{ label: '🛒 Kisi aur city/appliance ke liye try karein', onClick: startBookFlow }]);
       return;
     }
@@ -838,25 +745,17 @@
       <div class="chat-panel" id="chatPanel">
         <div class="chat-panel-head">
           <div><strong>${ASSISTANT_NAME}</strong><span class="chat-sub">Seerua AI Assistant · Usually replies instantly</span></div>
-          <div class="chat-panel-head-actions">
-            <button class="chat-voice-btn" id="chatVoiceBtn" type="button" aria-label="Toggle voice replies" title="Bella ke jawab bolke sunein">🔇</button>
-            <button class="chat-close-btn" id="chatCloseBtn" aria-label="Close chat" type="button">✕</button>
-          </div>
+          <button class="chat-close-btn" id="chatCloseBtn" aria-label="Close chat" type="button">✕</button>
         </div>
         <div class="chat-panel-body" id="chatPanelBody"></div>
         <div class="chat-panel-input">
           <input type="text" id="chatMainInput" maxlength="500" placeholder="Apna sawaal ya booking likhein..." autocomplete="off">
-          <button id="chatMicBtn" type="button" aria-label="Bolkar type karein" title="Bolkar type karein">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-          </button>
           <button id="chatMainSendBtn" type="button" aria-label="Send message">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>
         </div>
       </div>
     `;
-    wireMicButton();
-    wireVoiceToggle();
     wireInputBar();
     document.getElementById('chatCloseBtn').addEventListener('click', closeChatPanel);
     // Exposed so the bottom-nav Support sheet can open/close this panel.

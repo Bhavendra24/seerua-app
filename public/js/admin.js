@@ -834,11 +834,8 @@ async function openAssign(bookingId, itemId) {
         const overallText = t.avgRating ? `, overall ⭐${t.avgRating}` : '';
         const expText = `${t.experienceYears || 0} yr${t.experienceYears === 1 ? '' : 's'} exp.`;
         const liveText = t.isOnline ? ', 🟢 online now' : '';
-        const dayStatsText = t.jobsOnDate > 0
-          ? ` · Today: ${t.jobsOnDate} booking${t.jobsOnDate === 1 ? '' : 's'} (${t.jobsOnDateCompleted} done, ${t.jobsOnDatePending} pending)`
-          : ' · Today: no bookings yet';
         const capacityText = t.atCapacity ? ` — ⚠️ at daily limit (${t.jobsOnDate}/${t.dailyLimit} jobs on ${booking.bookingDate || 'this date'})` : '';
-        return `<option value="${t.id}">${t.name} — ${apRatingText}${overallText}, ${expText}${liveText}${dayStatsText}${capacityText}</option>`;
+        return `<option value="${t.id}">${t.name} — ${apRatingText}${overallText}, ${expText}${liveText}${capacityText}</option>`;
       }).join('');
       sel.disabled = false;
       confirmBtn.disabled = false;
@@ -3174,7 +3171,7 @@ document.getElementById('saveAiInstructionsBtn').addEventListener('click', async
       body: JSON.stringify({ instructions: document.getElementById('aiInstructionsInput').value })
     });
     msg.className = 'msg-inline success';
-    msg.textContent = 'Saved! Tia will follow this starting with the next message.';
+    msg.textContent = 'Saved! Bella will follow this starting with the next message.';
     setTimeout(() => { if (msg.textContent.startsWith('Saved!')) msg.textContent = ''; }, 3500);
   } catch (err) {
     msg.className = 'msg-inline error';
