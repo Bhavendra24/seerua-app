@@ -5033,7 +5033,6 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
       .split('{{CITY_NAME}}').join(city.name)
       .split('{{CITY_APPLIANCE_LIST}}').join(cityApplianceListText)
       .split('{{CITY_ID}}').join(city.id)
-      .split('{{FIRST_APPLIANCE_ID}}').join(appliances[0] ? appliances[0].id : '')
       .split('{{CITY_SLUG}}').join(slugify(city.name))
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{PRICING_ROWS_HTML}}').join(pricingRowsHtml || '<tr><td colspan="4">Pricing coming soon for this city.</td></tr>')
