@@ -3398,6 +3398,7 @@ function bindQuickBookModal() {
     document.getElementById('fServiceType').value = qbServiceType;
     document.getElementById('fQty').value = 1;
     document.getElementById('fPhone').value = phone;
+    const cartLengthBefore = cartItems.length;
     await addItemToCart();
     const addMsg = document.getElementById('addItemMsg');
     if (addMsg && addMsg.className.includes('error')) {
@@ -3418,6 +3419,20 @@ function bindQuickBookModal() {
     if (addMsg && addMsg.className.includes('notice')) {
       msg.className = 'form-msg notice';
       msg.textContent = addMsg.textContent;
+      return false;
+    }
+    // BUG FIX: the city-mismatch check inside addItemToCart() (a saved
+    // account's city differing from what's currently being booked) opens
+    // its OWN separate modal and does a bare `return` — setting neither
+    // the 'error' nor 'notice' class checked above. That meant THIS
+    // function still fell through to `return true`, and the caller (see
+    // qbAddBtn's own handler right below) showed a "✅ Added to your
+    // cart!" success toast — while the mismatch modal was still open in
+    // the background and NOTHING had actually been added. Checking
+    // whether cartItems' length genuinely grew is a definitive,
+    // mechanism-agnostic way to catch this (and any other future path
+    // that blocks the add without setting one of those two classes).
+    if (cartItems.length <= cartLengthBefore) {
       return false;
     }
     return true;
