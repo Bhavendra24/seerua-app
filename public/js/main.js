@@ -16,29 +16,10 @@
 let agIntent = null; // 'booking' | 'account' | 'quickbook'
 let agPendingApplianceId = null;
 let agEditMode = false;
-// See the comment where this gets set to true (City picker's click
-// handler) — tells applyAccountToBookingFields() not to silently
-// overwrite a deliberately-browsed different city back to the account's
-// saved one.
-let cityBrowsedManually = false;
-// Separate from cityBrowsedManually above (which resets whenever the
-// cart empties out — fine for that flag's own City-picker-mismatch use
-// case, but wrong here): once a city arrives via ?city=X in the URL
-// (a City page's own link), it should stick around as the deliberate
-// choice for this ENTIRE visit, not just until the cart happens to
-// empty out at some unrelated point.
-let cityFromUrlParam = false;
-// Set true right before sending someone to Edit Profile from the
-// "please update your city" warning — tells the save-success handler
-// above to automatically finish the booking they were originally
-// trying to make, instead of leaving them to notice and retry it
-// themselves after fixing exactly what was asked.
-let pendingCityFixRetry = false;
-// Same idea as pendingCityFixRetry, for Quick Book's own account-gate
-// pause (see qbDoAdd()) — remembers whether "Add" or "Book Now" was the
-// one being attempted, so it can resume automatically once the phone+
-// OTP step completes, instead of leaving the customer to notice and
-// press it again themselves.
+// Remembers whether "Add" or "Book Now" was the one being attempted
+// when Quick Book paused for phone+OTP (see qbDoAdd()) — resumes
+// automatically once that completes, instead of leaving the customer
+// to notice and press it again themselves.
 let qbPendingRetryAction = null; // 'add' | 'book' | null
 // BUG FIX: the per-service-card Add/Book buttons (qbAddService(), used by
 // AC's Window/Split/Cassette service list) had their own separate
@@ -167,15 +148,6 @@ document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async 
   const cityEl = document.getElementById('fCity');
   if (cityEl) {
     cityEl.value = cityId;
-    // BUG FIX: applyAccountToBookingFields() used to unconditionally
-    // reset #fCity back to the SAVED account's city every time it ran
-    // (e.g. simply opening the booking form again after this) — so
-    // browsing a different city here, then opening/reopening the
-    // booking form, silently wiped out this exact selection before the
-    // city-mismatch check ever got a chance to see it. This flag tells
-    // that function "someone deliberately browsed a different city in
-    // this session — don't overwrite it".
-    cityBrowsedManually = true;
     if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
   }
   closeCityPickerPopover();
@@ -525,14 +497,6 @@ async function init() {
     // the generic word "City" on that button, with no visible
     // confirmation their city was picked up at all.
     if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(urlCityId);
-    // BUG FIX: a returning customer with a saved account (from an
-    // EARLIER, different city) would have this exact ?city=X selection
-    // silently overwritten the moment they tapped any appliance's Book
-    // Now — openQuickBookModal() calls applyAccountToBookingFields(),
-    // which resets #fCity back to the account's own saved city unless
-    // told otherwise. Same flag the City picker already sets for
-    // exactly this reason.
-    cityFromUrlParam = true;
   }
   if (urlApplianceId && APPLIANCES.some(a => a.id === urlApplianceId)) {
     document.getElementById('fAppliance').value = urlApplianceId;
@@ -1148,25 +1112,20 @@ function renderCart() {
     if (phoneLockNote) phoneLockNote.style.display = shouldLock ? 'block' : 'none';
     if (!shouldLock) cartPhoneNumber = null; // cart's empty again — free to start over with any number
   }
-  // Same lock, for the same reason, on City — see cartCityId's comment
-  // above for what goes wrong without this. BUG FIX: this used to
-  // unconditionally UNLOCK the field again once the cart emptied out —
-  // which also undid the separate, persistent lock applied in
-  // applyAccountToBookingFields() for a returning customer's saved
-  // city, re-opening the exact mismatch risk that lock exists to
-  // prevent. Now only touches the field if there's no saved account
-  // locking it for an unrelated reason.
+  // Same lock, for the same reason, on City: items already in the cart
+  // were priced for whichever city was active when each was added, so
+  // switching cities mid-cart would leave them silently charging the
+  // OLD city's rates under the NEW city's name. Locks the field while
+  // the cart has anything in it, regardless of account status — City
+  // isn't tied to the account anymore (see applyAccountToBookingFields),
+  // so there's no separate account-level lock to defer to here either.
   const cityField = document.getElementById('fCity');
-  if (cityField && quickBookViewStartIndex === null && !getAccount()) {
+  if (cityField && quickBookViewStartIndex === null) {
     const shouldLockCity = cartItems.length > 0;
     cityField.disabled = shouldLockCity;
     cityField.style.background = shouldLockCity ? 'var(--mist)' : '';
     if (!shouldLockCity) cartCityId = null; // cart's empty again — free to start over with any city
   }
-  // Once the cart's genuinely empty again, this one-off "browsed a
-  // different city than my account" episode is over — back to normal
-  // auto-sync behavior for whatever comes next.
-  if (cartItems.length === 0) cityBrowsedManually = false;
   // Clear, visible confirmation that this is an isolated "just this one
   // item" checkout — so it's obvious nothing else from the regular cart
   // is quietly being bundled into this booking.
@@ -1341,25 +1300,7 @@ function clearPendingPhoto() {
 
 let addingItem = false;
 
-// Shown when a saved account's home city differs from whatever the page
-// is currently browsing (via the City picker) — see the check in
-// addItemToCart(). Simple, blocking message: booking must match the
-// city on file, so the only way forward is updating the profile.
-function showCityMismatchChoice(browsedCityId, acc) {
-  const browsedCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === browsedCityId) : null;
-  const accountCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === acc.cityId) : null;
-  if (!browsedCity || !accountCity) return;
-  document.getElementById('cityMismatchText').textContent =
-    `Your profile city is ${accountCity.name}. You are trying to book in ${browsedCity.name}. Please change your city in your profile to book in ${browsedCity.name}.`;
-  document.getElementById('cityMismatchEditBtn').onclick = () => {
-    document.getElementById('cityMismatchModal').classList.remove('open');
-    pendingCityFixRetry = true;
-    openEditProfile();
-  };
-  document.getElementById('cityMismatchModal').classList.add('open');
-}
-
-async function addItemToCart(skipCityCheck) {
+async function addItemToCart() {
   if (addingItem) return; // already processing a click — ignore extra clicks (prevents double-adds from a fast double tap on mobile)
   // Uses its own message box right under the "+ Add to Booking" button —
   // not the form's #formMsg way down near Submit, which used to leave
@@ -1382,17 +1323,6 @@ async function addItemToCart(skipCityCheck) {
   if (!cityId) {
     msg.className = 'form-msg error';
     msg.textContent = 'Please select your city first.';
-    return;
-  }
-  // A saved account has its own "home" city — if the page is currently
-  // showing a DIFFERENT city's prices (someone free to browse via the
-  // City picker at any time, account or not), pause here and let them
-  // choose explicitly, rather than silently either mixing prices from
-  // two different cities into one booking, or blocking city-browsing
-  // outright for anyone with an account.
-  const accForCityCheck = getAccount();
-  if (!skipCityCheck && accForCityCheck && accForCityCheck.cityId && accForCityCheck.cityId !== cityId) {
-    showCityMismatchChoice(cityId, accForCityCheck);
     return;
   }
   if (!applianceId || !typeId) {
@@ -2695,21 +2625,18 @@ function applyAccountToBookingFields(acc) {
   if (phoneEl) phoneEl.value = acc.phone;
   if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
   if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
-  if (cityEl && acc.cityId && cityEl.value !== acc.cityId && !cityBrowsedManually && !cityFromUrlParam) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
-  // Locked to match Name/Address just above — was left as a fully open
-  // dropdown even for a returning customer with a saved city, which
-  // looked inconsistent ("why can I still change just this one thing?")
-  // and was an easy way to accidentally cause the exact price/technician
-  // mismatch bugs fixed earlier. "Edit Address" (renamed below) already
-  // covers changing city too, via the same Account Gate step.
-  if (cityEl) { cityEl.disabled = true; cityEl.style.background = 'var(--mist)'; }
-  // BUG FIX: this used to always show the ACCOUNT's own city here
-  // regardless of what #fCity actually ended up holding — harmless
-  // normally (they're usually the same value), but wrong the moment
-  // cityBrowsedManually/cityFromUrlParam above correctly kept a
-  // DIFFERENT city in #fCity. The label was quietly lying about which
-  // city the booking was actually going to use. Reads #fCity's real,
-  // current value instead of assuming it matches the account.
+  // SIMPLIFIED (per explicit request): City is no longer locked to the
+  // account, or cross-checked against it at all — Name/Address/Phone
+  // are the same everywhere, but City is a per-booking choice, since a
+  // customer can legitimately book different cities across visits (a
+  // different address, a relative's place, browsing a City SEO page,
+  // etc.). Only pre-fills #fCity as a convenience default when it's
+  // currently empty — never overwrites a choice already sitting there,
+  // and never disables the field. This replaces the old
+  // cityBrowsedManually/cityFromUrlParam flag pair and the whole
+  // city-mismatch modal entirely — nothing left to protect a selection
+  // from being overridden, since nothing overrides it anymore.
+  if (cityEl && acc.cityId && !cityEl.value) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
   if (cityEl && cityEl.value && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityEl.value);
   const editBtn = document.getElementById('editAddressBtn');
   if (editBtn) editBtn.style.display = 'inline-block';
@@ -2748,9 +2675,9 @@ function openAccountGate(intent, applianceId) {
 
 function closeAccountGate() {
   document.getElementById('accountGateModal').classList.remove('open');
-  // If they cancelled out of Edit Profile instead of saving, don't leave
-  // this armed for some unrelated future save to accidentally trigger.
-  pendingCityFixRetry = false;
+  // If they cancelled instead of completing whatever this was for, don't
+  // leave these armed for some unrelated future save to accidentally
+  // trigger.
   qbPendingRetryAction = null;
   qbPendingServiceAction = null;
 }
@@ -2944,20 +2871,8 @@ function bindAccountGateModal() {
       const acc = { phone, name, address, cityId, accessToken: verifiedBookingAccessToken };
       saveAccount(acc);
       if (agEditMode) {
-        const shouldRetryCityFix = pendingCityFixRetry; // read before closeAccountGate() clears it
         closeAccountGate();
-        cityBrowsedManually = false; // profile now genuinely says this city — resume normal auto-sync
-        cityFromUrlParam = false;
         applyAccountToBookingFields(acc);
-        // If this edit was triggered by the "please update your city"
-        // warning (see showCityMismatchChoice), automatically finish
-        // the booking they were originally trying to make — they
-        // shouldn't have to notice and re-tap "Add to Booking" a second
-        // time after fixing exactly what it asked them to fix.
-        if (shouldRetryCityFix) {
-          pendingCityFixRetry = false;
-          addItemToCart(true);
-        }
       } else {
         proceedAfterAccountGate(acc);
       }
