@@ -4999,9 +4999,7 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
 
     const servicesGridHtml = appliances.map(a => `
       <div class="service-card">
-        ${a.photoUrl
-          ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${escapeHtml(a.name)} service technician at work" loading="lazy"`)
-          : `<div class="service-icon">${ICON_LABELS[a.icon] || '🔧'}</div>`}
+        <div class="service-icon">${ICON_LABELS[a.icon] || '🔧'}</div>
         <h3><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" style="color:inherit;text-decoration:none;">${a.name} Service in ${city.name}</a></h3>
         <p>Repair and regular service available in ${city.name}.</p>
         <div class="service-types">${a.types.map(t => `<span>${t.name}</span>`).join('')}</div>
