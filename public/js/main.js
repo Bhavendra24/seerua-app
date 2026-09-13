@@ -21,6 +21,13 @@ let agEditMode = false;
 // overwrite a deliberately-browsed different city back to the account's
 // saved one.
 let cityBrowsedManually = false;
+// Separate from cityBrowsedManually above (which resets whenever the
+// cart empties out — fine for that flag's own City-picker-mismatch use
+// case, but wrong here): once a city arrives via ?city=X in the URL
+// (a City page's own link), it should stick around as the deliberate
+// choice for this ENTIRE visit, not just until the cart happens to
+// empty out at some unrelated point.
+let cityFromUrlParam = false;
 // Set true right before sending someone to Edit Profile from the
 // "please update your city" warning — tells the save-success handler
 // above to automatically finish the booking they were originally
@@ -518,6 +525,14 @@ async function init() {
     // the generic word "City" on that button, with no visible
     // confirmation their city was picked up at all.
     if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(urlCityId);
+    // BUG FIX: a returning customer with a saved account (from an
+    // EARLIER, different city) would have this exact ?city=X selection
+    // silently overwritten the moment they tapped any appliance's Book
+    // Now — openQuickBookModal() calls applyAccountToBookingFields(),
+    // which resets #fCity back to the account's own saved city unless
+    // told otherwise. Same flag the City picker already sets for
+    // exactly this reason.
+    cityFromUrlParam = true;
   }
   if (urlApplianceId && APPLIANCES.some(a => a.id === urlApplianceId)) {
     document.getElementById('fAppliance').value = urlApplianceId;
@@ -2680,7 +2695,7 @@ function applyAccountToBookingFields(acc) {
   if (phoneEl) phoneEl.value = acc.phone;
   if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
   if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
-  if (cityEl && acc.cityId && cityEl.value !== acc.cityId && !cityBrowsedManually) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
+  if (cityEl && acc.cityId && cityEl.value !== acc.cityId && !cityBrowsedManually && !cityFromUrlParam) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
   // Locked to match Name/Address just above — was left as a fully open
   // dropdown even for a returning customer with a saved city, which
   // looked inconsistent ("why can I still change just this one thing?")
@@ -2688,7 +2703,14 @@ function applyAccountToBookingFields(acc) {
   // mismatch bugs fixed earlier. "Edit Address" (renamed below) already
   // covers changing city too, via the same Account Gate step.
   if (cityEl) { cityEl.disabled = true; cityEl.style.background = 'var(--mist)'; }
-  if (acc.cityId && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(acc.cityId);
+  // BUG FIX: this used to always show the ACCOUNT's own city here
+  // regardless of what #fCity actually ended up holding — harmless
+  // normally (they're usually the same value), but wrong the moment
+  // cityBrowsedManually/cityFromUrlParam above correctly kept a
+  // DIFFERENT city in #fCity. The label was quietly lying about which
+  // city the booking was actually going to use. Reads #fCity's real,
+  // current value instead of assuming it matches the account.
+  if (cityEl && cityEl.value && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityEl.value);
   const editBtn = document.getElementById('editAddressBtn');
   if (editBtn) editBtn.style.display = 'inline-block';
   verifiedBookingPhone = acc.phone;
@@ -2927,6 +2949,7 @@ function bindAccountGateModal() {
         const shouldRetryCityFix = pendingCityFixRetry; // read before closeAccountGate() clears it
         closeAccountGate();
         cityBrowsedManually = false; // profile now genuinely says this city — resume normal auto-sync
+        cityFromUrlParam = false;
         applyAccountToBookingFields(acc);
         // If this edit was triggered by the "please update your city"
         // warning (see showCityMismatchChoice), automatically finish
