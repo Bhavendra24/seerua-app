@@ -2821,7 +2821,6 @@ function bindAccountGateModal() {
       return;
     }
     agSending = true;
-    phoneField.disabled = true;
     msg.className = 'form-msg';
     msg.textContent = '';
     try {
@@ -2894,7 +2893,6 @@ function bindAccountGateModal() {
       msg.textContent = err.message || 'OTP verification failed. Please try again.';
     } finally {
       agSending = false;
-      phoneField.disabled = false;
     }
   }
   // BEHAVIOR CHANGE (per explicit request): auto-sends the moment 10
