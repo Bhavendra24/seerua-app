@@ -347,9 +347,12 @@
              visual pattern (no platform fee, per explicit request). -->
         <div class="payment-summary-card" id="paymentSummaryCard" style="display:none;">
           <h4>Payment Summary</h4>
-          <div class="payment-summary-row"><span>Item Total</span><span id="paymentSummaryItemTotal">₹0</span></div>
-          <div class="payment-summary-row"><span>Taxes &amp; Fee</span><span>₹0</span></div>
-          <div class="payment-summary-row payment-summary-total"><span>Total Amount</span><span id="paymentSummaryTotal">₹0</span></div>
+          <div class="payment-summary-row"><span>Total Amount</span><span id="paymentSummaryItemTotal">₹0</span></div>
+          <div class="payment-summary-row" id="paymentSummaryDiscountRow" style="display:none;"><span>Discount</span><span id="paymentSummaryDiscountPct" style="color:#16a34a;">0%</span></div>
+          <div class="payment-summary-row"><span>Taxes and Fee</span><span id="paymentSummaryTaxes">₹0</span></div>
+          <div class="payment-summary-row" id="paymentSummarySavedRow" style="display:none;"><span>Saved</span><span id="paymentSummarySaved" style="color:#16a34a;">₹0</span></div>
+          <div class="payment-summary-row payment-summary-total"><span>Grand Total</span><span id="paymentSummaryTotal">₹0</span></div>
+          <p style="font-size:0.76rem;color:var(--slate);margin:8px 0 0;">(Inc. Taxes &amp; Other Charges)</p>
         </div>
 
         <div class="coupon-row" id="couponRow" style="display:none;">
@@ -386,27 +389,21 @@
         </div>
 
         <div class="field">
-          <label for="fDateDisplay">Preferred Date *</label>
-          <!-- FLOW CHANGE / BUG FIX: replaced the native <input
-               type="date"> with our own calendar popup — the native
-               Android calendar has a real, reported bug where tapping
-               "today" specifically registers no tap at all (every other
-               date works), and since that picker is rendered entirely
-               by the OS outside this page, there's no way to fix that
-               bug from here. Our own calendar (#dateCalendarModal)
-               fully replaces it, so every date — including today —
-               behaves identically. #fDate stays as a hidden input
-               holding the real YYYY-MM-DD value everything else in
-               main.js already reads from. -->
-          <input type="text" id="fDateDisplay" readonly placeholder="Tap to select a date" style="cursor:pointer;background:#fff;">
+          <label for="dtTriggerBtn">Date &amp; Time *</label>
+          <!-- FLOW CHANGE: date + time slot are now chosen together in one
+               popup (#dateTimeModal, Jay Home Services style: quick date
+               pills + a "Pick" calendar, then time slots grouped under
+               Morning/Afternoon/Evening) instead of two separate inline
+               fields. #fDate and #fDateDisplay stay as hidden fields
+               holding the same values everything else in main.js already
+               reads/writes — see openDateTimeModal()/refreshSlots() in
+               main.js. -->
+          <button type="button" id="dtTriggerBtn" class="dt-trigger-btn">
+            <span id="dtTriggerText">📅 Select Date &amp; Time</span>
+            <span class="dt-trigger-arrow">›</span>
+          </button>
+          <input type="text" id="fDateDisplay" style="display:none;" aria-hidden="true">
           <input type="hidden" id="fDate" required>
-        </div>
-
-        <div class="field">
-          <label>Preferred Time Slot *</label>
-          <div class="slot-picker" id="slotPicker">
-            <p style="font-size:0.82rem;color:var(--slate);margin:0;">Select city, appliance and date above to see available slots.</p>
-          </div>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block" id="submitBookingBtn" data-i18n="booking.submitBtn">Submit</button>
@@ -420,14 +417,15 @@
            (booking ID, total, visit time), not a dense text paragraph. -->
       <div id="bookingSuccessView" style="display:none;text-align:center;padding:20px 0;">
         <div class="success-check-circle">✓</div>
-        <h3 style="margin:18px 0 6px;">Booking Confirmed!</h3>
-        <p style="color:var(--slate);font-size:0.92rem;margin-bottom:22px;">A technician will arrive at your scheduled time.</p>
+        <h3 style="margin:18px 0 6px;color:#16a34a;">Thank you for booking!</h3>
         <div class="success-detail-card">
           <div class="success-detail-row"><span>Booking ID</span><strong id="successBookingId"></strong></div>
-          <div class="success-detail-row"><span>Total</span><strong id="successTotal"></strong></div>
-          <div class="success-detail-row"><span>Visit</span><strong id="successVisit"></strong></div>
+          <div class="success-detail-row"><span>Service</span><strong id="successService"></strong></div>
+          <div class="success-detail-row"><span>Date &amp; Time</span><strong id="successVisit"></strong></div>
+          <div class="success-detail-row"><span>Service Charge</span><strong id="successTotal"></strong></div>
         </div>
-        <button type="button" class="btn btn-primary btn-block" style="margin-top:20px;" onclick="closeBookingForm()">Done</button>
+        <p class="success-redirect-note" id="successRedirectNote" style="margin-top:16px;color:var(--slate);font-size:0.85rem;">Redirecting automatically in <strong id="successRedirectSeconds">5</strong> seconds…</p>
+        <button type="button" class="btn btn-primary btn-block" style="margin-top:14px;" onclick="closeBookingForm()">Continue Shopping</button>
       </div>
     </div>
   </div>
@@ -870,6 +868,73 @@
   </div>
 </div>
 
+<!-- SELECT DATE & TIME — Jay Home Services style: quick date pills
+     (Today / Tomorrow / day-after) plus a "Pick" button for anything
+     further out (reuses #dateCalendarModal above), then time slots
+     grouped under Morning/Afternoon/Evening headings. See
+     openDateTimeModal()/renderDtSlotGroups() in main.js. -->
+<div class="modal-backdrop" id="dateTimeModal">
+  <div class="modal" style="max-width:460px;">
+    <button type="button" class="modal-close" id="dateTimeModalClose" aria-label="Close">✕</button>
+    <h3>Select Date &amp; Time</h3>
+
+    <p class="dt-modal-label">Select Date</p>
+    <div class="dt-date-pills">
+      <button type="button" class="dt-pill" id="dtPill0"><span class="dt-pill-day"></span><span class="dt-pill-date"></span></button>
+      <button type="button" class="dt-pill" id="dtPill1"><span class="dt-pill-day"></span><span class="dt-pill-date"></span></button>
+      <button type="button" class="dt-pill" id="dtPill2"><span class="dt-pill-day"></span><span class="dt-pill-date"></span></button>
+      <button type="button" class="dt-pill dt-pill-pick" id="dtPillPick"><span class="dt-pill-icon">📅</span><span class="dt-pill-date">Pick</span></button>
+    </div>
+
+    <p class="dt-modal-label" style="margin-top:20px;">Select Time Slot</p>
+    <div id="dtSlotGroups">
+      <p style="font-size:0.82rem;color:var(--slate);margin:0;">Select a city and date above to see available slots.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SELECT ADDRESS + ADD NEW ADDRESS — Jay Home Services style flow.
+     Saved addresses are kept per phone number in localStorage (see
+     main.js) since there's no server-side multi-address table; the
+     final chosen address string still lands in the same hidden
+     #agAddress / #agEditAddress fields the rest of the booking logic
+     already reads, so nothing downstream had to change. -->
+<div class="modal-backdrop" id="selectAddressModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="selectAddressModalClose" aria-label="Close">✕</button>
+    <h3>Select Address</h3>
+    <div id="savedAddressList" style="margin-bottom:14px;"></div>
+    <button type="button" class="btn btn-outline btn-block address-add-new-btn" id="addNewAddressBtn">+ Add New Address</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addAddressModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="addAddressModalClose" aria-label="Close">✕</button>
+    <h3>Add New Address</h3>
+    <button type="button" class="btn btn-primary btn-block" id="useCurrentLocationBtn" style="margin-bottom:6px;">📍 Use Current Location</button>
+    <p class="form-msg" id="addAddressLocationMsg" style="margin-bottom:12px;"></p>
+    <div class="field">
+      <label for="naHouseNo">House/Flat/Block No *</label>
+      <input type="text" id="naHouseNo" placeholder="e.g. B-204, Green Apartments">
+    </div>
+    <div class="field">
+      <label for="naLandmark">Landmark / Society name *</label>
+      <input type="text" id="naLandmark" placeholder="e.g. Near City Mall">
+    </div>
+    <div class="field">
+      <label>Save as *</label>
+      <div class="save-as-pills">
+        <button type="button" class="save-as-pill" data-val="Home">🏠 Home</button>
+        <button type="button" class="save-as-pill" data-val="Work">💼 Work</button>
+        <button type="button" class="save-as-pill" data-val="Other">📍 Other</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="saveNewAddressBtn">Save Address</button>
+    <div class="form-msg" id="addAddressMsg"></div>
+  </div>
+</div>
+
 <!-- TRACK BOOKING MODAL — its own popup box (per explicit request), not a
      permanent section left sitting open on the page. Opened from the
      header account menu's "Track Booking"; closing it (✕, tapping
@@ -916,8 +981,12 @@
         <input type="tel" id="agPhone" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
       </div>
       <div class="field">
-        <label for="agAddress">Full Address *</label>
-        <textarea id="agAddress" rows="2" placeholder="House no., street, landmark, pincode"></textarea>
+        <label>Address *</label>
+        <button type="button" class="address-select-btn" id="agAddressSelectBtn">
+          <span id="agAddressPreview">📍 Select Address</span>
+          <span class="address-select-arrow">›</span>
+        </button>
+        <textarea id="agAddress" rows="2" style="display:none;" aria-hidden="true"></textarea>
       </div>
       <button type="button" class="btn btn-primary btn-block" id="agSendBtn">Confirm Booking</button>
       <div class="form-msg" id="agPhoneMsg"></div>
@@ -943,8 +1012,12 @@
         <select id="agCity"></select>
       </div>
       <div class="field">
-        <label for="agEditAddress">Full Address *</label>
-        <textarea id="agEditAddress" rows="2" placeholder="House no., street, landmark, pincode"></textarea>
+        <label>Address *</label>
+        <button type="button" class="address-select-btn" id="agEditAddressSelectBtn">
+          <span id="agEditAddressPreview">📍 Select Address</span>
+          <span class="address-select-arrow">›</span>
+        </button>
+        <textarea id="agEditAddress" rows="2" style="display:none;" aria-hidden="true"></textarea>
       </div>
       <button type="button" class="btn btn-primary btn-block" id="agSaveBtn">Save</button>
       <div class="form-msg" id="agAddressMsg"></div>

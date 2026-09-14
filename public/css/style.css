@@ -1206,6 +1206,57 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .slot-btn.full small { color: var(--slate); }
 @media (max-width: 480px) { .slot-picker { grid-template-columns: 1fr; } }
 
+/* ---------------- Select Date & Time / Select Address (Jay Home
+   Services style flow) --------------------------------------------- */
+.dt-trigger-btn, .address-select-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  background: #fff; font-size: 0.92rem; font-weight: 600; color: var(--ink);
+  cursor: pointer; text-align: left; transition: border-color 0.15s ease;
+}
+.dt-trigger-btn:hover, .address-select-btn:hover { border-color: var(--accent-500); }
+.dt-trigger-arrow, .address-select-arrow { color: var(--slate); font-size: 1.1rem; }
+
+.dt-modal-label { font-size: 0.88rem; font-weight: 700; color: var(--ink); margin: 0 0 10px; }
+
+.dt-date-pills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.dt-pill {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 12px 4px; border-radius: var(--radius-sm); border: 1.5px solid var(--line);
+  background: #fff; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.dt-pill-day { font-size: 0.72rem; color: var(--slate); font-weight: 600; }
+.dt-pill-date { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.dt-pill-icon { font-size: 1.05rem; }
+.dt-pill.selected { background: var(--accent-500); border-color: var(--accent-500); }
+.dt-pill.selected .dt-pill-day, .dt-pill.selected .dt-pill-date { color: #fff; }
+.dt-pill:hover:not(.selected) { border-color: var(--accent-500); }
+
+.dt-slot-section { margin-bottom: 16px; }
+.dt-slot-section-title { font-size: 0.85rem; font-weight: 700; color: var(--ink); margin: 0 0 8px; }
+.dt-slot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 420px) { .dt-slot-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.saved-address-card {
+  width: 100%; display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  background: #fff; cursor: pointer; margin-bottom: 10px; transition: border-color 0.15s ease;
+}
+.saved-address-card:hover { border-color: var(--accent-500); }
+.saved-address-card strong { font-size: 0.88rem; color: var(--ink); }
+.saved-address-card span { font-size: 0.84rem; color: var(--slate); }
+.address-add-new-btn { border-style: dashed; }
+
+.save-as-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.save-as-pill {
+  padding: 9px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff;
+  font-size: 0.85rem; font-weight: 600; color: var(--ink); cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.save-as-pill.selected { background: var(--accent-500); border-color: var(--accent-500); color: #fff; }
+.save-as-pill:hover:not(.selected) { border-color: var(--accent-500); }
+
+.success-redirect-note { background: var(--mist); border-radius: var(--radius-sm); padding: 10px; }
+
 .rate-stars { display: inline-flex; gap: 2px; }
 .rate-star { cursor: pointer; font-size: 1.1rem; color: var(--accent-500); }
 .rate-star:hover { transform: scale(1.15); display: inline-block; }

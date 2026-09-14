@@ -209,6 +209,30 @@ function openBookingForm() {
 function closeBookingForm() {
   const backdrop = document.getElementById('bookingModalBackdrop');
   if (backdrop) backdrop.classList.remove('open');
+  clearSuccessRedirectCountdown();
+}
+
+// "Thank you for booking!" auto-redirect countdown (Jay Home Services
+// style) — closes the booking modal on its own a few seconds after a
+// successful booking, same as the reference flow, while still letting
+// the person tap "Continue Shopping" (closeBookingForm()) immediately.
+let successRedirectTimer = null;
+function clearSuccessRedirectCountdown() {
+  if (successRedirectTimer) { clearInterval(successRedirectTimer); successRedirectTimer = null; }
+}
+function startSuccessRedirectCountdown(seconds) {
+  clearSuccessRedirectCountdown();
+  let remaining = seconds || 5;
+  const el = document.getElementById('successRedirectSeconds');
+  if (el) el.textContent = remaining;
+  successRedirectTimer = setInterval(() => {
+    remaining--;
+    if (el) el.textContent = Math.max(remaining, 0);
+    if (remaining <= 0) {
+      clearSuccessRedirectCountdown();
+      closeBookingForm();
+    }
+  }, 1000);
 }
 // Tapping the dark backdrop itself (not the form card) closes it too —
 // same pattern as every other modal on the site.
@@ -242,6 +266,175 @@ function checkAddressCityMismatch() {
 }
 document.getElementById('fAddress')?.addEventListener('input', checkAddressCityMismatch);
 document.getElementById('fCity')?.addEventListener('change', checkAddressCityMismatch);
+
+// ---------------- SELECT ADDRESS / ADD NEW ADDRESS (Jay Home Services
+// style flow) ----------------------------------------------------------
+// Replaces the old plain "type your full address" textarea with a proper
+// Select Address → Add New Address flow: saved addresses (kept in
+// localStorage per phone number, since there's no server-side multi-
+// address table) are shown as pickable cards, and "+ Add New Address"
+// opens a structured form (House/Flat/Block No, Landmark/Society name,
+// Save as Home/Work/Other) plus a "Use Current Location" button.
+// NOTE: there is no live Google Map preview here — that needs a Google
+// Maps JavaScript API key (with billing) on the business's own Google
+// Cloud account, which this codebase doesn't have. "Use Current Location"
+// still works via the browser's own GPS + a free reverse-geocoding
+// lookup (OpenStreetMap Nominatim) to prefill the Landmark field.
+let activeAddressTargetInputId = null;
+let activeAddressPreviewId = null;
+let selectedSaveAs = null;
+let pendingLatLng = null;
+
+function getSavedAddresses(phone) {
+  try { return JSON.parse(localStorage.getItem(`seerua_addresses_${phone || 'guest'}`) || '[]'); }
+  catch (e) { return []; }
+}
+function setSavedAddresses(phone, list) {
+  localStorage.setItem(`seerua_addresses_${phone || 'guest'}`, JSON.stringify(list));
+}
+function currentAddressPhone() {
+  const acc = (typeof getAccount === 'function') ? getAccount() : null;
+  const agPhoneVal = document.getElementById('agPhone')?.value.trim();
+  const fPhoneVal = document.getElementById('fPhone')?.value.trim();
+  if (agPhoneVal && /^[0-9]{10}$/.test(agPhoneVal)) return agPhoneVal;
+  if (fPhoneVal && /^[0-9]{10}$/.test(fPhoneVal)) return fPhoneVal;
+  return (acc && acc.phone) || 'guest';
+}
+function saveAsIcon(val) { return val === 'Home' ? '🏠' : val === 'Work' ? '💼' : '📍'; }
+
+// Keeps a preview span in sync with a hidden address textarea's current
+// value — used whenever that textarea gets filled programmatically
+// (returning-customer auto-fill, "Edit Profile", etc.) rather than
+// through applyChosenAddress() below.
+function updateAddressPreview(targetInputId, previewId) {
+  const target = document.getElementById(targetInputId);
+  const preview = document.getElementById(previewId);
+  if (!target || !preview) return;
+  preview.textContent = target.value.trim() ? `📍 ${target.value.trim()}` : '📍 Select Address';
+}
+
+function openSelectAddressModal(targetInputId, previewId) {
+  activeAddressTargetInputId = targetInputId;
+  activeAddressPreviewId = previewId;
+  const phone = currentAddressPhone();
+  const list = getSavedAddresses(phone);
+  const container = document.getElementById('savedAddressList');
+  if (!list.length) {
+    container.innerHTML = `<p style="font-size:0.85rem;color:var(--slate);margin:0 0 14px;">No saved addresses yet — add one below.</p>`;
+  } else {
+    container.innerHTML = list.map((a, i) => `
+      <button type="button" class="saved-address-card" data-idx="${i}">
+        <strong>${saveAsIcon(a.saveAs)} ${escapeHtml(a.saveAs)}</strong>
+        <span>${escapeHtml(a.fullText)}</span>
+      </button>
+    `).join('');
+    container.querySelectorAll('.saved-address-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const a = list[parseInt(btn.getAttribute('data-idx'), 10)];
+        applyChosenAddress(a);
+      });
+    });
+  }
+  document.getElementById('selectAddressModal').classList.add('open');
+}
+function closeSelectAddressModal() {
+  document.getElementById('selectAddressModal')?.classList.remove('open');
+}
+function applyChosenAddress(a) {
+  const target = document.getElementById(activeAddressTargetInputId);
+  if (target) {
+    target.value = a.fullText;
+    target.dispatchEvent(new Event('input'));
+    target.dispatchEvent(new Event('change'));
+  }
+  if (activeAddressPreviewId) updateAddressPreview(activeAddressTargetInputId, activeAddressPreviewId);
+  closeSelectAddressModal();
+  closeAddAddressModal();
+}
+function openAddAddressModal() {
+  document.getElementById('naHouseNo').value = '';
+  document.getElementById('naLandmark').value = '';
+  selectedSaveAs = null;
+  pendingLatLng = null;
+  document.querySelectorAll('.save-as-pill').forEach(p => p.classList.remove('selected'));
+  const locMsg = document.getElementById('addAddressLocationMsg');
+  if (locMsg) { locMsg.textContent = ''; locMsg.style.color = ''; }
+  const msg = document.getElementById('addAddressMsg');
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+  document.getElementById('addAddressModal').classList.add('open');
+}
+function closeAddAddressModal() {
+  document.getElementById('addAddressModal')?.classList.remove('open');
+}
+
+document.getElementById('addNewAddressBtn')?.addEventListener('click', () => {
+  closeSelectAddressModal();
+  openAddAddressModal();
+});
+document.getElementById('selectAddressModalClose')?.addEventListener('click', closeSelectAddressModal);
+document.getElementById('addAddressModalClose')?.addEventListener('click', closeAddAddressModal);
+document.getElementById('selectAddressModal')?.addEventListener('click', (e) => { if (e.target.id === 'selectAddressModal') closeSelectAddressModal(); });
+document.getElementById('addAddressModal')?.addEventListener('click', (e) => { if (e.target.id === 'addAddressModal') closeAddAddressModal(); });
+
+document.querySelectorAll('.save-as-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.save-as-pill').forEach(p => p.classList.remove('selected'));
+    pill.classList.add('selected');
+    selectedSaveAs = pill.getAttribute('data-val');
+  });
+});
+
+document.getElementById('useCurrentLocationBtn')?.addEventListener('click', () => {
+  const msg = document.getElementById('addAddressLocationMsg');
+  if (!navigator.geolocation) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Location is not supported on this device/browser.';
+    return;
+  }
+  msg.style.color = 'var(--slate)';
+  msg.textContent = '📡 Getting your location...';
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    pendingLatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pendingLatLng.lat}&lon=${pendingLatLng.lng}`);
+      const data = await res.json();
+      const addr = data.address || {};
+      const locality = addr.suburb || addr.neighbourhood || addr.road || addr.village || addr.town || '';
+      const landmarkEl = document.getElementById('naLandmark');
+      if (locality && landmarkEl && !landmarkEl.value.trim()) landmarkEl.value = locality;
+      msg.style.color = '#16a34a';
+      msg.textContent = '✓ Location detected — please confirm the details below.';
+    } catch (e) {
+      msg.style.color = '#16a34a';
+      msg.textContent = '✓ Location captured — please fill in the details below.';
+    }
+  }, () => {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Could not get your location. Please allow location access, or fill the address in manually.';
+  }, { enableHighAccuracy: true, timeout: 10000 });
+});
+
+document.getElementById('saveNewAddressBtn')?.addEventListener('click', () => {
+  const msg = document.getElementById('addAddressMsg');
+  msg.className = 'form-msg';
+  const houseNo = document.getElementById('naHouseNo').value.trim();
+  const landmark = document.getElementById('naLandmark').value.trim();
+  if (!houseNo) { msg.className = 'form-msg error'; msg.textContent = 'Please enter House/Flat/Block No.'; return; }
+  if (!landmark) { msg.className = 'form-msg error'; msg.textContent = 'Please enter a Landmark or Society name.'; return; }
+  if (!selectedSaveAs) { msg.className = 'form-msg error'; msg.textContent = 'Please choose Save as Home, Work or Other.'; return; }
+  const cityEl = document.getElementById('fCity') || document.getElementById('agCity');
+  const cityName = (cityEl && cityEl.selectedOptions[0] && cityEl.selectedIndex > 0) ? cityEl.selectedOptions[0].textContent : '';
+  const fullText = `${houseNo}, ${landmark}${cityName ? ', ' + cityName : ''}`;
+  const newAddr = { id: Date.now(), houseNo, landmark, saveAs: selectedSaveAs, fullText, lat: pendingLatLng ? pendingLatLng.lat : undefined, lng: pendingLatLng ? pendingLatLng.lng : undefined };
+  const phone = currentAddressPhone();
+  const list = getSavedAddresses(phone);
+  list.unshift(newAddr);
+  setSavedAddresses(phone, list);
+  applyChosenAddress(newAddr);
+});
+
+document.getElementById('agAddressSelectBtn')?.addEventListener('click', () => openSelectAddressModal('agAddress', 'agAddressPreview'));
+document.getElementById('agEditAddressSelectBtn')?.addEventListener('click', () => openSelectAddressModal('agEditAddress', 'agEditAddressPreview'));
 
 // My History (order tracking + referral) is hidden until the person taps
 // "Track" or "My Booking" in the nav/footer — every such link points to
@@ -1175,12 +1368,33 @@ function renderCart() {
       <span class="amount">₹${finalTotal}</span>
     </div>`;
 
-  // Payment Summary card — kept in sync with the same numbers as the
-  // cart total above (no extra platform fee, per explicit request).
+  // Payment Summary card — Jay Home Services style layout: Total Amount /
+  // Discount % / Taxes and Fee / Saved / Grand Total. IMPORTANT: Taxes and
+  // Fee is kept at ₹0 below because the booking API (see /api/bookings in
+  // server.js) doesn't currently add any tax/platform fee to what's
+  // actually charged — Grand Total here always matches finalTotal (the
+  // real charge) so this stays accurate. If the business wants a real
+  // tax/fee added to bookings, that needs to be added server-side too
+  // (not just here), so the two numbers don't quietly drift apart.
+  const TAXES_AND_FEE = 0;
   if (summaryCard) {
     summaryCard.style.display = 'block';
+    const discountPct = (subtotal > 0 && discount > 0) ? Math.round((discount / subtotal) * 100) : 0;
+    const grandTotal = finalTotal + TAXES_AND_FEE;
     document.getElementById('paymentSummaryItemTotal').textContent = `₹${subtotal}`;
-    document.getElementById('paymentSummaryTotal').textContent = `₹${finalTotal}`;
+    document.getElementById('paymentSummaryTaxes').textContent = `₹${TAXES_AND_FEE}`;
+    document.getElementById('paymentSummaryTotal').textContent = `₹${grandTotal}`;
+    const discountRow = document.getElementById('paymentSummaryDiscountRow');
+    const savedRow = document.getElementById('paymentSummarySavedRow');
+    if (discount > 0) {
+      discountRow.style.display = 'flex';
+      savedRow.style.display = 'flex';
+      document.getElementById('paymentSummaryDiscountPct').textContent = `${discountPct}%`;
+      document.getElementById('paymentSummarySaved').textContent = `₹${discount}`;
+    } else {
+      discountRow.style.display = 'none';
+      savedRow.style.display = 'none';
+    }
   }
 }
 
@@ -1467,40 +1681,150 @@ async function addItemToCart() {
 }
 
 let selectedSlotId = null;
+let selectedSlotLabel = null;
+
+// Renders available slots grouped under Morning/Afternoon/Evening headings
+// (Jay Home Services style) into the #dateTimeModal, instead of the old
+// flat 3-across grid. Groups are based on each slot's startHour (added to
+// the /api/slots response in server.js) — a slot with no matching group
+// (shouldn't normally happen) falls back into Afternoon.
+function groupSlotsByTimeOfDay(slots) {
+  const groups = { morning: [], afternoon: [], evening: [] };
+  slots.forEach(s => {
+    const h = typeof s.startHour === 'number' ? s.startHour : 12;
+    if (h < 12) groups.morning.push(s);
+    else if (h < 16) groups.afternoon.push(s);
+    else groups.evening.push(s);
+  });
+  return groups;
+}
+
+function renderDtSlotGroups(slots) {
+  const container = document.getElementById('dtSlotGroups');
+  if (!container) return;
+  const groups = groupSlotsByTimeOfDay(slots);
+  const sections = [
+    { key: 'morning', icon: '☀️', label: 'Morning' },
+    { key: 'afternoon', icon: '🌤️', label: 'Afternoon' },
+    { key: 'evening', icon: '🌙', label: 'Evening' }
+  ];
+  container.innerHTML = sections
+    .filter(sec => groups[sec.key].length)
+    .map(sec => `
+      <div class="dt-slot-section">
+        <p class="dt-slot-section-title">${sec.icon} ${sec.label}</p>
+        <div class="dt-slot-grid">
+          ${groups[sec.key].map(s => `
+            <button type="button" class="slot-btn ${s.available ? '' : 'full'} ${selectedSlotId === s.id ? 'selected' : ''}" data-slot="${s.id}" data-label="${escapeHtml(s.label)}" ${s.available ? '' : 'disabled'}>
+              ${s.label}
+              <small>${s.available ? 'Available' : (s.expired ? 'Time Over' : 'Full')}</small>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  container.querySelectorAll('.slot-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedSlotId = btn.getAttribute('data-slot');
+      selectedSlotLabel = btn.getAttribute('data-label');
+      container.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      updateDtTriggerText();
+      // Matches the reference flow: picking a slot is the final step, so
+      // the popup closes itself right away instead of needing a separate
+      // "Confirm" tap.
+      closeDateTimeModal();
+    });
+  });
+  if (!slots.some(s => s.id === selectedSlotId)) { selectedSlotId = null; selectedSlotLabel = null; }
+}
 
 async function refreshSlots() {
   const cityId = document.getElementById('fCity').value;
   const date = document.getElementById('fDate').value;
-  const picker = document.getElementById('slotPicker');
+  const container = document.getElementById('dtSlotGroups');
+  if (!container) return;
   if (!cityId || !date) {
-    picker.innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select city and date above to see available slots.</p>';
+    container.innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select a city and date above to see available slots.</p>';
     selectedSlotId = null;
+    selectedSlotLabel = null;
     return;
   }
-  picker.innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Loading slots...</p>';
+  container.innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Loading slots...</p>';
   try {
     // Pass along which appliances are in the cart so a slot that's only
     // blocked for a specific appliance (e.g. AC) in this city/date shows
     // correctly as Full/Available for what the customer is actually booking.
     const applianceIds = [...new Set(cartItems.map(it => it.applianceId))].join(',');
     const slots = await fetchJSON(`/api/slots?date=${date}&cityId=${cityId}${applianceIds ? `&applianceIds=${applianceIds}` : ''}`);
-    picker.innerHTML = slots.map(s => `
-      <button type="button" class="slot-btn ${s.available ? '' : 'full'} ${selectedSlotId === s.id ? 'selected' : ''}" data-slot="${s.id}" ${s.available ? '' : 'disabled'}>
-        ${s.label}
-        <small>${s.available ? 'Available' : (s.expired ? 'Time Over' : 'Full')}</small>
-      </button>
-    `).join('');
-    picker.querySelectorAll('.slot-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        selectedSlotId = btn.getAttribute('data-slot');
-        picker.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-      });
-    });
-    if (!slots.some(s => s.id === selectedSlotId)) selectedSlotId = null;
+    renderDtSlotGroups(slots);
   } catch (e) {
-    picker.innerHTML = '<p style="font-size:0.82rem;color:var(--red);margin:0;">Could not load slots. Please try again.</p>';
+    container.innerHTML = '<p style="font-size:0.82rem;color:var(--red);margin:0;">Could not load slots. Please try again.</p>';
   }
+}
+
+// ---------------- Select Date & Time modal (Jay Home Services style) ---
+function updateDtTriggerText() {
+  const el = document.getElementById('dtTriggerText');
+  if (!el) return;
+  const dateVal = document.getElementById('fDateDisplay').value;
+  if (dateVal && selectedSlotLabel) el.textContent = `📅 ${dateVal}, ${selectedSlotLabel}`;
+  else if (dateVal) el.textContent = `📅 ${dateVal} — choose a time`;
+  else el.textContent = '📅 Select Date & Time';
+}
+
+function dtPillDateStr(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return dateCalToStr(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function renderDtDatePills() {
+  const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const current = document.getElementById('fDate').value;
+  for (let i = 0; i < 3; i++) {
+    const str = dtPillDateStr(i);
+    const d = new Date(str + 'T00:00:00');
+    const pill = document.getElementById(`dtPill${i}`);
+    if (!pill) continue;
+    pill.querySelector('.dt-pill-day').textContent = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : weekdayNames[d.getDay()];
+    pill.querySelector('.dt-pill-date').textContent = d.getDate();
+    pill.classList.toggle('selected', current === str);
+    pill.onclick = () => selectDtDate(str);
+  }
+  // "Pick" pill highlights instead whenever the chosen date isn't one of
+  // the three quick options above (i.e. it came from the full calendar).
+  const pickPill = document.getElementById('dtPillPick');
+  if (pickPill) {
+    const isQuickDate = [0, 1, 2].some(i => dtPillDateStr(i) === current);
+    pickPill.classList.toggle('selected', !!current && !isQuickDate);
+    pickPill.onclick = () => { openDateCalendar(); };
+  }
+}
+
+function selectDtDate(str) {
+  const d = new Date(str + 'T00:00:00');
+  document.getElementById('fDate').value = str;
+  document.getElementById('fDateDisplay').value = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  document.getElementById('fDate').dispatchEvent(new Event('change')); // existing 'change' listener calls refreshSlots()
+  renderDtDatePills();
+  updateDtTriggerText();
+}
+
+function openDateTimeModal() {
+  renderDtDatePills();
+  refreshSlots();
+  document.getElementById('dateTimeModal').classList.add('open');
+}
+function closeDateTimeModal() {
+  document.getElementById('dateTimeModal')?.classList.remove('open');
+}
+function bindDateTimeModal() {
+  document.getElementById('dtTriggerBtn')?.addEventListener('click', openDateTimeModal);
+  document.getElementById('dateTimeModalClose')?.addEventListener('click', closeDateTimeModal);
+  document.getElementById('dateTimeModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'dateTimeModal') closeDateTimeModal();
+  });
 }
 
 // Looks up whether this phone number belongs to a returning customer (has
@@ -1561,6 +1885,10 @@ function selectDateCalendarDay(str) {
   displayEl.value = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   fDateEl.dispatchEvent(new Event('change')); // existing refreshSlots listener picks this up
   closeDateCalendar();
+  // Picking a further-out date from the full "Pick" calendar returns to
+  // the Select Date & Time popup so the customer can immediately choose
+  // a time slot for it, same as tapping one of the quick date pills.
+  if (typeof openDateTimeModal === 'function') openDateTimeModal();
 }
 
 function renderDateCalendar() {
@@ -1653,6 +1981,7 @@ function bindFormEvents() {
   document.getElementById('addItemBtn').addEventListener('click', () => addItemToCart());
   document.getElementById('fDate').addEventListener('change', refreshSlots);
   bindDateCalendar();
+  bindDateTimeModal();
 
   document.getElementById('fCity').addEventListener('change', async () => {
     await refreshAppliancesForCity(document.getElementById('fCity').value);
@@ -1768,11 +2097,14 @@ function bindFormEvents() {
       // card view instead of a dense text paragraph — form (and its
       // inline message) hides entirely, replaced by #bookingSuccessView.
       document.getElementById('successBookingId').textContent = data.booking.id;
+      document.getElementById('successService').textContent =
+        itemsToSubmit.map(it => `${it.applianceName || ''}${it.typeName ? ' - ' + it.typeName : ''} (${it.qty})`).join(' + ');
       document.getElementById('successTotal').textContent =
         `₹${data.booking.totalPrice}${savedBits.length ? ` (saved ${savedBits.join(' + ')})` : ''}`;
       document.getElementById('successVisit').textContent = `${data.booking.timeSlot}, ${data.booking.bookingDate}`;
       document.getElementById('bookingForm').style.display = 'none';
       document.getElementById('bookingSuccessView').style.display = 'block';
+      startSuccessRedirectCountdown();
       form.reset();
       // BUG FIX: form.reset() alone doesn't reliably clear the phone
       // field — many mobile browsers ignore autocomplete="off" for phone
@@ -1798,7 +2130,11 @@ function bindFormEvents() {
       document.getElementById('couponMsg').textContent = '';
       renderCart();
       selectedSlotId = null;
-      document.getElementById('slotPicker').innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select city and date above to see available slots.</p>';
+      selectedSlotLabel = null;
+      document.getElementById('fDate').value = '';
+      document.getElementById('fDateDisplay').value = '';
+      updateDtTriggerText();
+      document.getElementById('dtSlotGroups').innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select a city and date above to see available slots.</p>';
 
       // FLOW CHANGE: this used to also auto-open the Track Booking popup
       // right after — right on top of the green "Booking confirmed!"
@@ -2101,6 +2437,10 @@ function bookAgain(bookingId) {
   document.getElementById('couponCode').value = '';
   renderCart();
   selectedSlotId = null;
+  selectedSlotLabel = null;
+  document.getElementById('fDate').value = '';
+  document.getElementById('fDateDisplay').value = '';
+  if (typeof updateDtTriggerText === 'function') updateDtTriggerText();
   refreshSlots();
 
   const msg = document.getElementById('formMsg');
@@ -2651,6 +2991,7 @@ function openAccountGate(intent, applianceId) {
   document.getElementById('agName').value = '';
   document.getElementById('agPhone').value = '';
   document.getElementById('agAddress').value = '';
+  if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
   document.getElementById('accountGateModal').classList.add('open');
 }
 
@@ -2744,7 +3085,7 @@ function bindAccountGateModal() {
     }
     if (!address) {
       msg.className = 'form-msg error';
-      msg.textContent = 'Please enter your address.';
+      msg.textContent = 'Please select or add your address.';
       return;
     }
     const cityId = document.getElementById('fCity').value;
@@ -2812,7 +3153,7 @@ function bindAccountGateModal() {
     const cityId = document.getElementById('agCity').value;
     if (!phone) { msg.className = 'form-msg error'; msg.textContent = 'Please verify your mobile number first.'; return; }
     if (!name) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your name.'; return; }
-    if (!address) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your full address.'; return; }
+    if (!address) { msg.className = 'form-msg error'; msg.textContent = 'Please select or add your address.'; return; }
     if (!cityId) { msg.className = 'form-msg error'; msg.textContent = 'Please select your city.'; return; }
     const btn = document.getElementById('agSaveBtn');
     btn.disabled = true;
@@ -2871,6 +3212,7 @@ async function openEditProfile() {
   if (stillVerified) {
     document.getElementById('agEditName').value = acc.name || '';
     document.getElementById('agEditAddress').value = acc.address || '';
+    if (typeof updateAddressPreview === 'function') updateAddressPreview('agEditAddress', 'agEditAddressPreview');
     populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
     if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
     document.getElementById('accountEditModal').classList.add('open');
@@ -2880,6 +3222,7 @@ async function openEditProfile() {
     document.getElementById('agName').value = acc.name || '';
     document.getElementById('agPhone').value = acc.phone;
     document.getElementById('agAddress').value = acc.address || '';
+    if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
     const title = document.getElementById('agPhoneTitle');
     const sub = document.getElementById('agPhoneSub');
     if (title) title.textContent = 'Please verify again';

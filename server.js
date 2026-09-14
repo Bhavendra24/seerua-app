@@ -342,9 +342,9 @@ const {
 // =======================================================
 
 const TIME_SLOTS = [
-  { id: 'slot1', label: '8:00 AM - 11:00 AM', endHour: 11 },
-  { id: 'slot2', label: '12:00 PM - 3:00 PM', endHour: 15 },
-  { id: 'slot3', label: '4:00 PM - 7:00 PM', endHour: 19 }
+  { id: 'slot1', label: '8:00 AM - 11:00 AM', startHour: 8, endHour: 11 },
+  { id: 'slot2', label: '12:00 PM - 3:00 PM', startHour: 12, endHour: 15 },
+  { id: 'slot3', label: '4:00 PM - 7:00 PM', startHour: 16, endHour: 19 }
 ];
 
 // Works out, for a given date + city, which slots are open. A slot is
@@ -385,6 +385,7 @@ function getSlotAvailability(date, cityId, applianceIds) {
     return {
       id: s.id,
       label: s.label,
+      startHour: s.startHour,
       booked,
       capacity: cfg.capacityPerSlot,
       available: !blocked && !expired && booked < cfg.capacityPerSlot,
