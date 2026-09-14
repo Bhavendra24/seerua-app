@@ -1123,10 +1123,19 @@ function renderCart() {
     cityField.style.background = shouldLockCity ? 'var(--mist)' : '';
     if (!shouldLockCity) cartCityId = null; // cart's empty again — free to start over with any city
   }
-  // Once the cart's genuinely empty again, this one-off "browsed a
-  // different city than my account" episode is over — back to normal
-  // auto-sync behavior for whatever comes next.
-  if (cartItems.length === 0) cityBrowsedManually = false;
+  // BUG FIX: this used to reset cityBrowsedManually back to false the
+  // moment the cart was empty — which is almost ALWAYS true right after
+  // someone picks a city from the City picker (they haven't added
+  // anything yet), since renderCart() runs on plenty of unrelated
+  // events too. That reset the flag within moments of it being set,
+  // so by the time they tapped any appliance's Book Now,
+  // applyAccountToBookingFields() no longer saw it as "deliberately
+  // browsed" and silently swapped their choice back to the account's
+  // saved city — exactly the "city changes back to Moradabad" report
+  // this was meant to prevent in the first place. A manually-browsed
+  // city is a deliberate choice for the rest of this visit, not
+  // something that should expire just because the cart happens to be
+  // empty at some unrelated moment.
   // Clear, visible confirmation that this is an isolated "just this one
   // item" checkout — so it's obvious nothing else from the regular cart
   // is quietly being bundled into this booking.
@@ -3381,6 +3390,7 @@ function bindQuickBookModal() {
     document.getElementById('fServiceType').value = qbServiceType;
     document.getElementById('fQty').value = 1;
     document.getElementById('fPhone').value = phone;
+    const cartLengthBefore = cartItems.length;
     await addItemToCart();
     const addMsg = document.getElementById('addItemMsg');
     if (addMsg && addMsg.className.includes('error')) {
@@ -3401,6 +3411,20 @@ function bindQuickBookModal() {
     if (addMsg && addMsg.className.includes('notice')) {
       msg.className = 'form-msg notice';
       msg.textContent = addMsg.textContent;
+      return false;
+    }
+    // BUG FIX: the city-mismatch check inside addItemToCart() (a saved
+    // account's city differing from what's currently being booked) opens
+    // its OWN separate modal and does a bare `return` — setting neither
+    // the 'error' nor 'notice' class checked above. That meant THIS
+    // function still fell through to `return true`, and the caller
+    // showed a "✅ Added to your cart!" success toast — while the
+    // mismatch modal was still open in the background and NOTHING had
+    // actually been added. Checking whether cartItems' length genuinely
+    // grew is a definitive, mechanism-agnostic way to catch this (and
+    // any other future path that blocks the add without setting one of
+    // those two classes).
+    if (cartItems.length <= cartLengthBefore) {
       return false;
     }
     return true;
