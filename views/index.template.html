@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609080i">
+<link rel="stylesheet" href="/css/style.css?v=202609080j">
 
 <script type="application/ld+json">
 {
@@ -412,6 +412,23 @@
         <button type="submit" class="btn btn-primary btn-block" id="submitBookingBtn" data-i18n="booking.submitBtn">Submit</button>
         <div class="form-msg" id="formMsg"></div>
       </form>
+
+      <!-- Clean, celebratory confirmation shown INSTEAD of the form once
+           a booking succeeds — per request, simple like most home-service
+           booking apps: one big checkmark, a short "you're booked"
+           statement, then just the few details that actually matter
+           (booking ID, total, visit time), not a dense text paragraph. -->
+      <div id="bookingSuccessView" style="display:none;text-align:center;padding:20px 0;">
+        <div class="success-check-circle">✓</div>
+        <h3 style="margin:18px 0 6px;">Booking Confirmed!</h3>
+        <p style="color:var(--slate);font-size:0.92rem;margin-bottom:22px;">A technician will arrive at your scheduled time.</p>
+        <div class="success-detail-card">
+          <div class="success-detail-row"><span>Booking ID</span><strong id="successBookingId"></strong></div>
+          <div class="success-detail-row"><span>Total</span><strong id="successTotal"></strong></div>
+          <div class="success-detail-row"><span>Visit</span><strong id="successVisit"></strong></div>
+        </div>
+        <button type="button" class="btn btn-primary btn-block" style="margin-top:20px;" onclick="closeBookingForm()">Done</button>
+      </div>
     </div>
   </div>
 </div>
@@ -958,7 +975,7 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609081b"></script>
+<script src="/js/main.js?v=202609081c"></script>
 <script src="/js/i18n.js?v=202609080a"></script>
 <script src="/js/chatbot.js?v=202609080a"></script>
 </body>

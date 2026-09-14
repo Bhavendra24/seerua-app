@@ -989,6 +989,24 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-msg { padding: 12px 14px; border-radius: var(--radius-sm); font-size: 0.88rem; margin-top: 14px; display: none; }
 .form-msg.success { display: block; background: #e7f8ee; color: var(--green); }
+/* Clean success view shown instead of the booking form once a booking
+   completes — big checkmark circle + a short summary card, instead of a
+   dense paragraph of text. */
+.success-check-circle {
+  width: 72px; height: 72px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 2.2rem;
+  display: flex; align-items: center; justify-content: center;
+  animation: successCheckPop 0.4s var(--ease);
+}
+@keyframes successCheckPop { 0% { transform: scale(0); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
+.success-detail-card { background: var(--mist); border-radius: var(--radius-md); padding: 4px 18px; text-align: left; }
+.success-detail-row { display: flex; justify-content: space-between; padding: 12px 0; font-size: 0.9rem; color: var(--slate); border-bottom: 1px solid var(--line); }
+.success-detail-row:last-child { border-bottom: none; }
+.success-detail-row strong { color: var(--ink); font-family: var(--font-display); }
 .form-msg.error { display: block; background: #fdeaea; color: var(--red); }
 /* Softer than .error — for things that are just informational (e.g. "this
    is already in your list") rather than a real problem, so they don't read

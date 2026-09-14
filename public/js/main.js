@@ -179,6 +179,12 @@ function openBookingForm() {
   // flash old text before a new attempt.
   const msg = document.getElementById('formMsg');
   if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+  // Reset back to showing the actual form — a previous booking in this
+  // same session may have left #bookingSuccessView showing instead.
+  const successView = document.getElementById('bookingSuccessView');
+  if (successView) successView.style.display = 'none';
+  const bookingFormEl = document.getElementById('bookingForm');
+  if (bookingFormEl) bookingFormEl.style.display = '';
   // Reset to the full form by default — see hideRedundantBookingFields()
   // for where/why these get hidden again for the Quick Book shortcut.
   const cityField = document.getElementById('fCityField');
@@ -1758,8 +1764,15 @@ function bindFormEvents() {
       const savedBits = [];
       if (data.booking.discountAmount) savedBits.push(`coupon: ₹${data.booking.discountAmount}`);
       if (data.booking.referralDiscount) savedBits.push(`referral: ₹${data.booking.referralDiscount}`);
-      msg.className = 'form-msg success';
-      msg.textContent = `Booking confirmed! Your Booking ID: ${data.booking.id}. Total: ₹${data.booking.totalPrice}${savedBits.length ? ` (you saved ${savedBits.join(' + ')}!)` : ''}. Visit slot: ${data.booking.timeSlot} on ${data.booking.bookingDate}.`;
+      // SIMPLIFIED (per explicit request): a clean checkmark + summary
+      // card view instead of a dense text paragraph — form (and its
+      // inline message) hides entirely, replaced by #bookingSuccessView.
+      document.getElementById('successBookingId').textContent = data.booking.id;
+      document.getElementById('successTotal').textContent =
+        `₹${data.booking.totalPrice}${savedBits.length ? ` (saved ${savedBits.join(' + ')})` : ''}`;
+      document.getElementById('successVisit').textContent = `${data.booking.timeSlot}, ${data.booking.bookingDate}`;
+      document.getElementById('bookingForm').style.display = 'none';
+      document.getElementById('bookingSuccessView').style.display = 'block';
       form.reset();
       // BUG FIX: form.reset() alone doesn't reliably clear the phone
       // field — many mobile browsers ignore autocomplete="off" for phone
