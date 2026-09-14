@@ -72,6 +72,24 @@ img { max-width: 100%; display: block; }
 ul { padding: 0; margin: 0; list-style: none; }
 button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 .container { max-width: 1280px; margin: 0 auto; padding: 0 40px; }
+
+/* City/appliance-city pricing tables — previously had zero table styling
+   at all (raw browser defaults), so columns sat pressed right up against
+   each other with no breathing room, especially between "Service / AMC"
+   and "Repair". Generous column padding fixes that gap, plus basic row
+   separators and right-aligned price columns for readability. */
+.table-wrap table { width: 100%; border-collapse: collapse; }
+.table-wrap th, .table-wrap td { padding: 14px 22px; text-align: left; border-bottom: 1px solid var(--line); font-size: 0.92rem; }
+.table-wrap th { font-family: var(--font-display); font-weight: 700; color: var(--blue-900); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.table-wrap td { color: var(--ink); }
+.table-wrap th:last-child, .table-wrap td:last-child,
+.table-wrap th:nth-last-child(2), .table-wrap td:nth-last-child(2) { text-align: right; font-weight: 700; color: var(--blue-700); }
+.table-wrap th:last-child, .table-wrap td:last-child { padding-left: 40px; }
+.table-wrap tbody tr:last-child td { border-bottom: none; }
+@media (max-width: 640px) {
+  .table-wrap th, .table-wrap td { padding: 10px 12px; font-size: 0.82rem; }
+  .table-wrap th:last-child, .table-wrap td:last-child { padding-left: 20px; }
+}
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 :focus-visible {
@@ -1162,11 +1180,13 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .payment-summary-total span:last-child { color: var(--accent-600); font-family: var(--font-display); }
 
 .slot-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.slot-btn { padding: 12px 8px; border-radius: var(--radius-sm); border: 1.5px solid var(--line); background: var(--white); font-weight: 700; font-size: 0.85rem; color: var(--blue-900); cursor: pointer; text-align: center; }
-.slot-btn small { display: block; font-weight: 500; color: var(--slate); font-size: 0.85rem; margin-top: 3px; }
-.slot-btn.selected { background: var(--blue-600); border-color: var(--blue-600); color: var(--white); }
-.slot-btn.selected small { color: #cfe1f0; }
+.slot-btn { padding: 12px 8px; border-radius: var(--radius-sm); border: 1.5px solid var(--blue-900); background: var(--blue-900); font-weight: 700; font-size: 0.85rem; color: var(--white); cursor: pointer; text-align: center; transition: background 0.15s ease, border-color 0.15s ease; }
+.slot-btn small { display: block; font-weight: 500; color: #cfe1f0; font-size: 0.85rem; margin-top: 3px; }
+.slot-btn:hover:not(.selected):not(.full) { background: #0d2b52; border-color: #0d2b52; }
+.slot-btn.selected { background: var(--accent-500); border-color: var(--accent-500); color: var(--white); }
+.slot-btn.selected small { color: #fff; }
 .slot-btn.full { background: var(--mist); border-color: var(--line); color: var(--slate); cursor: not-allowed; opacity: 0.6; }
+.slot-btn.full small { color: var(--slate); }
 @media (max-width: 480px) { .slot-picker { grid-template-columns: 1fr; } }
 
 .rate-stars { display: inline-flex; gap: 2px; }
@@ -1499,6 +1519,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 .chat-panel-input input {
   flex: 1;
+  min-width: 0;
   padding: 14px 18px;
   border: 1px solid var(--line);
   border-radius: 999px;

@@ -4924,11 +4924,23 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
       ? joinWithAnd(appliances.map(a => a.name))
       : 'Appliance';
 
+    // BUG FIX: this was reading the legacy row.servicePrice/repairPrice
+    // fields, but Admin's Pricing tab (per-service SKU redesign) only
+    // ever writes to row.servicePrices now — so a price change in Admin
+    // never showed up here. Prefer the SKU-based value: the type's FIRST
+    // defined service (Service/AMC, or "Deep Clean" for Microwave — always
+    // the primary, non-repair service) for the Service/AMC column, and the
+    // 'svc-repair' SKU (present on every type) for Repair. Falls back to
+    // the legacy field only for older rows that predate the SKU system.
     const pricingRowsHtml = appliances.flatMap(a =>
       a.types.map(t => {
         const row = pricing.find(p => p.cityId === city.id && p.applianceId === a.id && p.typeId === t.id);
         if (!row) return '';
-        return `<tr><td>${a.name}</td><td>${t.name}</td><td>₹${row.servicePrice} onwards</td><td>₹${row.repairPrice} onwards</td></tr>`;
+        const services = Array.isArray(t.services) ? t.services : [];
+        const primarySkuId = services[0] ? services[0].id : null;
+        const svcPrice = (primarySkuId && row.servicePrices && typeof row.servicePrices[primarySkuId] === 'number') ? row.servicePrices[primarySkuId] : row.servicePrice;
+        const repPrice = (row.servicePrices && typeof row.servicePrices['svc-repair'] === 'number') ? row.servicePrices['svc-repair'] : row.repairPrice;
+        return `<tr><td>${a.name}</td><td>${t.name}</td><td>₹${svcPrice} onwards</td><td>₹${repPrice} onwards</td></tr>`;
       })
     ).join('\n          ');
 
@@ -5065,6 +5077,13 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       : appliance.name;
 
     const pricing = readData('pricing');
+    // BUG FIX: same stale-price issue as the city page — read the
+    // per-service SKU price Admin's Pricing tab actually writes to (the
+    // type's first defined service for "Service/AMC", 'svc-repair' for
+    // Repair), falling back to the legacy field only for rows that
+    // predate the SKU system.
+    const resolvedPrice = (row, sku, legacyField) =>
+      (sku && row.servicePrices && typeof row.servicePrices[sku] === 'number') ? row.servicePrices[sku] : row[legacyField];
     // On a type-specific page, the table only shows that one type's row
     // — showing all types here again would undercut the whole point of
     // a dedicated page (and just duplicate the general appliance page).
@@ -5080,7 +5099,11 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       const typeCell = focusType
         ? t.name
         : `<a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}" style="color:inherit;text-decoration:underline;">${t.name}</a>`;
-      return `<tr><td>${typeCell}</td><td>₹${row.servicePrice} onwards</td><td>₹${row.repairPrice} onwards</td></tr>`;
+      const services = Array.isArray(t.services) ? t.services : [];
+      const primarySkuId = services[0] ? services[0].id : null;
+      const svcPrice = resolvedPrice(row, primarySkuId, 'servicePrice');
+      const repPrice = resolvedPrice(row, 'svc-repair', 'repairPrice');
+      return `<tr><td>${typeCell}</td><td>₹${svcPrice} onwards</td><td>₹${repPrice} onwards</td></tr>`;
     }).join('\n          ');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
@@ -5088,9 +5111,13 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     // to just the focus type's own service/repair prices on a
     // type-specific page, for the same reason as the pricing table above.
     const applianceServicePrices = relevantTypes
-      .map(t => pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id))
-      .filter(Boolean)
-      .flatMap(row => [row.servicePrice, row.repairPrice]);
+      .map(t => ({ t, row: pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id) }))
+      .filter(x => x.row)
+      .flatMap(({ t, row }) => {
+        const services = Array.isArray(t.services) ? t.services : [];
+        const primarySkuId = services[0] ? services[0].id : null;
+        return [resolvedPrice(row, primarySkuId, 'servicePrice'), resolvedPrice(row, 'svc-repair', 'repairPrice')];
+      });
     const priceRange = applianceServicePrices.length
       ? `₹${Math.min(...applianceServicePrices)}-₹${Math.max(...applianceServicePrices)}`
       : '';
