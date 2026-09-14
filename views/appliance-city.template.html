@@ -34,12 +34,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609080g">
+<link rel="stylesheet" href="/css/style.css?v=202609080h">
 
 <script type="application/ld+json">
 {{SERVICE_SCHEMA_JSON}}
 </script>
 {{BREADCRUMB_SCHEMA_JSON}}
+{{APPLIANCE_FAQ_SCHEMA}}
 </head>
 <body>
 
@@ -137,6 +138,37 @@
   <div class="container">
     <div class="section-head reveal" style="max-width:820px;">
       <span class="eyebrow">How it works</span>
+      <h2>Booking {{APPLIANCE_NAME}} Service in {{CITY_NAME}} — 4 Simple Steps</h2>
+    </div>
+    <div class="steps reveal" style="grid-template-columns:repeat(4,1fr);">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Book Online</h3>
+        <p>Pick your {{APPLIANCE_NAME}} type and a visit time slot that works for you — takes under a minute.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Free Diagnosis</h3>
+        <p>Our {{CITY_NAME}} technician inspects the appliance in front of you and explains exactly what's wrong.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Upfront Repair</h3>
+        <p>You approve the price first — then genuine parts and expert work, no surprise charges after.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Quality Check</h3>
+        <p>The appliance is tested in front of you before the technician leaves, backed by a 30-day warranty.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="section-head reveal" style="max-width:820px;">
+      <span class="eyebrow">How it works</span>
       <h2>How Our {{APPLIANCE_NAME}} Service Works in {{CITY_NAME}}</h2>
     </div>
     <div class="reveal" style="max-width:820px;margin:0 auto;">
@@ -154,6 +186,18 @@
     <div class="reveal" style="max-width:820px;margin:0 auto;">
       <p>{{ABOUT_TEXT}}</p>
       <p>Looking for "{{APPLIANCE_NAME}} service near me" in {{CITY_NAME}}? Seerua's verified technicians already work across {{CITY_NAME}}, so a real technician — not a call centre — can be at your door the same day. Every job includes an upfront price, genuine parts billed at market rate with no hidden markup, and a 30-day warranty on the work done.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="section-head reveal" style="max-width:820px;">
+      <span class="eyebrow">Common questions</span>
+      <h2>{{APPLIANCE_NAME}} Service in {{CITY_NAME}} — FAQs</h2>
+    </div>
+    <div class="faq-list reveal" style="max-width:820px;margin:0 auto;">
+      {{APPLIANCE_FAQ_HTML}}
     </div>
   </div>
 </section>
@@ -387,6 +431,18 @@ function bindBottomSheet(id) {
 document.getElementById('navCityBtn')?.addEventListener('click', () => openBottomSheet('citySheetBackdrop'));
 document.getElementById('bottomNavCityBtn')?.addEventListener('click', () => openBottomSheet('citySheetBackdrop'));
 document.getElementById('bottomNavMenuBtn')?.addEventListener('click', () => openBottomSheet('menuSheetBackdrop'));
+// FAQ accordion — this page doesn't load main.js (its own small script
+// covers just what's needed here), so the toggle behavior needs its own
+// copy rather than relying on the homepage's version.
+document.querySelectorAll('.faq-item').forEach(item => {
+  const q = item.querySelector('.faq-q');
+  if (!q) return;
+  q.addEventListener('click', () => {
+    const wasOpen = item.classList.contains('open');
+    item.parentElement.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  });
+});
 (function () {
   var targets = document.querySelectorAll('.reveal');
   if (!targets.length) return;

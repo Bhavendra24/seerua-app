@@ -4637,6 +4637,19 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// WebP versions of appliance photos sit alongside the original at the
+// same path (same filename, .webp extension) — <picture> lets a
+// supporting browser use the smaller file while any other browser
+// silently falls back to the original. If no .webp file actually
+// exists for a given photo, the <source> is just ignored — the <img>
+// fallback always still works.
+function toWebpUrl(url) {
+  return String(url || '').replace(/\.(jpe?g|png)$/i, '.webp');
+}
+function buildPictureHtml(photoUrl, imgAttrs) {
+  return `<picture><source srcset="${escapeHtml(toWebpUrl(photoUrl))}" type="image/webp"><img src="${escapeHtml(photoUrl)}" ${imgAttrs}></picture>`;
+}
+
 // Turns the Admin-written "what we do during service" text (plain text,
 // blank line between paragraphs) into safe HTML paragraphs for the
 // server-rendered city pages. main.js has an identical client-side version
@@ -4690,7 +4703,7 @@ function buildServicesGridHtml(appliances) {
   return appliances.map(a => `
     <div class="service-card" data-appliance="${a.id}">
       ${a.photoUrl
-        ? `<img class="service-card-photo" src="${escapeHtml(a.photoUrl)}" alt="${escapeHtml(a.name)} service technician at work" loading="lazy">`
+        ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${escapeHtml(a.name)} service technician at work" loading="lazy"`)
         : `<div class="service-icon-wrap"><div class="service-icon">${SERVER_SERVICE_ICONS[a.icon] || SERVER_SERVICE_ICONS.wrench}</div></div>`}
       <h3>${escapeHtml(a.name)}</h3>
       <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
@@ -4991,7 +5004,7 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
 // or renamed appliance whose old slug no longer matches) — same
 // always-live-from-data philosophy as the city page above, nothing here
 // is a static/cached file that could drift out of date.
-app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
+function renderApplianceCityPage(req, res, next, focusTypeSlug) {
   // "/blog" and "/blog/:articleSlug" are also nested under
   // "/appliance-repair/:citySlug/..." (see below) — let those fall
   // through to their own routes instead of being treated as an
@@ -5022,17 +5035,59 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
         `<h1>Service not found in ${escapeHtml(city.name)}</h1><p>This service may not be available here yet. <a href="/appliance-repair/${slugify(city.name)}">See everything we offer in ${escapeHtml(city.name)}</a>.</p>`
       );
     }
+    // TYPE-SPECIFIC PAGE (per competitor research — Vijay Home Services
+    // has separate pages per appliance TYPE, not just per appliance):
+    // when this was reached via /appliance-repair/:city/:appliance/:type,
+    // find that specific type now. A slug that doesn't match any of this
+    // appliance's types 404s rather than silently falling back to the
+    // generic appliance page — a broken/guessed URL shouldn't quietly
+    // "work" and confuse whoever's checking it.
+    let focusType = null;
+    if (focusTypeSlug) {
+      focusType = appliance.types.find(t => slugify(t.name) === focusTypeSlug);
+      if (!focusType) {
+        return res.status(404).send(
+          `<h1>Service not found in ${escapeHtml(city.name)}</h1><p>This specific service type may not be available here yet. <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}">See all ${escapeHtml(appliance.name)} services in ${escapeHtml(city.name)}</a>.</p>`
+        );
+      }
+    }
+    // The name used everywhere on the page — "Split AC" on a
+    // type-specific page, just "AC" on the general appliance page.
+    // Type names aren't consistent about whether they already include
+    // the appliance name (data check: "Split AC" already has "AC" in
+    // it, but "Top Load" doesn't have "Washing Machine", and "Chimney"
+    // as a type name for the Chimney appliance is identical to it) — so
+    // this only appends the appliance name when the type name doesn't
+    // already contain it, rather than always concatenating and risking
+    // "Chimney Chimney" or "Split AC AC".
+    const displayName = focusType
+      ? (focusType.name.toLowerCase().includes(appliance.name.toLowerCase()) ? focusType.name : `${focusType.name} ${appliance.name}`)
+      : appliance.name;
 
     const pricing = readData('pricing');
-    const pricingRowsHtml = appliance.types.map(t => {
+    // On a type-specific page, the table only shows that one type's row
+    // — showing all types here again would undercut the whole point of
+    // a dedicated page (and just duplicate the general appliance page).
+    const relevantTypes = focusType ? [focusType] : appliance.types;
+    const pricingRowsHtml = relevantTypes.map(t => {
       const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
       if (!row) return '';
-      return `<tr><td>${t.name}</td><td>₹${row.servicePrice} onwards</td><td>₹${row.repairPrice} onwards</td></tr>`;
+      // On the general appliance page (not already focused on this one
+      // type), link each type name to its own dedicated page — both for
+      // customers who want to jump straight to it, and so Google can
+      // discover these pages by simply crawling this one, not just via
+      // the sitemap.
+      const typeCell = focusType
+        ? t.name
+        : `<a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}" style="color:inherit;text-decoration:underline;">${t.name}</a>`;
+      return `<tr><td>${typeCell}</td><td>₹${row.servicePrice} onwards</td><td>₹${row.repairPrice} onwards</td></tr>`;
     }).join('\n          ');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
-    // every appliance), so it stays an honest, specific number.
-    const applianceServicePrices = appliance.types
+    // every appliance), so it stays an honest, specific number. Narrows
+    // to just the focus type's own service/repair prices on a
+    // type-specific page, for the same reason as the pricing table above.
+    const applianceServicePrices = relevantTypes
       .map(t => pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id))
       .filter(Boolean)
       .flatMap(row => [row.servicePrice, row.repairPrice]);
@@ -5051,13 +5106,13 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
         const cityAppliances = readData('appliances').filter(a => !(a.disabledCities || []).includes(c.id));
         return cityAppliances.some(a => a.id === appliance.id);
       })
-      .map(c => `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(appliance.name)}" class="city-chip">${appliance.name} Service in ${c.name}</a>`)
+      .map(c => `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(appliance.name)}${focusType ? '/' + slugify(focusType.name) : ''}" class="city-chip">${displayName} Service in ${c.name}</a>`)
       .join('\n      ');
 
     const footerServicesHtml = allAppliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
 
     const cityUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}`;
-    const canonicalUrl = `${cityUrl}/${applianceSlug(appliance.name)}`;
+    const canonicalUrl = `${cityUrl}/${applianceSlug(appliance.name)}${focusType ? '/' + slugify(focusType.name) : ''}`;
     // SUGGESTION IMPLEMENTED: real photos of technicians actually doing
     // this work (AI-generated by Admin, not stock/stolen images — see
     // public/images/appliances/) make the page feel far less like a bare
@@ -5065,17 +5120,60 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
     // Fridge) simply get the original single-column hero instead of a
     // broken image.
     const appliancePhotoHtml = appliance.photoUrl
-      ? `<img src="${appliance.photoUrl}" alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);">`
+      ? buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"`)
       : '';
+
+    // NEW: FAQ section, per-appliance-per-city — competitor research
+    // (Vijay Home Services) showed FAQ blocks with FAQPage schema on
+    // their equivalent pages, useful both for actually answering common
+    // pre-booking questions AND for Google's FAQ rich-result snippets.
+    // Kept genuinely specific to THIS appliance+city (not the site-wide
+    // Admin-managed FAQ list used on the homepage) so the answers can
+    // reference this page's own real price range instead of staying
+    // generic.
+    const applianceFaqs = [
+      {
+        q: `How much does ${displayName} service cost in ${city.name}?`,
+        a: priceRange
+          ? `${displayName} service in ${city.name} starts at ${priceRange} — see the exact pricing above for a full breakdown. The technician always confirms the final price with you before starting any work, so there are never surprise charges.`
+          : `Pricing depends on the specific issue. The technician gives you an exact quote after inspecting it, before any work begins — nothing is charged without your approval first.`
+      },
+      {
+        q: `How soon can a technician visit for ${displayName} service in ${city.name}?`,
+        a: `Most ${city.name} bookings get a same-day visit, with a time slot you pick yourself when booking. You'll get a confirmation with the technician's details ahead of the visit.`
+      },
+      {
+        q: `Do you repair all ${displayName} brands in ${city.name}?`,
+        a: `Yes — our ${city.name} technicians service all major brands. If a specific spare part needs to be ordered for an older or less common model, we'll let you know the expected timeline upfront.`
+      },
+      {
+        q: `Is there a warranty on ${displayName} repairs in ${city.name}?`,
+        a: `Yes, every repair includes a 30-day service warranty — if the same issue comes back within that period, we'll send a technician again at no extra visit charge.`
+      }
+    ];
+    const applianceFaqListHtml = applianceFaqs.map((f, i) => `
+      <div class="faq-item${i === 0 ? ' open' : ''}">
+        <div class="faq-q">${escapeHtml(f.q)} <span class="plus">+</span></div>
+        <div class="faq-a"><p>${escapeHtml(f.a)}</p></div>
+      </div>`).join('');
+    const applianceFaqSchemaHtml = `<script type="application/ld+json">
+${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: applianceFaqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
+    }, null, 2)}
+</script>`;
 
     const template = fs.readFileSync(APPLIANCE_CITY_TEMPLATE_PATH, 'utf-8');
     const html = template
       .split('{{CITY_NAME}}').join(city.name)
       .split('{{CITY_ID}}').join(city.id)
       .split('{{CITY_SLUG}}').join(slugify(city.name))
-      .split('{{APPLIANCE_NAME}}').join(appliance.name)
+      .split('{{APPLIANCE_NAME}}').join(displayName)
       .split('{{APPLIANCE_ID}}').join(appliance.id)
       .split('{{APPLIANCE_PHOTO_HTML}}').join(appliancePhotoHtml)
+      .split('{{APPLIANCE_FAQ_HTML}}').join(applianceFaqListHtml)
+      .split('{{APPLIANCE_FAQ_SCHEMA}}').join(applianceFaqSchemaHtml)
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{PRICING_ROWS_HTML}}').join(pricingRowsHtml || `<tr><td colspan="3">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
       .split('{{SERVICE_PROCESS_HTML}}').join(formatServiceProcessHtml(appliance.serviceProcess) || `<p>Our technician inspects your ${appliance.name} in front of you, explains the issue clearly, and only proceeds once you approve the price.</p>`)
@@ -5097,7 +5195,15 @@ app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => {
     console.error('Error rendering appliance+city page:', e);
     res.status(500).send('Something went wrong loading this page.');
   }
-});
+}
+
+app.get('/appliance-repair/:citySlug/:applianceSlug', (req, res, next) => renderApplianceCityPage(req, res, next, null));
+// TYPE-SPECIFIC PAGE (per competitor research — Vijay Home Services has
+// a separate page per appliance TYPE, e.g. "Split AC Service in
+// Bangalore" distinct from "Window AC Service in Bangalore", not just
+// one combined AC page) — same handler, just with a third URL segment
+// identifying which type to focus on.
+app.get('/appliance-repair/:citySlug/:applianceSlug/:typeSlug', (req, res, next) => renderApplianceCityPage(req, res, next, req.params.typeSlug));
 
 // =======================================================
 // CITY-SPECIFIC BLOG — a small library of evergreen appliance-care
@@ -5260,6 +5366,18 @@ app.get('/sitemap.xml', (req, res) => {
         priority: '0.85',
         lastmod: today
       }));
+    }),
+    // Type-specific pages (e.g. "Split AC service in Noida", distinct
+    // from the general "AC service in Noida" above) — same long-tail
+    // reasoning as the appliance+city pages just above.
+    ...cities.flatMap(c => {
+      const cityAppliances = allAppliancesRaw.filter(a => !(a.disabledCities || []).includes(c.id));
+      return cityAppliances.flatMap(a => a.types.map(t => ({
+        loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}/${slugify(t.name)}`,
+        changefreq: 'weekly',
+        priority: '0.8',
+        lastmod: today
+      })));
     }),
     ...cities.map(c => ({
       loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/blog`,
