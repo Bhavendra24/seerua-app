@@ -13,7 +13,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
-const { readData, writeData, genId, withLock, initDb, getAllData } = require('./db');
+const { readData, readDataReadOnly, writeData, genId, withLock, initDb, getAllData } = require('./db');
 const { istDateStr, istCurrentHour } = require('./lib/date');
 const { hashPassword, verifyAndUpgrade, isBcryptHash } = require('./lib/password');
 const { askAiAssistant } = require('./lib/ai-assistant');
@@ -830,7 +830,11 @@ app.post('/api/technician-applications', (req, res) => {
 });
 
 app.get('/api/appliances', (req, res) => {
-  const appliances = readData('appliances').filter(a => !a.hidden);
+  // PERFORMANCE FIX: another hot, read-only path — fires every time a
+  // city gets picked/changed (refreshAppliancesForCity() on the client).
+  // Safe to skip readData()'s deep-copy here too, same reasoning as
+  // GET /api/price above — this only ever reads (.filter()).
+  const appliances = readDataReadOnly('appliances').filter(a => !a.hidden);
   const { cityId } = req.query;
   // When a city is specified, hide any appliance that's been disabled for
   // that city — customers in that city should never see or be able to
@@ -1148,14 +1152,19 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
 
 app.get('/api/price', (req, res) => {
   const { cityId, applianceId, typeId } = req.query;
-  const pricing = readData('pricing');
+  // PERFORMANCE FIX: this is a hot, purely read-only path — fires on
+  // every single type/service selection while someone's browsing Quick
+  // Book. readDataReadOnly() skips readData()'s deep-copy safety net,
+  // safe here specifically because this handler only ever reads (.find()),
+  // never mutates, the returned data.
+  const pricing = readDataReadOnly('pricing');
   const row = pricing.find(p => p.cityId === cityId && p.applianceId === applianceId && p.typeId === typeId);
   if (!row) return res.status(404).json({ error: 'Price not found for this selection' });
   // BUG FIX: same gap as the chatbot's availability checks — the admin's
   // per-city "Available In Cities" checkboxes disable a city WITHOUT
   // removing its old pricing row, so a pricing row existing wasn't
   // actually enough to call this available. Checking disabledCities too.
-  const appliance = readData('appliances').find(a => a.id === applianceId);
+  const appliance = readDataReadOnly('appliances').find(a => a.id === applianceId);
   if (appliance && (appliance.disabledCities || []).includes(cityId)) {
     return res.status(404).json({ error: 'This appliance is not available in this city' });
   }

@@ -2672,7 +2672,14 @@ function applyAccountToBookingFields(acc) {
   // mismatch bugs fixed earlier. "Edit Address" (renamed below) already
   // covers changing city too, via the same Account Gate step.
   if (cityEl) { cityEl.disabled = true; cityEl.style.background = 'var(--mist)'; }
-  if (acc.cityId && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(acc.cityId);
+  // BUG FIX: this used to always show the ACCOUNT's own city here
+  // regardless of what #fCity actually ended up holding — harmless
+  // normally (they're usually the same value), but wrong the moment
+  // cityBrowsedManually above correctly kept a DIFFERENT city in
+  // #fCity. The label was quietly lying about which city the booking
+  // was actually going to use. Reads #fCity's real, current value
+  // instead of assuming it matches the account.
+  if (cityEl && cityEl.value && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityEl.value);
   const editBtn = document.getElementById('editAddressBtn');
   if (editBtn) editBtn.style.display = 'inline-block';
   verifiedBookingPhone = acc.phone;

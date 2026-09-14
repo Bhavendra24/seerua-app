@@ -132,6 +132,24 @@ function readData(name) {
   return JSON.parse(JSON.stringify(cache[name]));
 }
 
+// PERFORMANCE FIX: readData()'s JSON.stringify+parse deep-copy (needed for
+// its mutation-safety guarantee) gets measurably slower as a dataset
+// grows — noticeable on a genuinely hot, read-only path like the price
+// lookup GET /api/price, which runs on every single type/service
+// selection while browsing Quick Book. This variant skips the copy
+// entirely for call sites that are provably read-only (only ever call
+// .find()/.filter()/.map() on the result, never push/splice/assign into
+// it — mutating this directly WOULD corrupt the shared cache, unlike
+// readData()'s copy). Use readData() by default; only reach for this in
+// a verified hot, read-only path.
+function readDataReadOnly(name) {
+  assertReady();
+  if (!(name in cache)) {
+    throw new Error(`readDataReadOnly: no data found for "${name}". If this is a brand new key, create it once via writeData("${name}", ...) first.`);
+  }
+  return cache[name];
+}
+
 // Writes via a temp file + rename instead of writing the target file
 // directly (file mode only). A direct write that gets interrupted partway
 // (server crash, restart, out-of-disk) leaves a truncated, corrupted JSON
@@ -209,4 +227,4 @@ function getAllData() {
   return JSON.parse(JSON.stringify(cache));
 }
 
-module.exports = { readData, writeData, genId, withLock, initDb, getAllData };
+module.exports = { readData, readDataReadOnly, writeData, genId, withLock, initDb, getAllData };
