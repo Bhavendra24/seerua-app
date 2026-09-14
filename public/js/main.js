@@ -13,25 +13,12 @@
 // every entry point (in-page click, #track/#book on load, this
 // session's new City/Appliance-City page header icon linking to
 // /#track, etc.) at once.
-let agIntent = null; // 'booking' | 'account' | 'quickbook'
+let agIntent = null; // 'booking' | 'account' | 'quickbook' | 'profile-edit'
 let agPendingApplianceId = null;
-let agEditMode = false;
-// See the comment where this gets set to true (City picker's click
-// handler) — tells applyAccountToBookingFields() not to silently
-// overwrite a deliberately-browsed different city back to the account's
-// saved one.
-let cityBrowsedManually = false;
-// Set true right before sending someone to Edit Profile from the
-// "please update your city" warning — tells the save-success handler
-// above to automatically finish the booking they were originally
-// trying to make, instead of leaving them to notice and retry it
-// themselves after fixing exactly what was asked.
-let pendingCityFixRetry = false;
-// Same idea as pendingCityFixRetry, for Quick Book's own account-gate
-// pause (see qbDoAdd()) — remembers whether "Add" or "Book Now" was the
-// one being attempted, so it can resume automatically once the phone+
-// OTP step completes, instead of leaving the customer to notice and
-// press it again themselves.
+// Remembers whether "Add" or "Book Now" was the one being attempted
+// when Quick Book paused for phone+OTP (see qbDoAdd()) — resumes
+// automatically once that completes, instead of leaving the customer
+// to notice and press it again themselves.
 let qbPendingRetryAction = null; // 'add' | 'book' | null
 // BUG FIX: the per-service-card Add/Book buttons (qbAddService(), used by
 // AC's Window/Split/Cassette service list) had their own separate
@@ -143,15 +130,6 @@ document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async 
   const cityEl = document.getElementById('fCity');
   if (cityEl) {
     cityEl.value = cityId;
-    // BUG FIX: applyAccountToBookingFields() used to unconditionally
-    // reset #fCity back to the SAVED account's city every time it ran
-    // (e.g. simply opening the booking form again after this) — so
-    // browsing a different city here, then opening/reopening the
-    // booking form, silently wiped out this exact selection before the
-    // city-mismatch check ever got a chance to see it. This flag tells
-    // that function "someone deliberately browsed a different city in
-    // this session — don't overwrite it".
-    cityBrowsedManually = true;
     if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
   }
   closeBottomSheet('citySheetBackdrop');
@@ -1108,34 +1086,20 @@ function renderCart() {
     if (phoneLockNote) phoneLockNote.style.display = shouldLock ? 'block' : 'none';
     if (!shouldLock) cartPhoneNumber = null; // cart's empty again — free to start over with any number
   }
-  // Same lock, for the same reason, on City — see cartCityId's comment
-  // above for what goes wrong without this. BUG FIX: this used to
-  // unconditionally UNLOCK the field again once the cart emptied out —
-  // which also undid the separate, persistent lock applied in
-  // applyAccountToBookingFields() for a returning customer's saved
-  // city, re-opening the exact mismatch risk that lock exists to
-  // prevent. Now only touches the field if there's no saved account
-  // locking it for an unrelated reason.
+  // Same lock, for the same reason, on City: items already in the cart
+  // were priced for whichever city was active when each was added, so
+  // switching cities mid-cart would leave them silently charging the
+  // OLD city's rates under the NEW city's name. Locks the field while
+  // the cart has anything in it, regardless of account status — City
+  // isn't tied to the account (see applyAccountToBookingFields), so
+  // there's no separate account-level lock to defer to here.
   const cityField = document.getElementById('fCity');
-  if (cityField && quickBookViewStartIndex === null && !getAccount()) {
+  if (cityField && quickBookViewStartIndex === null) {
     const shouldLockCity = cartItems.length > 0;
     cityField.disabled = shouldLockCity;
     cityField.style.background = shouldLockCity ? 'var(--mist)' : '';
     if (!shouldLockCity) cartCityId = null; // cart's empty again — free to start over with any city
   }
-  // BUG FIX: this used to reset cityBrowsedManually back to false the
-  // moment the cart was empty — which is almost ALWAYS true right after
-  // someone picks a city from the City picker (they haven't added
-  // anything yet), since renderCart() runs on plenty of unrelated
-  // events too. That reset the flag within moments of it being set,
-  // so by the time they tapped any appliance's Book Now,
-  // applyAccountToBookingFields() no longer saw it as "deliberately
-  // browsed" and silently swapped their choice back to the account's
-  // saved city — exactly the "city changes back to Moradabad" report
-  // this was meant to prevent in the first place. A manually-browsed
-  // city is a deliberate choice for the rest of this visit, not
-  // something that should expire just because the cart happens to be
-  // empty at some unrelated moment.
   // Clear, visible confirmation that this is an isolated "just this one
   // item" checkout — so it's obvious nothing else from the regular cart
   // is quietly being bundled into this booking.
@@ -1310,25 +1274,7 @@ function clearPendingPhoto() {
 
 let addingItem = false;
 
-// Shown when a saved account's home city differs from whatever the page
-// is currently browsing (via the City picker) — see the check in
-// addItemToCart(). Simple, blocking message: booking must match the
-// city on file, so the only way forward is updating the profile.
-function showCityMismatchChoice(browsedCityId, acc) {
-  const browsedCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === browsedCityId) : null;
-  const accountCity = (typeof CITIES !== 'undefined') ? CITIES.find(c => c.id === acc.cityId) : null;
-  if (!browsedCity || !accountCity) return;
-  document.getElementById('cityMismatchText').textContent =
-    `Your profile city is ${accountCity.name}. You are trying to book in ${browsedCity.name}. Please change your city in your profile to book in ${browsedCity.name}.`;
-  document.getElementById('cityMismatchEditBtn').onclick = () => {
-    document.getElementById('cityMismatchModal').classList.remove('open');
-    pendingCityFixRetry = true;
-    openEditProfile();
-  };
-  document.getElementById('cityMismatchModal').classList.add('open');
-}
-
-async function addItemToCart(skipCityCheck) {
+async function addItemToCart() {
   if (addingItem) return; // already processing a click — ignore extra clicks (prevents double-adds from a fast double tap on mobile)
   // Uses its own message box right under the "+ Add to Booking" button —
   // not the form's #formMsg way down near Submit, which used to leave
@@ -1353,17 +1299,10 @@ async function addItemToCart(skipCityCheck) {
     msg.textContent = 'Please select your city first.';
     return;
   }
-  // A saved account has its own "home" city — if the page is currently
-  // showing a DIFFERENT city's prices (someone free to browse via the
-  // City picker at any time, account or not), pause here and let them
-  // choose explicitly, rather than silently either mixing prices from
-  // two different cities into one booking, or blocking city-browsing
-  // outright for anyone with an account.
-  const accForCityCheck = getAccount();
-  if (!skipCityCheck && accForCityCheck && accForCityCheck.cityId && accForCityCheck.cityId !== cityId) {
-    showCityMismatchChoice(cityId, accForCityCheck);
-    return;
-  }
+  // SIMPLIFIED (per explicit request): City is no longer tied to the
+  // account or cross-checked against it — Name/Address/Phone are the
+  // same everywhere, but City is just whatever's currently on the page,
+  // used as-is for this booking. No mismatch check, no blocking modal.
   if (!applianceId || !typeId) {
     msg.className = 'form-msg error';
     msg.textContent = 'Please select an appliance and type.';
@@ -2664,21 +2603,13 @@ function applyAccountToBookingFields(acc) {
   if (phoneEl) phoneEl.value = acc.phone;
   if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
   if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
-  if (cityEl && acc.cityId && cityEl.value !== acc.cityId && !cityBrowsedManually) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
-  // Locked to match Name/Address just above — was left as a fully open
-  // dropdown even for a returning customer with a saved city, which
-  // looked inconsistent ("why can I still change just this one thing?")
-  // and was an easy way to accidentally cause the exact price/technician
-  // mismatch bugs fixed earlier. "Edit Address" (renamed below) already
-  // covers changing city too, via the same Account Gate step.
-  if (cityEl) { cityEl.disabled = true; cityEl.style.background = 'var(--mist)'; }
-  // BUG FIX: this used to always show the ACCOUNT's own city here
-  // regardless of what #fCity actually ended up holding — harmless
-  // normally (they're usually the same value), but wrong the moment
-  // cityBrowsedManually above correctly kept a DIFFERENT city in
-  // #fCity. The label was quietly lying about which city the booking
-  // was actually going to use. Reads #fCity's real, current value
-  // instead of assuming it matches the account.
+  // SIMPLIFIED (per explicit request): City is never locked to the
+  // account, or cross-checked against it — Name/Address/Phone are the
+  // same everywhere, but City is a per-booking choice. Only pre-fills
+  // #fCity as a convenience default when it's currently empty — never
+  // overwrites a choice already sitting there, and never disables the
+  // field.
+  if (cityEl && acc.cityId && !cityEl.value) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
   if (cityEl && cityEl.value && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityEl.value);
   const editBtn = document.getElementById('editAddressBtn');
   if (editBtn) editBtn.style.display = 'inline-block';
@@ -2698,28 +2629,20 @@ function applyAccountToBookingFields(acc) {
 function openAccountGate(intent, applianceId) {
   agIntent = intent;
   agPendingApplianceId = applianceId || null;
-  agEditMode = false;
   const acc = getAccount();
   if (acc) {
     proceedAfterAccountGate(acc);
     return;
   }
   document.getElementById('agPhoneMsg').textContent = '';
+  document.getElementById('agName').value = '';
   document.getElementById('agPhone').value = '';
-  document.getElementById('agPhoneStep').style.display = 'block';
-  document.getElementById('agAddressStep').style.display = 'none';
-  const title = document.getElementById('agPhoneTitle');
-  const sub = document.getElementById('agPhoneSub');
-  if (title) title.textContent = 'Welcome 👋';
-  if (sub) sub.textContent = intent === 'account' ? 'Enter your mobile number for My Account' : 'Enter your mobile number for booking';
+  document.getElementById('agAddress').value = '';
   document.getElementById('accountGateModal').classList.add('open');
 }
 
 function closeAccountGate() {
   document.getElementById('accountGateModal').classList.remove('open');
-  // If they cancelled out of Edit Profile instead of saving, don't leave
-  // this armed for some unrelated future save to accidentally trigger.
-  pendingCityFixRetry = false;
   qbPendingRetryAction = null;
   qbPendingServiceAction = null;
 }
@@ -2732,7 +2655,13 @@ function proceedAfterAccountGate(acc) {
   const resumeQbAction = qbPendingRetryAction; // capture before closeAccountGate() clears it
   const resumeQbServiceAction = qbPendingServiceAction; // same, for the per-service-card Add/Book buttons
   closeAccountGate();
-  if (agIntent === 'account') {
+  if (agIntent === 'profile-edit') {
+    // Just a re-verification so an expired Edit Profile could go
+    // through — nothing further to do, already saved by the time this
+    // runs.
+    applyAccountToBookingFields(acc);
+    showToast('✅ Details updated');
+  } else if (agIntent === 'account') {
     // FLOW CHANGE: opens the Track Booking popup directly — no more
     // revealing the old permanent on-page section first.
     const trackPhoneInput = document.getElementById('trackPhone');
@@ -2776,26 +2705,44 @@ function bindAccountGateModal() {
     if (e.target.id === 'accountGateModal') closeAccountGate();
   });
 
-  // FLOW CHANGE (back to manual, per explicit request): typing the
-  // number alone no longer auto-fires this — a tap on "Send OTP" does.
-  // Editing the number after a failed attempt and tapping Send OTP
-  // again is a fresh, deliberate attempt (agSending only blocks a
-  // second tap while one is already in flight, via the button's own
-  // disabled state below).
+  // SIMPLIFIED (per explicit request): one combined submit instead of
+  // phone-first-then-address. Validates Name + Phone + Address together,
+  // sends OTP only once everything else already checks out, and saves
+  // the complete account the moment OTP succeeds — no separate second
+  // step. City comes from whatever's already selected on the page
+  // (#fCity) at the point of booking, not asked again here.
   let agSending = false;
   async function attemptAccountGateVerification() {
     if (agSending) return;
     const msg = document.getElementById('agPhoneMsg');
+    const name = document.getElementById('agName').value.trim();
     const phone = document.getElementById('agPhone').value.trim();
+    const address = document.getElementById('agAddress').value.trim();
     const btn = document.getElementById('agSendBtn');
+    if (!name) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter your name.';
+      return;
+    }
     if (!/^[0-9]{10}$/.test(phone)) {
       msg.className = 'form-msg error';
       msg.textContent = 'Please enter a valid 10 digit mobile number.';
       return;
     }
+    if (!address) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter your address.';
+      return;
+    }
+    const cityId = document.getElementById('fCity').value;
+    if (!cityId) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please select a city first.';
+      return;
+    }
     agSending = true;
     btn.disabled = true;
-    btn.textContent = 'Sending...';
+    btn.textContent = 'Confirming...';
     msg.className = 'form-msg';
     msg.textContent = '';
     try {
@@ -2817,77 +2764,28 @@ function bindAccountGateModal() {
 
       let accessToken = null;
       if (otpEnabled && !phoneAlreadyVerified) {
-        msg.textContent = 'Sending OTP — please complete the verification that just opened.';
         accessToken = await verifyPhoneWithOtp(phone);
       }
       verifiedBookingPhone = phone;
       verifiedBookingAccessToken = accessToken;
-      msg.textContent = 'Verified! Checking your details...';
-      let lookup = { found: false };
-      try { lookup = await fetchJSON(`/api/customer-lookup?phone=${phone}`); } catch (e) { /* fall through to Add Address either way */ }
-      if (lookup.found && lookup.name && lookup.address && lookup.cityId) {
-        // BUG FIX: this branch used to skip straight to
-        // proceedAfterAccountGate() without ever telling the server
-        // this phone just verified — /api/customer-profile (which
-        // actually calls markPhoneVerified()) was only ever hit from the
-        // "brand new number" branch below. For an already-registered
-        // customer whose number wasn't already in verified-phones (e.g.
-        // an old phone-call booking from before OTP existed), that meant
-        // their OTP access token was NEVER actually consumed/recorded
-        // server-side. It sat unused, and if the booking submit step
-        // later tried to validate that same token a second time, MSG91
-        // rejected it as already-used/invalid — which looked exactly
-        // like "OTP is being asked again" moments after they'd just
-        // completed it. Calling the same endpoint here (harmless no-op
-        // re-save of their own existing details if already verified)
-        // ensures markPhoneVerified() actually runs once, so every later
-        // step in this same visit correctly sees them as verified.
-        try {
-          await fetchJSON('/api/customer-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, name: lookup.name, address: lookup.address, cityId: lookup.cityId, accessToken })
-          });
-        } catch (e) { /* non-fatal — worst case, later steps re-check phone-verified the normal way */ }
-        const acc = { phone, name: lookup.name, address: lookup.address, cityId: lookup.cityId, accessToken };
-        saveAccount(acc);
-        // BUG FIX: if this re-verification was triggered by openEditProfile()
-        // finding the phone no longer server-side verified (see above), the
-        // customer came here specifically to edit their address — silently
-        // continuing on with proceedAfterAccountGate() would skip the edit
-        // entirely and just re-use whatever was already on file. Land back
-        // on the (now pre-filled, freshly-verified) address form instead so
-        // Save actually works this time.
-        if (agEditMode) {
-          document.getElementById('agPhoneStep').style.display = 'none';
-          document.getElementById('agAddressStep').style.display = 'block';
-          document.getElementById('agName').value = acc.name;
-          document.getElementById('agAddress').value = acc.address;
-          populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
-          document.getElementById('agCity').value = acc.cityId;
-          document.getElementById('agAddressMsg').textContent = '';
-        } else {
-          proceedAfterAccountGate(acc);
-        }
-      } else {
-        // Brand new number — one more step (Add Address) before the
-        // account actually exists. This step opens itself — no tap
-        // needed to get here.
-        document.getElementById('agPhoneStep').style.display = 'none';
-        document.getElementById('agAddressStep').style.display = 'block';
-        document.getElementById('agName').value = lookup.name || '';
-        document.getElementById('agAddress').value = lookup.address || '';
-        populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
-        if (lookup.cityId) document.getElementById('agCity').value = lookup.cityId;
-        document.getElementById('agAddressMsg').textContent = '';
-      }
+      msg.textContent = 'Confirming your details...';
+      try {
+        await fetchJSON('/api/customer-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, name, address, cityId, accessToken })
+        });
+      } catch (e) { /* non-fatal — worst case, later steps re-check phone-verified the normal way */ }
+      const acc = { phone, name, address, cityId, accessToken };
+      saveAccount(acc);
+      proceedAfterAccountGate(acc);
     } catch (err) {
       msg.className = 'form-msg error';
-      msg.textContent = err.message || 'OTP verification failed. Please try again.';
+      msg.textContent = err.message || 'Something went wrong. Please try again.';
     } finally {
       agSending = false;
       btn.disabled = false;
-      btn.textContent = 'Send OTP';
+      btn.textContent = 'Confirm Booking';
     }
   }
   document.getElementById('agSendBtn').addEventListener('click', attemptAccountGateVerification);
@@ -2895,9 +2793,9 @@ function bindAccountGateModal() {
   document.getElementById('agSaveBtn').addEventListener('click', async () => {
     const msg = document.getElementById('agAddressMsg');
     const existingAcc = getAccount();
-    const phone = document.getElementById('agPhone').value.trim() || (existingAcc && existingAcc.phone) || verifiedBookingPhone;
-    const name = document.getElementById('agName').value.trim();
-    const address = document.getElementById('agAddress').value.trim();
+    const phone = (existingAcc && existingAcc.phone) || verifiedBookingPhone;
+    const name = document.getElementById('agEditName').value.trim();
+    const address = document.getElementById('agEditAddress').value.trim();
     const cityId = document.getElementById('agCity').value;
     if (!phone) { msg.className = 'form-msg error'; msg.textContent = 'Please verify your mobile number first.'; return; }
     if (!name) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your name.'; return; }
@@ -2911,30 +2809,16 @@ function bindAccountGateModal() {
     try {
       await fetchJSON('/api/customer-profile', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, name, address, cityId, accessToken: verifiedBookingAccessToken || undefined })
+        body: JSON.stringify({ phone, name, address, cityId, accessToken: (existingAcc && existingAcc.accessToken) || verifiedBookingAccessToken || undefined })
       });
-      const acc = { phone, name, address, cityId, accessToken: verifiedBookingAccessToken };
+      const acc = { phone, name, address, cityId, accessToken: (existingAcc && existingAcc.accessToken) || verifiedBookingAccessToken };
       saveAccount(acc);
-      if (agEditMode) {
-        const shouldRetryCityFix = pendingCityFixRetry; // read before closeAccountGate() clears it
-        closeAccountGate();
-        cityBrowsedManually = false; // profile now genuinely says this city — resume normal auto-sync
-        applyAccountToBookingFields(acc);
-        // If this edit was triggered by the "please update your city"
-        // warning (see showCityMismatchChoice), automatically finish
-        // the booking they were originally trying to make — they
-        // shouldn't have to notice and re-tap "Add to Booking" a second
-        // time after fixing exactly what it asked them to fix.
-        if (shouldRetryCityFix) {
-          pendingCityFixRetry = false;
-          addItemToCart(true);
-        }
-      } else {
-        proceedAfterAccountGate(acc);
-      }
+      document.getElementById('accountEditModal').classList.remove('open');
+      applyAccountToBookingFields(acc);
+      showToast('✅ Details updated');
     } catch (err) {
       msg.className = 'form-msg error';
-      msg.textContent = err.message || 'Could not save your address. Please try again.';
+      msg.textContent = err.message || 'Could not save your details. Please try again.';
     } finally {
       btn.disabled = false;
       btn.textContent = 'Save';
@@ -2950,24 +2834,21 @@ function bindAccountGateModal() {
 async function openEditProfile() {
   const acc = getAccount();
   if (!acc) return;
-  agEditMode = true;
-  document.getElementById('agAddressTitle').textContent = 'Edit Address / City';
   document.getElementById('agAddressMsg').textContent = '';
-  document.getElementById('accountGateModal').classList.add('open');
 
   // BUG FIX: a saved account lives in the browser (localStorage)
   // basically forever, but the server's memory of "this phone passed
   // OTP once" (data/verified-phones.json) can be lost independently —
   // e.g. a redeploy without a database configured. When that happens,
-  // this used to jump straight to the address form using the old
+  // this used to jump straight to the edit form using the old
   // (now-unrecognized) accessToken from localStorage, and Save always
   // failed with a confusing "OTP verification failed, expired, or does
   // not match this phone number" error with no way to recover short of
   // logging out. Now it re-checks with the server first: if the phone
-  // is still verified, behaves exactly as before; if not, it asks for
-  // OTP again first (attemptAccountGateVerification below already knows,
-  // via agEditMode, to land back on this same address form afterwards
-  // instead of just logging them in).
+  // is still verified, opens the (name/city/address only) edit modal as
+  // before; if not, re-uses the main combined booking form to re-verify
+  // AND update their details in one go, since that form already does
+  // exactly that.
   let stillVerified = true;
   try {
     const check = await fetchJSON(`/api/phone-verified?phone=${acc.phone}`);
@@ -2975,21 +2856,22 @@ async function openEditProfile() {
   } catch (e) { /* can't tell — assume still verified, Save will surface any real problem */ }
 
   if (stillVerified) {
-    document.getElementById('agPhoneStep').style.display = 'none';
-    document.getElementById('agAddressStep').style.display = 'block';
-    document.getElementById('agName').value = acc.name || '';
-    document.getElementById('agAddress').value = acc.address || '';
+    document.getElementById('agEditName').value = acc.name || '';
+    document.getElementById('agEditAddress').value = acc.address || '';
     populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
     if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
+    document.getElementById('accountEditModal').classList.add('open');
   } else {
+    agIntent = 'profile-edit';
     document.getElementById('agPhoneMsg').textContent = '';
+    document.getElementById('agName').value = acc.name || '';
     document.getElementById('agPhone').value = acc.phone;
-    document.getElementById('agPhoneStep').style.display = 'block';
-    document.getElementById('agAddressStep').style.display = 'none';
+    document.getElementById('agAddress').value = acc.address || '';
     const title = document.getElementById('agPhoneTitle');
     const sub = document.getElementById('agPhoneSub');
     if (title) title.textContent = 'Please verify again';
-    if (sub) sub.textContent = 'Your verification expired — please verify your mobile number again to edit your address.';
+    if (sub) sub.textContent = 'Your verification expired — please verify your mobile number again to update your details.';
+    document.getElementById('accountGateModal').classList.add('open');
   }
 }
 bindAccountGateModal();
