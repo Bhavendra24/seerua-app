@@ -284,6 +284,10 @@ let activeAddressTargetInputId = null;
 let activeAddressPreviewId = null;
 let selectedSaveAs = null;
 let pendingLatLng = null;
+// Tracks which saved address (by its own id) is currently being edited
+// via the pencil icon on its card — null means "Add New Address" is
+// creating a brand new entry instead of updating an existing one.
+let editingAddressId = null;
 
 function getSavedAddresses(phone) {
   try { return JSON.parse(localStorage.getItem(`seerua_addresses_${phone || 'guest'}`) || '[]'); }
@@ -333,7 +337,7 @@ function openSelectAddressModal(targetInputId, previewId) {
     const acc = (typeof getAccount === 'function') ? getAccount() : null;
     const existingAddressText = (document.getElementById(targetInputId)?.value || (acc && acc.address) || '').trim();
     if (existingAddressText) {
-      list = [{ saveAs: 'Home', fullText: existingAddressText }];
+      list = [{ id: 'existing', saveAs: 'Home', fullText: existingAddressText }];
     }
   }
   const container = document.getElementById('savedAddressList');
@@ -341,15 +345,40 @@ function openSelectAddressModal(targetInputId, previewId) {
     container.innerHTML = `<p style="font-size:0.85rem;color:var(--slate);margin:0 0 14px;">No saved addresses yet — add one below.</p>`;
   } else {
     container.innerHTML = list.map((a, i) => `
-      <button type="button" class="saved-address-card" data-idx="${i}">
-        <strong>${saveAsIcon(a.saveAs)} ${escapeHtml(a.saveAs)}</strong>
-        <span>${escapeHtml(a.fullText)}</span>
-      </button>
+      <div class="saved-address-row">
+        <button type="button" class="saved-address-card" data-idx="${i}">
+          <strong>${saveAsIcon(a.saveAs)} ${escapeHtml(a.saveAs)}</strong>
+          <span>${escapeHtml(a.fullText)}</span>
+        </button>
+        <button type="button" class="saved-address-edit-btn" data-idx="${i}" aria-label="Edit this address" title="Edit">✏️</button>
+      </div>
     `).join('');
     container.querySelectorAll('.saved-address-card').forEach(btn => {
       btn.addEventListener('click', () => {
         const a = list[parseInt(btn.getAttribute('data-idx'), 10)];
         applyChosenAddress(a);
+      });
+    });
+    // BUG FIX (the actual "address edit nahi ho raha" report): there was
+    // previously no way to fix a typo or update an existing saved
+    // address at all — only "select it as-is" or "add a completely
+    // separate new one". This pencil button opens the same Add Address
+    // form, pre-filled with THIS entry's own details — since
+    // editingAddressId is set below, Save then updates this specific
+    // entry in place instead of creating a duplicate new one.
+    container.querySelectorAll('.saved-address-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const a = list[parseInt(btn.getAttribute('data-idx'), 10)];
+        editingAddressId = a.id;
+        closeSelectAddressModal();
+        openAddAddressModal(true);
+        document.getElementById('naHouseNo').value = a.houseNo || (a.fullText ? a.fullText.split(',')[0].trim() : '');
+        document.getElementById('naLandmark').value = a.landmark || '';
+        selectedSaveAs = a.saveAs || null;
+        document.querySelectorAll('.save-as-pill').forEach(p => {
+          p.classList.toggle('selected', p.getAttribute('data-val') === selectedSaveAs);
+        });
       });
     });
   }
@@ -369,12 +398,19 @@ function applyChosenAddress(a) {
   closeSelectAddressModal();
   closeAddAddressModal();
 }
-function openAddAddressModal() {
-  document.getElementById('naHouseNo').value = '';
-  document.getElementById('naLandmark').value = '';
-  selectedSaveAs = null;
+function openAddAddressModal(isEditing) {
+  if (!isEditing) editingAddressId = null;
+  const titleEl = document.getElementById('addAddressModalTitle');
+  if (titleEl) titleEl.textContent = isEditing ? 'Edit Address' : 'Add New Address';
+  const saveBtn = document.getElementById('saveNewAddressBtn');
+  if (saveBtn) saveBtn.textContent = isEditing ? 'Save Changes' : 'Save Address';
+  if (!isEditing) {
+    document.getElementById('naHouseNo').value = '';
+    document.getElementById('naLandmark').value = '';
+    selectedSaveAs = null;
+    document.querySelectorAll('.save-as-pill').forEach(p => p.classList.remove('selected'));
+  }
   pendingLatLng = null;
-  document.querySelectorAll('.save-as-pill').forEach(p => p.classList.remove('selected'));
   const locMsg = document.getElementById('addAddressLocationMsg');
   if (locMsg) { locMsg.textContent = ''; locMsg.style.color = ''; }
   const msg = document.getElementById('addAddressMsg');
@@ -443,12 +479,26 @@ document.getElementById('saveNewAddressBtn')?.addEventListener('click', () => {
   const cityEl = document.getElementById('fCity') || document.getElementById('agCity');
   const cityName = (cityEl && cityEl.selectedOptions[0] && cityEl.selectedIndex > 0) ? cityEl.selectedOptions[0].textContent : '';
   const fullText = `${houseNo}, ${landmark}${cityName ? ', ' + cityName : ''}`;
-  const newAddr = { id: Date.now(), houseNo, landmark, saveAs: selectedSaveAs, fullText, lat: pendingLatLng ? pendingLatLng.lat : undefined, lng: pendingLatLng ? pendingLatLng.lng : undefined };
   const phone = currentAddressPhone();
   const list = getSavedAddresses(phone);
-  list.unshift(newAddr);
+  // BUG FIX (see openSelectAddressModal's own edit-button comment): when
+  // editingAddressId is set, this is editing an existing entry, not
+  // adding a new one — update it in place (keeping its original id) so
+  // Save doesn't leave a stray duplicate sitting alongside the corrected
+  // version.
+  let savedAddr;
+  if (editingAddressId != null) {
+    const existingIdx = list.findIndex(a => a.id === editingAddressId);
+    savedAddr = { id: editingAddressId, houseNo, landmark, saveAs: selectedSaveAs, fullText, lat: pendingLatLng ? pendingLatLng.lat : undefined, lng: pendingLatLng ? pendingLatLng.lng : undefined };
+    if (existingIdx >= 0) list[existingIdx] = savedAddr;
+    else list.unshift(savedAddr); // the seeded "existing account address" entry (id: 'existing') was never actually in this list — first edit adds it for real
+  } else {
+    savedAddr = { id: Date.now(), houseNo, landmark, saveAs: selectedSaveAs, fullText, lat: pendingLatLng ? pendingLatLng.lat : undefined, lng: pendingLatLng ? pendingLatLng.lng : undefined };
+    list.unshift(savedAddr);
+  }
   setSavedAddresses(phone, list);
-  applyChosenAddress(newAddr);
+  editingAddressId = null;
+  applyChosenAddress(savedAddr);
 });
 
 document.getElementById('agAddressSelectBtn')?.addEventListener('click', () => openSelectAddressModal('agAddress', 'agAddressPreview'));

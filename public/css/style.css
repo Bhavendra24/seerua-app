@@ -1254,14 +1254,20 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .dt-slot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 @media (min-width: 420px) { .dt-slot-grid { grid-template-columns: repeat(3, 1fr); } }
 
+.saved-address-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; }
 .saved-address-card {
-  width: 100%; display: flex; flex-direction: column; gap: 4px; text-align: left;
+  flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left;
   padding: 12px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
-  background: #fff; cursor: pointer; margin-bottom: 10px; transition: border-color 0.15s ease;
+  background: #fff; cursor: pointer; transition: border-color 0.15s ease;
 }
 .saved-address-card:hover { border-color: var(--accent-500); }
 .saved-address-card strong { font-size: 0.88rem; color: var(--ink); }
 .saved-address-card span { font-size: 0.84rem; color: var(--slate); }
+.saved-address-edit-btn {
+  flex-shrink: 0; width: 44px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--mist); cursor: pointer; font-size: 1rem;
+}
+.saved-address-edit-btn:hover { border-color: var(--accent-500); background: #fff; }
 .address-add-new-btn { border-style: dashed; }
 
 .save-as-pills { display: flex; gap: 8px; flex-wrap: wrap; }
