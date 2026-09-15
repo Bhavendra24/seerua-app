@@ -1268,6 +1268,11 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   background: var(--mist); cursor: pointer; font-size: 1rem;
 }
 .saved-address-edit-btn:hover { border-color: var(--accent-500); background: #fff; }
+.saved-address-delete-btn {
+  flex-shrink: 0; width: 44px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--mist); cursor: pointer; font-size: 1rem;
+}
+.saved-address-delete-btn:hover { border-color: var(--red); background: #fff0f0; }
 .address-add-new-btn { border-style: dashed; }
 
 .save-as-pills { display: flex; gap: 8px; flex-wrap: wrap; }

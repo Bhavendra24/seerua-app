@@ -356,6 +356,7 @@ function openSelectAddressModal(targetInputId, previewId) {
           <span>${escapeHtml(a.fullText)}</span>
         </button>
         <button type="button" class="saved-address-edit-btn" data-idx="${i}" aria-label="Edit this address" title="Edit">✏️</button>
+        <button type="button" class="saved-address-delete-btn" data-idx="${i}" aria-label="Delete this address" title="Delete">🗑️</button>
       </div>
     `).join('');
     container.querySelectorAll('.saved-address-card').forEach(btn => {
@@ -384,6 +385,24 @@ function openSelectAddressModal(targetInputId, previewId) {
         document.querySelectorAll('.save-as-pill').forEach(p => {
           p.classList.toggle('selected', p.getAttribute('data-val') === selectedSaveAs);
         });
+      });
+    });
+    // Flipkart-style delete-from-the-list — removes just this one saved
+    // address (the account's own current address field, if it happens
+    // to match, is untouched; this only affects the "pick a different
+    // saved one" list itself). Simple confirm() to guard against an
+    // accidental tap, since there's no undo.
+    container.querySelectorAll('.saved-address-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const a = list[idx];
+        if (!confirm(`Delete this address?\n${a.fullText}`)) return;
+        const phone = currentAddressPhone();
+        const stored = getSavedAddresses(phone);
+        const newList = stored.filter(x => x.id !== a.id);
+        setSavedAddresses(phone, newList);
+        openSelectAddressModal(activeAddressTargetInputId, activeAddressPreviewId);
       });
     });
   }
