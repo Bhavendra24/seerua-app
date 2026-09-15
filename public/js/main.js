@@ -686,9 +686,12 @@ async function init() {
   renderServicesGrid();
   bindFooterApplianceLinks();
 
-  // City chips — link each to its own SEO landing page
+  // City chips — link directly to each city's first appliance page
+  // (the combined city-only page now just redirects there anyway; going
+  // straight there avoids the extra redirect hop for the common case).
   const chipRow = document.getElementById('cityChipRow');
-  chipRow.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="city-chip">${c.name}</a>`).join('');
+  const firstApplianceSlug = APPLIANCES.length ? `/${applianceSlug(APPLIANCES[0].name)}` : '';
+  chipRow.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}${firstApplianceSlug}" class="city-chip">${c.name}</a>`).join('');
 
   loadPublicStats();
   loadPublicReviews();
@@ -1192,6 +1195,12 @@ function bindCareersModal() {
 
 function slugify(name) {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+// Mirrors applianceSlug() in server.js — needed client-side now that a
+// few places (like the homepage's city chips) link directly to a city's
+// first appliance page instead of the old combined city-only page.
+function applianceSlug(name) {
+  return `${slugify(name)}-service`;
 }
 
 function refreshFormTypes() {

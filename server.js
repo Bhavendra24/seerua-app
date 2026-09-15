@@ -4901,122 +4901,32 @@ function buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRan
 }
 
 app.get('/appliance-repair/:citySlug', (req, res) => {
-  try {
-    const maintenance = maintenancePageIfEnabled();
-    if (maintenance) {
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Retry-After', String(maintenance.retryAfterSeconds));
-      return res.status(503).send(maintenance.html);
-    }
-    const cities = readData('cities').filter(c => c.active);
-    const city = cities.find(c => slugify(c.name) === req.params.citySlug);
-    // BUG FIX: {{FOOTER_SLOGAN}}/{{FOOTER_DESCRIPTION}} further down
-    // reference siteContent, but nothing in this route ever read it —
-    // every single city page was crashing with a 500 (ReferenceError)
-    // as soon as it reached the footer replace calls.
-    const siteContent = readData('site-content');
-    if (!city) {
-      return res.status(404).send(
-        `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
-      );
-    }
-
-    // Appliances disabled for this specific city are left out of everything
-    // on this page entirely — pricing table, service cards, and the footer
-    // links — so this city's page reads as if that service doesn't exist.
-    const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
-    const pricing = readData('pricing');
-    // BUG FIX: the H1 heading's appliance list ("AC, Washing Machine, RO
-    // & Fridge Repair in...") was hardcoded plain text in the template —
-    // adding/renaming/removing an appliance in Admin never changed it,
-    // since nothing here ever fed real appliance data into that heading.
-    const cityApplianceListText = appliances.length
-      ? joinWithAnd(appliances.map(a => a.name))
-      : 'Appliance';
-
-    // BUG FIX: this was reading the legacy row.servicePrice/repairPrice
-    // fields, but Admin's Pricing tab (per-service SKU redesign) only
-    // ever writes to row.servicePrices now — so a price change in Admin
-    // never showed up here. Prefer the SKU-based value: the type's FIRST
-    // defined service (Service/AMC, or "Deep Clean" for Microwave — always
-    // the primary, non-repair service) for the Service/AMC column, and the
-    // 'svc-repair' SKU (present on every type) for Repair. Falls back to
-    // the legacy field only for older rows that predate the SKU system.
-    const pricingRowsHtml = appliances.flatMap(a =>
-      a.types.map(t => {
-        const row = pricing.find(p => p.cityId === city.id && p.applianceId === a.id && p.typeId === t.id);
-        if (!row) return '';
-        const services = Array.isArray(t.services) ? t.services : [];
-        const primarySkuId = services[0] ? services[0].id : null;
-        const svcPrice = (primarySkuId && row.servicePrices && typeof row.servicePrices[primarySkuId] === 'number') ? row.servicePrices[primarySkuId] : row.servicePrice;
-        const repPrice = (row.servicePrices && typeof row.servicePrices['svc-repair'] === 'number') ? row.servicePrices['svc-repair'] : row.repairPrice;
-        return `<tr><td>${a.name}</td><td>${t.name}</td><td>₹${svcPrice} onwards</td><td>₹${repPrice} onwards</td></tr>`;
-      })
-    ).join('\n          ');
-
-    const servicesGridHtml = appliances.map(a => `
-      <div class="service-card">
-        <div class="service-icon">${ICON_LABELS[a.icon] || '🔧'}</div>
-        <h3><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" style="color:inherit;text-decoration:none;">${a.name} Service in ${city.name}</a></h3>
-        <p>Repair and regular service available in ${city.name}.</p>
-        <div class="service-types">${a.types.map(t => `<span>${t.name}</span>`).join('')}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="/?city=${city.id}&amp;appliance=${a.id}#quickbook" class="btn btn-outline btn-sm">Book Now</a>
-          <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="btn btn-sm" style="color:var(--blue-600);">Details →</a>
-        </div>
-      </div>
-    `).join('');
-
-    // Links straight to the homepage booking form with both the city AND
-    // this appliance pre-selected (see main.js, which reads ?appliance=).
-    const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
-
-    const otherCitiesHtml = cities.filter(c => c.id !== city.id)
-      .map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="city-chip">${c.name}</a>`)
-      .join('\n      ');
-    // Server-rendered directly (rather than fetched/built by client JS,
-    // which this standalone page doesn't have the CITIES data for) so
-    // the City picker sheet actually has something in it to tap.
-    const allCitiesGridHtml = cities
-      .map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="bottom-sheet-city-btn">${c.name}</a>`)
-      .join('\n      ');
-
-    const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}`;
-
-    const template = fs.readFileSync(CITY_TEMPLATE_PATH, 'utf-8');
-    const html = template
-      .split('{{CITY_NAME}}').join(city.name)
-      .split('{{CITY_APPLIANCE_LIST}}').join(cityApplianceListText)
-      .split('{{CITY_ID}}').join(city.id)
-      .split('{{CITY_SLUG}}').join(slugify(city.name))
-      .split('{{CANONICAL_URL}}').join(canonicalUrl)
-      .split('{{PRICING_ROWS_HTML}}').join(pricingRowsHtml || '<tr><td colspan="4">Pricing coming soon for this city.</td></tr>')
-      .split('{{SERVICES_GRID_HTML}}').join(servicesGridHtml)
-      .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
-      .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
-      .split('{{ALL_CITIES_GRID_HTML}}').join(allCitiesGridHtml)
-      .split('{{YEAR}}').join(String(new Date().getFullYear()))
-      // FLOW CHANGE: footer paragraph used to be a hardcoded sentence
-      // built around {{CITY_NAME}} ("Seerua Appliance Care is
-      // Moradabad's trusted platform...") — so it visibly reworded
-      // itself every time someone moved between city pages, which read
-      // as inconsistent/glitchy rather than intentional. Now pulls the
-      // exact same admin-editable, city-independent text the homepage's
-      // footer already uses, so the footer reads identically everywhere
-      // on the site.
-      .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
-      .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
-      .split('{{SAME_AS_JSON}}').join(buildSameAsJson())
-      .split('{{AGGREGATE_RATING_JSON}}').join(aggregateRatingJsonFragment(computeSiteRating(city.id)))
-      .split('{{OFFER_CATALOG_JSON}}').join(buildOfferCatalogJson(city, appliances))
-      .split('{{BREADCRUMB_SCHEMA_JSON}}').join(buildBreadcrumbSchemaHtml(city.name, canonicalUrl));
-
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
-  } catch (e) {
-    console.error('Error rendering city page:', e);
-    res.status(500).send('Something went wrong loading this page.');
+  // SEO SIMPLIFICATION (per explicit request): the combined "every
+  // appliance in this city" page is removed in favor of going straight
+  // to individual Appliance-City pages (each specific appliance's own
+  // dedicated page already covers everything this page used to, per
+  // appliance) — matching how Vijay Home Services structures theirs.
+  // 301 (permanent) redirect rather than just deleting the route
+  // outright: Google has very likely already indexed this exact URL for
+  // "appliance repair in <city>"-style searches, and a 301 correctly
+  // transfers that existing ranking signal to the new target instead of
+  // just 404ing it away. Redirects to this city's FIRST available
+  // appliance's own page — not a perfect substitute for every possible
+  // search intent, but a reasonable, always-valid default landing spot.
+  const cities = readData('cities').filter(c => c.active);
+  const city = cities.find(c => slugify(c.name) === req.params.citySlug);
+  if (!city) {
+    return res.status(404).send(
+      `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
+    );
   }
+  const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
+  if (!appliances.length) {
+    // No appliances configured for this city at all — nothing sensible
+    // to redirect to, so just send them home instead of a broken link.
+    return res.redirect(301, '/');
+  }
+  res.redirect(301, `/appliance-repair/${req.params.citySlug}/${applianceSlug(appliances[0].name)}`);
 });
 
 // The long-tail landing page a search like "AC service in Noida" actually
@@ -5384,12 +5294,12 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: `${SITE_URL}/`, changefreq: 'weekly', priority: '1.0', lastmod: today },
     { loc: `${SITE_URL}/terms`, changefreq: 'monthly', priority: '0.3', lastmod: today },
     { loc: `${SITE_URL}/careers`, changefreq: 'monthly', priority: '0.5', lastmod: today },
-    ...cities.map(c => ({
-      loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}`,
-      changefreq: 'weekly',
-      priority: '0.9',
-      lastmod: today
-    })),
+    // NOTE: the combined "every appliance in this city" page
+    // (/appliance-repair/:city with no appliance segment) is
+    // intentionally NOT listed here anymore — it now 301-redirects to
+    // that city's first appliance page rather than serving its own
+    // content, and a sitemap should only ever list final, canonical
+    // destination URLs, never a redirecting one.
     // The specific appliance+city pages (e.g. "AC service in Noida") —
     // these are the long-tail pages most likely to actually rank for a
     // "<appliance> service in <city>" search, so they're listed here too
