@@ -1,7 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Configurable via DATA_DIR env var — lets a Render "Persistent Disk"
+// (mounted at whatever path you choose, e.g. /var/data) survive
+// redeploys even without a real database configured. Falls back to the
+// bundled ./data folder (the original, non-persistent default) if not
+// set, so this is a purely additive, opt-in change — nothing breaks for
+// anyone not using a persistent disk.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 
 // SUGGESTION IMPLEMENTED: this used to always read/write local JSON files
 // directly. On managed hosting (Hostinger Business, Render, Railway, etc.)
@@ -107,7 +113,7 @@ async function initDb() {
         cache[name] = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf-8'));
       }
     }
-    console.log('[db] DB_HOST not set — using local JSON files in ./data (fine for local dev; set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME for MySQL in production so data survives redeploys).');
+    console.log(`[db] DB_HOST not set — using local JSON files in ${DATA_DIR}${DATA_DIR.includes('/data') && !process.env.DATA_DIR ? ' (fine for local dev)' : ''}. For production on a host like Render where a redeploy can wipe local files: either set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME for real MySQL persistence, OR mount a Render "Persistent Disk" and set DATA_DIR to its mount path so these same JSON files survive redeploys without a full database.`);
   }
   ready = true;
 }
