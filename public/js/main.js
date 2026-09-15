@@ -2497,12 +2497,12 @@ function openTrackBookingModal() {
         body.insertAdjacentHTML('beforeend', '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>');
         return;
       }
-      body.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Searching...</p>';
+      body.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
       try {
         const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
         lastTrackedBookings = bookings;
         knownReferralPhone = phone;
-        body.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<p>No bookings found for this number.</p>';
+        body.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<div style="text-align:center;padding:24px 10px;"><div style="font-size:2.4rem;margin-bottom:8px;">📭</div><p style="color:var(--slate);margin:0;">No bookings found for this number.</p></div>';
       } catch (e) {
         body.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
       }
@@ -2548,11 +2548,11 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
   // that number's booking history (name, address, appliance details) —
   // a deliberate tradeoff made explicitly in favor of simplicity here.
   try {
-    results.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Searching...</p>';
+    results.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
     const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
     lastTrackedBookings = bookings;
     knownReferralPhone = phone; // so the header's "Refer a Friend" doesn't need to ask for the number again
-    results.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<p>No bookings found for this number.</p>';
+    results.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<div style="text-align:center;padding:24px 10px;"><div style="font-size:2.4rem;margin-bottom:8px;">📭</div><p style="color:var(--slate);margin:0;">No bookings found for this number.</p></div>';
   } catch (e) {
     results.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
   }
