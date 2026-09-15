@@ -1032,6 +1032,14 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    modal wasn't actually broken, just invisible, sitting correctly
    opened directly behind the form that triggered it. */
 #selectAddressModal, #addAddressModal { z-index: 260; }
+/* Same issue, same fix, for the calendar's "Pick a date" popup — it's
+   opened FROM WITHIN #dateTimeModal (tapping the "Pick" pill), but is
+   defined earlier in the HTML, so with every modal sharing the same
+   z-index otherwise, #dateTimeModal painted on top and made the actual
+   calendar invisible the moment both were open — it genuinely was
+   opening and a date WAS selectable there, just completely hidden
+   behind the very screen that opened it. */
+#dateCalendarModal { z-index: 270; }
 /* Design polish: every modal in the site (Account Gate, OTP entry,
    Track Booking, Refer a Friend, date calendar, Quick Book, Careers)
    shares these two classes, so this one animation applies everywhere
