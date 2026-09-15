@@ -1267,7 +1267,7 @@ app.post('/api/bookings', async (req, res) => {
       if (!otpValid) {
         return res.status(401).json({ error: 'OTP verification failed, expired, or does not match this phone number. Please verify your number again.' });
       }
-      markPhoneVerified(phone); // remembered — no OTP needed for this number's future bookings
+      await markPhoneVerified(phone); // remembered — no OTP needed for this number's future bookings
     } catch (e) {
       console.error('OTP verify error:', e);
       return res.status(500).json({ error: 'Could not verify OTP right now. Please try again in a moment.' });
@@ -1751,11 +1751,11 @@ app.put('/api/admin/otp-config', requireAdmin, (req, res) => {
 function isPhoneVerified(phone) {
   return readData('verified-phones').includes(phone);
 }
-function markPhoneVerified(phone) {
+async function markPhoneVerified(phone) {
   const list = readData('verified-phones');
   if (!list.includes(phone)) {
     list.push(phone);
-    writeData('verified-phones', list);
+    await writeData('verified-phones', list);
   }
 }
 
@@ -1824,7 +1824,7 @@ app.post('/api/customer-profile', async (req, res) => {
       if (!otpValid) {
         return res.status(401).json({ error: 'OTP verification failed, expired, or does not match this phone number. Please verify your number again.' });
       }
-      markPhoneVerified(phone); // remembered from here on — no OTP needed for this number ever again
+      await markPhoneVerified(phone); // remembered from here on — no OTP needed for this number ever again
     } catch (e) {
       console.error('OTP verify error (customer-profile):', e);
       return res.status(500).json({ error: 'Could not verify OTP right now. Please try again in a moment.' });
@@ -3652,7 +3652,7 @@ app.get('/api/admin/bookings/archived', requireStaff, (req, res) => {
 // Lets Admin register a booking taken over a phone call — no OTP needed
 // here since the Admin is already authenticated. Still findable later by
 // the customer's phone number, same as any other booking.
-app.post('/api/admin/bookings', requireStaff, (req, res) => {
+app.post('/api/admin/bookings', requireStaff, async (req, res) => {
   const { name, phone, address, cityId, items, bookingDate, timeSlotId } = req.body;
   if (!name || !phone || !address || !cityId || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Please fill all required fields and add at least one appliance.' });
@@ -3748,8 +3748,8 @@ app.post('/api/admin/bookings', requireStaff, (req, res) => {
     updatedAt: new Date().toISOString()
   };
   bookings.unshift(booking);
-  writeData('bookings', bookings);
-  markPhoneVerified(phone); // Admin has already spoken to them directly — no OTP needed if they later book online too
+  await writeData('bookings', bookings);
+  await markPhoneVerified(phone); // Admin has already spoken to them directly — no OTP needed if they later book online too
   res.json({ success: true, booking });
 });
 
