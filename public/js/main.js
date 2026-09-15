@@ -2045,40 +2045,47 @@ function bindFormEvents() {
     submitBtn.disabled = true;
 
     // If this exact phone number was already verified when the item(s)
-    // were added to the cart, reuse that token — no need to ask for OTP
-    // a second time at the very end of the same session.
-    if (verifiedBookingPhone === phone && verifiedBookingAccessToken) {
-      payload.accessToken = verifiedBookingAccessToken;
-    } else {
-      // Fallback path — covers the phone number being changed after
-      // adding items (a real, if unusual, case), or verifiedBookingPhone
-      // never having been set for some other reason. Re-checks from
-      // scratch exactly as before this change.
-      let phoneAlreadyVerified = false;
-      try {
-        const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
-        phoneAlreadyVerified = !!check.verified;
-      } catch (e) { /* if the check itself fails, fall back to normal OTP flow */ }
+    // were added to the cart, skip straight through — no need to ask
+    // for OTP a second time at the very end of the same session.
+    //
+    // BUG FIX: this used to unconditionally REUSE the cached
+    // verifiedBookingAccessToken here — but MSG91 access tokens are
+    // single-use, and that same token had already been consumed once
+    // already (validating it during the earlier combined-form step,
+    // which calls /api/customer-profile). Sending it again here for the
+    // SAME final booking submit had the server correctly reject it as
+    // already-used/invalid, surfacing as the generic "OTP verification
+    // failed" message right at the last step, even though the customer
+    // had genuinely already verified successfully minutes earlier.
+    // Re-checking isPhoneVerified() (server-side, persists regardless of
+    // any client-side token) is the actual source of truth for whether
+    // OTP is still needed at all — an accessToken is now only sent if
+    // this comes back false, matching what the server's own check
+    // already prioritizes.
+    let phoneAlreadyVerified = false;
+    try {
+      const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+      phoneAlreadyVerified = !!check.verified;
+    } catch (e) { /* if the check itself fails, fall back to normal OTP flow */ }
 
-      let otpEnabled = true;
-      try {
-        const cfg = await ensureOtpConfig();
-        otpEnabled = cfg.enabled !== false;
-      } catch (e) { /* if the config fetch fails, fall back to normal OTP flow */ }
+    let otpEnabled = true;
+    try {
+      const cfg = await ensureOtpConfig();
+      otpEnabled = cfg.enabled !== false;
+    } catch (e) { /* if the config fetch fails, fall back to normal OTP flow */ }
 
-      if (otpEnabled && !phoneAlreadyVerified) {
-        submitBtn.textContent = 'Sending OTP...';
-        msg.className = 'form-msg';
-        msg.textContent = 'Please complete the OTP verification that just opened to confirm your booking.';
-        try {
-          payload.accessToken = await verifyPhoneWithOtp(phone);
-        } catch (err) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Submit';
-          msg.className = 'form-msg error';
-          msg.textContent = err.message || 'OTP verification failed. Please try again.';
-          return;
-        }
+    if (otpEnabled && !phoneAlreadyVerified) {
+      submitBtn.textContent = 'Sending OTP...';
+      msg.className = 'form-msg';
+      msg.textContent = 'Please complete the OTP verification that just opened to confirm your booking.';
+      try {
+        payload.accessToken = await verifyPhoneWithOtp(phone);
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+        msg.className = 'form-msg error';
+        msg.textContent = err.message || 'OTP verification failed. Please try again.';
+        return;
       }
     }
 
@@ -2378,8 +2385,22 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
   }
   try {
     let accessToken;
-    if (verifiedBookingPhone === phone && verifiedBookingAccessToken) {
-      accessToken = verifiedBookingAccessToken; // already verified this number earlier in this visit
+    // BUG FIX: this used to unconditionally reuse a cached
+    // verifiedBookingAccessToken here if the phone matched — but MSG91
+    // tokens are single-use, and that token may well have already been
+    // consumed validating something else earlier in the same visit
+    // (adding an item to the cart, an earlier booking submit, etc.).
+    // Re-checking isPhoneVerified() first (server-side, persists
+    // regardless of any single client-side token) is the real source of
+    // truth for whether OTP is still needed at all.
+    let phoneAlreadyVerified = false;
+    try {
+      const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+      phoneAlreadyVerified = !!check.verified;
+    } catch (e) { /* fall back to normal OTP flow */ }
+
+    if (phoneAlreadyVerified) {
+      accessToken = verifiedBookingPhone === phone ? verifiedBookingAccessToken : null;
     } else {
       // Same check as everywhere else OTP is used (Account Gate, Add to
       // Booking, booking submit) — a number already verified before, or
@@ -2387,19 +2408,13 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
       // popup. Previously this always tried to open the OTP widget
       // regardless of that setting, which hung forever whenever OTP
       // wasn't configured.
-      let phoneAlreadyVerified = false;
-      try {
-        const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
-        phoneAlreadyVerified = !!check.verified;
-      } catch (e) { /* fall back to normal OTP flow */ }
-
       let otpEnabled = true;
       try {
         const cfg = await ensureOtpConfig();
         otpEnabled = cfg.enabled !== false;
       } catch (e) { /* fall back to normal OTP flow */ }
 
-      if (otpEnabled && !phoneAlreadyVerified) {
+      if (otpEnabled) {
         results.innerHTML = '<p style="color:var(--slate);">Please complete the OTP verification that just opened.</p>';
         accessToken = await verifyPhoneWithOtp(phone);
       }
