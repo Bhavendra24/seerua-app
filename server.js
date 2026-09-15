@@ -1517,36 +1517,15 @@ function readArchivedBookings() {
 }
 
 app.get('/api/bookings/track', async (req, res) => {
-  const { phone, accessToken } = req.query;
+  const { phone } = req.query;
   if (!phone) return res.status(400).json({ error: 'Phone number required' });
-  // SECURITY FIX: this used to return a customer's full booking history —
-  // name, home address, exactly which appliance they have, service
-  // dates — to literally anyone who typed in their phone number, with no
-  // proof they actually owned that number. Someone could enumerate
-  // random 10-digit numbers and read other people's addresses. Now
-  // requires the same OTP access-token proof used for placing a booking
-  // in the first place, so only the person who can actually receive an
-  // SMS at that number can see what's booked under it.
+  // SIMPLIFIED (per explicit request, made with full awareness of the
+  // tradeoff): OTP verification removed from this lookup entirely —
+  // was here specifically to stop anyone who just knows/guesses a
+  // 10-digit number from reading that number's full booking history
+  // (name, address, exact appliance, service dates) with no proof they
+  // actually own that number. That protection no longer applies.
   //
-  // FLOW CHANGE: made this conditional on the same Admin Panel OTP
-  // on/off switch that already governs every other OTP check in the app
-  // (POST /api/bookings, POST /api/customer-profile) — previously this
-  // one endpoint alone ignored that switch and always demanded a valid
-  // accessToken, which meant "My Account" hung forever whenever OTP was
-  // turned off (e.g. no SMS provider configured yet), even though
-  // Booking worked fine in that same state.
-  const otpCfgForTrack = readData('otp-config');
-  const otpEnabledForTrack = otpCfgForTrack.enabled !== false;
-  const alreadyVerifiedForTrack = isPhoneVerified(phone);
-  if (otpEnabledForTrack && !alreadyVerifiedForTrack) {
-    if (!accessToken) {
-      return res.status(401).json({ error: 'Please verify your number with the OTP sent to it first.' });
-    }
-    const otpValid = await verifyOtpAccessToken(accessToken, phone);
-    if (!otpValid) {
-      return res.status(401).json({ error: 'Could not verify this number. Please request a new OTP and try again.' });
-    }
-  }
   // Searches both the active collection and the archive, so a customer's
   // full history is always visible even after old bookings have been
   // archived for performance — archiving is purely an internal storage

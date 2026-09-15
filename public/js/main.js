@@ -531,7 +531,7 @@ document.addEventListener('click', (e) => {
   const link = e.target.closest('a[href="#track"]');
   if (link) {
     e.preventDefault();
-    openAccountGate('account');
+    openTrackBookingModal();
   }
 });
 
@@ -591,7 +591,7 @@ function bindUrlTriggeredSections() {
 if (new URLSearchParams(window.location.search).get('trackPhone')) {
   // handled by bindUrlTriggeredSections() once init() finishes loading
 } else if (window.location.hash === '#track') {
-  openAccountGate('account');
+  openTrackBookingModal();
 } else if (window.location.hash === '#book') {
   openBookingForm();
 }
@@ -2427,12 +2427,49 @@ function closeTrackBookingModal() {
 // the OTP-check/fetch/render-into-the-popup work in one place.
 function openTrackBookingModal() {
   const acc = getAccount();
-  if (!acc) { openAccountGate('account'); return; }
-  const trackPhoneInput = document.getElementById('trackPhone');
-  if (trackPhoneInput) trackPhoneInput.value = acc.phone;
-  verifiedBookingPhone = acc.phone;
-  if (acc.accessToken) verifiedBookingAccessToken = acc.accessToken;
-  document.getElementById('trackBtn')?.click();
+  const modal = document.getElementById('trackBookingModal');
+  const body = document.getElementById('trackBookingModalBody');
+  if (acc) {
+    // Logged in — pre-fill and search immediately, same as before.
+    const trackPhoneInput = document.getElementById('trackPhone');
+    if (trackPhoneInput) trackPhoneInput.value = acc.phone;
+    document.getElementById('trackBtn')?.click();
+    return;
+  }
+  // BUG FIX: the visible popup (#trackBookingModal) never actually had
+  // its own phone-input field — the underlying #trackPhone/#trackBtn
+  // engine this reuses sits inside a permanently display:none box on
+  // the page itself, which a real person can never type into (only
+  // JS setting .value programmatically, as in the branch above, ever
+  // worked). A logged-out customer opening this had nothing to type
+  // into at all. Renders an actual, visible phone-input form directly
+  // into this popup for that case.
+  if (modal) modal.classList.add('open');
+  if (body) {
+    body.innerHTML = `
+      <div class="field">
+        <label for="trackPhoneModal">Mobile Number</label>
+        <input type="tel" id="trackPhoneModal" placeholder="10 digit number" maxlength="10" inputmode="numeric">
+      </div>
+      <button type="button" class="btn btn-primary btn-block" id="trackBtnModal">Check Status</button>
+    `;
+    document.getElementById('trackBtnModal').addEventListener('click', async () => {
+      const phone = document.getElementById('trackPhoneModal').value.trim();
+      if (!/^[0-9]{10}$/.test(phone)) {
+        body.insertAdjacentHTML('beforeend', '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>');
+        return;
+      }
+      body.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Searching...</p>';
+      try {
+        const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
+        lastTrackedBookings = bookings;
+        knownReferralPhone = phone;
+        body.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<p>No bookings found for this number.</p>';
+      } catch (e) {
+        body.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
+      }
+    });
+  }
 }
 
 function bindTrackBookingModal() {
@@ -2467,46 +2504,14 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
     results.innerHTML = '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>';
     return;
   }
+  // SIMPLIFIED (per explicit request): OTP removed from Track Booking —
+  // just looking up bookings by phone number now, no verification step.
+  // Note: this does mean anyone who knows/guesses a phone number can see
+  // that number's booking history (name, address, appliance details) —
+  // a deliberate tradeoff made explicitly in favor of simplicity here.
   try {
-    let accessToken;
-    // BUG FIX: this used to unconditionally reuse a cached
-    // verifiedBookingAccessToken here if the phone matched — but MSG91
-    // tokens are single-use, and that token may well have already been
-    // consumed validating something else earlier in the same visit
-    // (adding an item to the cart, an earlier booking submit, etc.).
-    // Re-checking isPhoneVerified() first (server-side, persists
-    // regardless of any single client-side token) is the real source of
-    // truth for whether OTP is still needed at all.
-    let phoneAlreadyVerified = false;
-    try {
-      const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
-      phoneAlreadyVerified = !!check.verified;
-    } catch (e) { /* fall back to normal OTP flow */ }
-
-    if (phoneAlreadyVerified) {
-      accessToken = verifiedBookingPhone === phone ? verifiedBookingAccessToken : null;
-    } else {
-      // Same check as everywhere else OTP is used (Account Gate, Add to
-      // Booking, booking submit) — a number already verified before, or
-      // OTP turned OFF in Admin Panel, skips straight through with no
-      // popup. Previously this always tried to open the OTP widget
-      // regardless of that setting, which hung forever whenever OTP
-      // wasn't configured.
-      let otpEnabled = true;
-      try {
-        const cfg = await ensureOtpConfig();
-        otpEnabled = cfg.enabled !== false;
-      } catch (e) { /* fall back to normal OTP flow */ }
-
-      if (otpEnabled) {
-        results.innerHTML = '<p style="color:var(--slate);">Please complete the OTP verification that just opened.</p>';
-        accessToken = await verifyPhoneWithOtp(phone);
-      }
-      verifiedBookingPhone = phone;
-      verifiedBookingAccessToken = accessToken;
-    }
     results.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Searching...</p>';
-    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}&accessToken=${encodeURIComponent(accessToken || '')}`);
+    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
     lastTrackedBookings = bookings;
     knownReferralPhone = phone; // so the header's "Refer a Friend" doesn't need to ask for the number again
     results.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<p>No bookings found for this number.</p>';
