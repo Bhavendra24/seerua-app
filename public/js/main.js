@@ -132,6 +132,11 @@ document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async 
     cityEl.value = cityId;
     if (typeof refreshAppliancesForCity === 'function') await refreshAppliancesForCity(cityId);
   }
+  // SIMPLIFIED (per explicit request): remembers this choice across
+  // visits/sessions (not just within this one page load) — so a
+  // returning visitor who doesn't have a saved account yet still isn't
+  // asked to pick their city again every single time.
+  try { localStorage.setItem('seerua_last_city', cityId); } catch (e) { /* private browsing etc — non-fatal, just won't persist */ }
   closeBottomSheet('citySheetBackdrop');
   // BUG FIX: setting #fCity's value silently had NO visible effect
   // anywhere on the page — no confirmation text, no change to the
@@ -745,6 +750,20 @@ async function init() {
   if (urlCityId && CITIES.some(c => c.id === urlCityId)) {
     document.getElementById('fCity').value = urlCityId;
     await refreshAppliancesForCity(urlCityId);
+  } else {
+    // SIMPLIFIED (per explicit request): fall back to whichever city
+    // was last picked in an earlier visit (see bottomSheetCityGrid's own
+    // click handler, which saves this) — so a returning visitor without
+    // a saved account isn't asked to pick their city again on every
+    // single visit. Only applies when nothing more specific (a URL
+    // param) already said otherwise.
+    let lastCityId = null;
+    try { lastCityId = localStorage.getItem('seerua_last_city'); } catch (e) { /* private browsing etc */ }
+    if (lastCityId && CITIES.some(c => c.id === lastCityId)) {
+      document.getElementById('fCity').value = lastCityId;
+      await refreshAppliancesForCity(lastCityId);
+      if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(lastCityId);
+    }
   }
   if (urlApplianceId && APPLIANCES.some(a => a.id === urlApplianceId)) {
     document.getElementById('fAppliance').value = urlApplianceId;
@@ -3683,6 +3702,7 @@ function bindQuickBookModal() {
     if (!cityId) return;
     document.getElementById('fCity').value = cityId;
     if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityId);
+    try { localStorage.setItem('seerua_last_city', cityId); } catch (e) { /* private browsing etc */ }
     refreshAppliancesForCity(cityId).then(() => {
       qbShowDetails();
     });
