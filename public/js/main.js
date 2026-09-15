@@ -3368,8 +3368,6 @@ function openQuickBookModalReal(applianceId) {
   qbApplianceId = applianceId;
   qbServiceType = 'service';
   const modal = document.getElementById('quickBookModal');
-  const cityStep = document.getElementById('qbCityStep');
-  const detailsStep = document.getElementById('qbDetailsStep');
   const msg = document.getElementById('qbMsg');
   if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
   // FLOW CHANGE: the mobile number field is hidden (see #qbPhoneField in
@@ -3380,18 +3378,23 @@ function openQuickBookModalReal(applianceId) {
   const qbAcc = getAccount();
   if (qbPhoneEl) qbPhoneEl.value = qbAcc ? qbAcc.phone : '';
 
+  // SIMPLIFIED (per explicit request): City selector and Type/Price now
+  // share one single screen instead of a separate "pick city, tap
+  // Continue" step first — always shows qbDetailsStep, with the city
+  // dropdown pre-filled from whatever's already chosen this session (if
+  // anything). Selecting/changing the city right here (see its own
+  // 'change' listener below) is what triggers loading the price.
+  const citySelect = document.getElementById('qbCitySelect');
+  populateSelect(citySelect, CITIES, 'Select city');
   const existingCity = document.getElementById('fCity').value;
   if (existingCity) {
-    // Already have a city from earlier in this session — skip straight
-    // to the details step instead of asking again.
-    cityStep.style.display = 'none';
-    detailsStep.style.display = 'block';
+    citySelect.value = existingCity;
     qbShowDetails();
   } else {
-    cityStep.style.display = 'block';
-    detailsStep.style.display = 'none';
-    const citySelect = document.getElementById('qbCitySelect');
-    populateSelect(citySelect, CITIES, 'Select city');
+    document.getElementById('qbTypeTabs').innerHTML = '';
+    document.getElementById('qbSingleServiceView').style.display = 'none';
+    document.getElementById('qbServicesList').style.display = 'none';
+    document.getElementById('qbNotAvailable').style.display = 'none';
   }
   modal.classList.add('open');
 }
@@ -3675,14 +3678,12 @@ function qbSetNotAvailable(isUnavailable) {
 }
 
 function bindQuickBookModal() {
-  document.getElementById('qbCityContinueBtn').addEventListener('click', () => {
+  document.getElementById('qbCitySelect').addEventListener('change', () => {
     const cityId = document.getElementById('qbCitySelect').value;
     if (!cityId) return;
     document.getElementById('fCity').value = cityId;
     if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityId);
     refreshAppliancesForCity(cityId).then(() => {
-      document.getElementById('qbCityStep').style.display = 'none';
-      document.getElementById('qbDetailsStep').style.display = 'block';
       qbShowDetails();
     });
   });

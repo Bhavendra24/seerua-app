@@ -702,16 +702,15 @@
   <div class="modal quick-book-modal">
     <button type="button" class="modal-close" id="quickBookModalClose" aria-label="Close">✕</button>
 
-    <!-- STEP 1: city (shown first if not already chosen) -->
-    <div id="qbCityStep">
-      <h3>Select Your City</h3>
-      <p class="modal-sub">Prices are set per city — pick yours to continue.</p>
-      <select id="qbCitySelect" class="qb-city-select"></select>
-      <button type="button" class="btn btn-primary btn-block" id="qbCityContinueBtn" style="margin-top:14px;">Continue</button>
-    </div>
-
-    <!-- STEP 2: type tabs + price card + checklist + actions -->
-    <div id="qbDetailsStep" style="display:none;">
+    <!-- SIMPLIFIED (per explicit request): City selector now lives at
+         the top of the SAME screen as Type/Price, instead of being a
+         separate step with its own "Continue" tap — selecting a city
+         here immediately refreshes the price below it. -->
+    <div id="qbDetailsStep">
+      <div class="field" id="qbCityField" style="margin-bottom:14px;">
+        <label for="qbCitySelect">City</label>
+        <select id="qbCitySelect" class="qb-city-select"></select>
+      </div>
       <h3 id="qbApplianceTitle">Service</h3>
       <div class="qb-type-tabs" id="qbTypeTabs"></div>
 
@@ -1060,7 +1059,7 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609081j"></script>
+<script src="/js/main.js?v=202609081k"></script>
 <script src="/js/i18n.js?v=202609080a"></script>
 <script src="/js/chatbot.js?v=202609080a"></script>
 </body>
