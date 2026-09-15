@@ -19,12 +19,12 @@
 <title>{{CAREERS_TITLE}}</title>
 <meta name="description" content="{{CAREERS_META_DESCRIPTION}}">
 <meta name="keywords" content="{{CAREERS_KEYWORDS}}">
-<link rel="canonical" href="https://seerua.com/careers">
+<link rel="canonical" href="{{CAREERS_CANONICAL_URL}}">
 <meta name="robots" content="index, follow">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{{CAREERS_TITLE}}">
 <meta property="og:description" content="{{CAREERS_META_DESCRIPTION}}">
-<meta property="og:url" content="https://seerua.com/careers">
+<meta property="og:url" content="{{CAREERS_CANONICAL_URL}}">
 <meta property="og:image" content="https://seerua.com/images/logo.png">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="/images/logo.png" type="image/png">
@@ -141,6 +141,8 @@
       <p>{{CAREERS_INTRO_TEXT}}</p>
     </div>
 
+    {{CAREER_CITY_LINKS_HTML}}
+
     <div class="why-grid reveal">
       <div class="why-item">
         <div class="why-icon">📅</div>
@@ -190,6 +192,15 @@ async function init() {
 
   const citySel = document.getElementById('capCity');
   citySel.innerHTML = '<option value="" disabled selected>Select city</option>' + cities.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  // On a city-specific careers page (/careers/moradabad), pre-select
+  // that city instead of leaving the customer to pick it again — the
+  // whole point of landing here via that URL is that it's already
+  // their city.
+  const citySlugFromUrl = location.pathname.split('/careers/')[1];
+  if (citySlugFromUrl) {
+    const matchingCity = cities.find(c => c.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') === citySlugFromUrl);
+    if (matchingCity) citySel.value = matchingCity.id;
+  }
 
   const educationSel = document.getElementById('capEducation');
   educationSel.innerHTML = '<option value="" disabled selected>Select education</option>' + educationLevels.map(e => `<option value="${e.id}">${e.name}</option>`).join('');

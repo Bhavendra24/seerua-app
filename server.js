@@ -5294,6 +5294,17 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: `${SITE_URL}/`, changefreq: 'weekly', priority: '1.0', lastmod: today },
     { loc: `${SITE_URL}/terms`, changefreq: 'monthly', priority: '0.3', lastmod: today },
     { loc: `${SITE_URL}/careers`, changefreq: 'monthly', priority: '0.5', lastmod: today },
+    // Per-city career pages — same long-tail reasoning as the
+    // appliance+city pages: someone searching "technician job
+    // <city>" naming just ONE city is a very different, more specific
+    // search than one naming every hiring city at once, and deserves
+    // its own dedicated, indexable URL.
+    ...readData('career-cities').map(c => ({
+      loc: `${SITE_URL}/careers/${slugify(c.name)}`,
+      changefreq: 'monthly',
+      priority: '0.5',
+      lastmod: today
+    })),
     // NOTE: the combined "every appliance in this city" page
     // (/appliance-repair/:city with no appliance segment) is
     // intentionally NOT listed here anymore — it now 301-redirects to
@@ -5394,7 +5405,7 @@ function buildJobPostingSchema(city, applianceListText, careerAppliances) {
   return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>`;
 }
 
-app.get('/careers', (req, res) => {
+function renderCareersPage(req, res, focusCitySlug) {
   try {
     // SUGGESTION IMPLEMENTED: unlike every other public page, Careers
     // stays open during Maintenance Mode — the whole point of taking the
@@ -5420,7 +5431,23 @@ app.get('/careers', (req, res) => {
     // sliver of it stayed visibly stuck to the top of the page.
     const headerHomeLinkHtml = admin.maintenanceMode ? '' : `<a href="/" class="header-home-link">← Back to Home</a>`;
     const headerCallHtml = admin.maintenanceMode ? '' : `<a class="call-link" href="tel:+919389585479">📞 <span class="call-text">9389585479</span></a>`;
-    const careerCities = readData('career-cities');
+    const allCareerCities = readData('career-cities');
+    // CITY-SPECIFIC CAREER PAGE (per explicit request — the single
+    // combined page wasn't showing up for a search naming just ONE
+    // city, only for all of them together): when reached via
+    // /careers/:citySlug, narrow everything down to just that one city
+    // instead of the full list, same "focus" pattern already used for
+    // appliance-city pages.
+    let focusCity = null;
+    if (focusCitySlug) {
+      focusCity = allCareerCities.find(c => slugify(c.name) === focusCitySlug);
+      if (!focusCity) {
+        return res.status(404).send(
+          `<h1>Hiring page not found</h1><p>We may not be hiring in this city yet. <a href="/careers">See all cities we're currently hiring in</a>.</p>`
+        );
+      }
+    }
+    const careerCities = focusCity ? [focusCity] : allCareerCities;
     const careerAppliances = readData('career-appliances');
     const cityListText = joinWithAnd(careerCities.map(c => c.name));
     const applianceListText = joinWithAnd(careerAppliances.map(a => a.name));
@@ -5431,7 +5458,9 @@ app.get('/careers', (req, res) => {
     // generating its own instead. Past 3, switch to a short summary phrase
     // instead of an ever-growing list; the individual per-city JobPosting
     // schema below still names the exact city/skills for anyone matching
-    // on that specifically.
+    // on that specifically. (A focused single-city page is always exactly
+    // 1, so this never applies there — the full, specific name always
+    // fits comfortably.)
     const cityPhraseForDescription = careerCities.length <= 3
       ? cityListText
       : `${careerCities.length} cities across India`;
@@ -5448,14 +5477,18 @@ app.get('/careers', (req, res) => {
     // applicants for a role that isn't actually open right now.
     const title = hiringPaused
       ? `Careers | Seerua Appliance Care`
-      : (careerCities.length
-        ? `${appliancePhraseForTitle} Technician Jobs | Seerua`
-        : `Join as a Technician Partner | Seerua Appliance Care`);
+      : focusCity
+        ? `${appliancePhraseForTitle} Technician Jobs in ${focusCity.name} | Seerua`
+        : (careerCities.length
+          ? `${appliancePhraseForTitle} Technician Jobs | Seerua`
+          : `Join as a Technician Partner | Seerua Appliance Care`);
     const metaDescription = hiringPaused
       ? `We're not accepting new technician applications right now — check back soon, or follow us for updates on when hiring reopens.`
-      : (careerCities.length
-        ? `Now hiring ${appliancePhraseForDescription} technicians in ${cityPhraseForDescription}. Steady doorstep jobs, transparent pay, apply free.`
-        : `Join Seerua Appliance Care as a technician partner. Experienced technicians can apply for work in their city.`);
+      : focusCity
+        ? `Now hiring ${appliancePhraseForDescription} technicians in ${focusCity.name}. Steady doorstep jobs, transparent pay, apply free.`
+        : (careerCities.length
+          ? `Now hiring ${appliancePhraseForDescription} technicians in ${cityPhraseForDescription}. Steady doorstep jobs, transparent pay, apply free.`
+          : `Join Seerua Appliance Care as a technician partner. Experienced technicians can apply for work in their city.`);
     const keywords = [
       'technician job', 'appliance repair job', 'join as technician', 'service partner job',
       ...careerAppliances.map(a => `${a.name.toLowerCase()} technician job`),
@@ -5469,8 +5502,10 @@ app.get('/careers', (req, res) => {
       ? ''
       : careerCities.map(city => buildJobPostingSchema(city, applianceListText, careerAppliances)).join('\n');
 
-    const applyEyebrow = hiringPaused ? 'Hiring paused' : 'Apply now';
-    const applyHeading = hiringPaused ? 'We\'re Not Hiring Right Now' : 'Technician Partner Application';
+    const applyEyebrow = hiringPaused ? 'Hiring paused' : (focusCity ? `Now hiring in ${focusCity.name}` : 'Apply now');
+    const applyHeading = hiringPaused
+      ? 'We\'re Not Hiring Right Now'
+      : (focusCity ? `Technician Jobs in ${focusCity.name}` : 'Technician Partner Application');
     const applySubtext = hiringPaused
       ? (admin.hiringPausedMessage || 'Thanks for your interest! We\'re fully staffed at the moment and aren\'t accepting new applications. Please check back later.')
       : 'Tell us about your experience — our team will contact you when there\'s an opening in your city.';
@@ -5486,17 +5521,36 @@ app.get('/careers', (req, res) => {
     // body content — genuinely descriptive, not keyword-stuffed — while
     // still naturally mentioning the cities/appliances actually being
     // hired for.
-    const careersIntroText = careerCities.length
+    const careersIntroText = focusCity
+      ? `We're always looking for skilled ${applianceListText || 'appliance repair'} technicians to join us in ${focusCity.name}. Whether you're experienced or just getting started, Seerua connects you with steady, doorstep repair and service jobs right in ${focusCity.name}.`
+      : careerCities.length
       ? `We're always looking for skilled ${applianceListText || 'appliance repair'} technicians to join us in ${cityListText}. Whether you're experienced or just getting started, Seerua connects you with steady, doorstep repair and service jobs in your own city.`
       : `We're building our technician network city by city. Tell us where you're based and what you can repair, and we'll reach out the moment there's an opening near you.`;
+    // Internal links from the general /careers page to each city's own
+    // dedicated hiring page — helps Google discover these pages by
+    // simply crawling this one, not just via the sitemap. Not shown on
+    // a city-specific page itself (focusCity set) — linking back to a
+    // list that includes the very page already being viewed adds
+    // nothing.
+    const careerCityLinksHtml = (!focusCity && allCareerCities.length > 1)
+      ? `<div class="reveal" style="max-width:720px;margin:0 auto 8px;text-align:center;">
+           <p style="font-size:0.85rem;color:var(--slate);margin-bottom:8px;">Hiring in:</p>
+           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+             ${allCareerCities.map(c => `<a href="/careers/${slugify(c.name)}" class="city-chip">${escapeHtml(c.name)}</a>`).join('')}
+           </div>
+         </div>`
+      : '';
 
     const template = fs.readFileSync(CAREERS_TEMPLATE_PATH, 'utf-8');
+    const careersCanonicalUrl = focusCity ? `${SITE_URL}/careers/${slugify(focusCity.name)}` : `${SITE_URL}/careers`;
     const html = template
       .split('{{CAREERS_TITLE}}').join(escapeHtml(title))
+      .split('{{CAREERS_CANONICAL_URL}}').join(careersCanonicalUrl)
       .split('{{CAREERS_META_DESCRIPTION}}').join(escapeHtml(metaDescription))
       .replace('{{CAREERS_KEYWORDS}}', escapeHtml(keywords))
       .replace('{{JOB_POSTING_SCHEMA_JSON}}', jobPostingSchemaHtml)
       .replace('{{CAREERS_INTRO_TEXT}}', escapeHtml(careersIntroText))
+      .replace('{{CAREER_CITY_LINKS_HTML}}', careerCityLinksHtml)
       .replace('{{APPLY_EYEBROW}}', escapeHtml(applyEyebrow))
       .replace('{{APPLY_HEADING}}', escapeHtml(applyHeading))
       .replace('{{APPLY_SUBTEXT}}', escapeHtml(applySubtext))
@@ -5510,7 +5564,14 @@ app.get('/careers', (req, res) => {
     console.error('Error rendering careers page:', e);
     res.status(500).send('Something went wrong loading the page.');
   }
-});
+}
+
+app.get('/careers', (req, res) => renderCareersPage(req, res, null));
+// CITY-SPECIFIC CAREER PAGE (per explicit request — the single combined
+// page wasn't showing up for a search naming just one city, e.g.
+// "technician job Moradabad" alone, only for a search naming all hiring
+// cities together). Same handler, focused on just one city.
+app.get('/careers/:citySlug', (req, res) => renderCareersPage(req, res, req.params.citySlug));
 
 // Global error handler — catches anything thrown inside a route (including
 // synchronous errors from db.js, like a failed disk write) so the response
