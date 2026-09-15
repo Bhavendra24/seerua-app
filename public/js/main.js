@@ -317,7 +317,25 @@ function openSelectAddressModal(targetInputId, previewId) {
   activeAddressTargetInputId = targetInputId;
   activeAddressPreviewId = previewId;
   const phone = currentAddressPhone();
-  const list = getSavedAddresses(phone);
+  let list = getSavedAddresses(phone);
+  // BUG FIX: this "saved addresses" list lives entirely in localStorage,
+  // completely separate from the account's own `address` field — a
+  // returning customer whose address was set some other way (an older
+  // version of this flow, Admin editing a booking's address, etc.)
+  // would see "No saved addresses yet" here even though they very much
+  // DO have an address on file, making it look like their address had
+  // vanished and forcing them to type a brand new one from scratch just
+  // to make a small edit. If the list is empty but the account (or
+  // whatever this modal's own target field currently holds) has real
+  // address text, seed the list with that one entry first — so it's
+  // selectable (and therefore keepable/editable) instead of invisible.
+  if (!list.length) {
+    const acc = (typeof getAccount === 'function') ? getAccount() : null;
+    const existingAddressText = (document.getElementById(targetInputId)?.value || (acc && acc.address) || '').trim();
+    if (existingAddressText) {
+      list = [{ saveAs: 'Home', fullText: existingAddressText }];
+    }
+  }
   const container = document.getElementById('savedAddressList');
   if (!list.length) {
     container.innerHTML = `<p style="font-size:0.85rem;color:var(--slate);margin:0 0 14px;">No saved addresses yet — add one below.</p>`;
