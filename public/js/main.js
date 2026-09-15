@@ -476,9 +476,16 @@ document.getElementById('saveNewAddressBtn')?.addEventListener('click', () => {
   if (!houseNo) { msg.className = 'form-msg error'; msg.textContent = 'Please enter House/Flat/Block No.'; return; }
   if (!landmark) { msg.className = 'form-msg error'; msg.textContent = 'Please enter a Landmark or Society name.'; return; }
   if (!selectedSaveAs) { msg.className = 'form-msg error'; msg.textContent = 'Please choose Save as Home, Work or Other.'; return; }
-  const cityEl = document.getElementById('fCity') || document.getElementById('agCity');
-  const cityName = (cityEl && cityEl.selectedOptions[0] && cityEl.selectedIndex > 0) ? cityEl.selectedOptions[0].textContent : '';
-  const fullText = `${houseNo}, ${landmark}${cityName ? ', ' + cityName : ''}`;
+  // BUG FIX (the actual "Kasganj kaise juda hai, edit nahi ho raha"
+  // report): this used to silently append whatever city happened to be
+  // selected in a totally SEPARATE dropdown (#fCity/#agCity, not part of
+  // this Add/Edit Address form at all) onto the end of the address text
+  // — so a saved address could show "...Kasganj" with no way to change
+  // or even understand where that came from from within this exact
+  // form. City is already tracked properly on its own (the account's
+  // cityId, and the separate City dropdown in Edit Profile) — this
+  // address text only needs to be the address itself now.
+  const fullText = `${houseNo}, ${landmark}`;
   const phone = currentAddressPhone();
   const list = getSavedAddresses(phone);
   // BUG FIX (see openSelectAddressModal's own edit-button comment): when
