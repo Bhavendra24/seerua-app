@@ -1023,6 +1023,15 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    otherwise means whichever is later in the HTML paints over the
    other, which happened to hide this one entirely. */
 .modal-backdrop.open { display: flex; animation: modalBackdropFadeIn 0.18s ease; }
+/* BUG FIX: these two open FROM WITHIN the booking form / account-gate
+   modal (tapping "Select Address" while that form is already open) —
+   with every .modal-backdrop sharing the same z-index, DOM order alone
+   decided paint order, and #accountGateModal happens to come AFTER
+   these two in the HTML. That painted the booking form ON TOP of the
+   address picker the instant both were "open" at once — the address
+   modal wasn't actually broken, just invisible, sitting correctly
+   opened directly behind the form that triggered it. */
+#selectAddressModal, #addAddressModal { z-index: 260; }
 /* Design polish: every modal in the site (Account Gate, OTP entry,
    Track Booking, Refer a Friend, date calendar, Quick Book, Careers)
    shares these two classes, so this one animation applies everywhere
