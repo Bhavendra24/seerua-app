@@ -2932,8 +2932,15 @@ let quickBookViewStartIndex = null;
 function hideRedundantBookingFields() {
   const cityField = document.getElementById('fCityField');
   if (cityField) cityField.style.display = 'none';
-  const addBox = document.querySelector('.cart-add-box');
-  if (addBox) addBox.style.display = 'none';
+  // BUG FIX (per explicit request): this used to also hide the whole
+  // "Add an appliance to this booking" section (appliance/type/qty/
+  // problem/photo + the Add button itself) whenever arriving via Quick
+  // Book — the assumption was that a Quick Book checkout is always just
+  // the one pre-selected item, so there'd be nothing left to add. In
+  // practice this meant there was no way to add a second appliance, or
+  // to re-add one after removing it, once inside this flow. Now stays
+  // visible here too — City still doesn't need to be asked again (Quick
+  // Book already established it), but adding more items always does.
 }
 
 // ---------------- Unified Account Gate (Booking + My Account + Instant
