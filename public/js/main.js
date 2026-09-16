@@ -2407,13 +2407,9 @@ async function openReferModal() {
   if (!modal || !body) return;
   modal.classList.add('open');
   body.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Getting your referral link...</p>';
-  // Opened synchronously, before the `await`, so browsers still treat it
-  // as a direct result of the tap and don't block it as a pop-up.
-  const popup = window.open('', '_blank');
   try {
     const info = await fetchJSON(`/api/referral/my-info?phone=${acc.phone}`);
     if (!info.active) {
-      if (popup) popup.close();
       body.innerHTML = '<p style="color:var(--red)">The referral program is not active right now. Please check back later.</p>';
       return;
     }
@@ -2426,18 +2422,30 @@ async function openReferModal() {
           ${!c.used ? `<div class="row2" style="margin-top:-4px;margin-bottom:6px;">Valid till ${c.expiryDate} — enter this code at checkout on your own next booking.</div>` : ''}
         `).join('')
       : '';
+    const shareText = `Hi! I use Seerua Appliance Care for AC/Washing Machine/RO/Fridge repair — book through my link and get ₹${info.referredDiscount} off your first service: ${info.link}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    // BUG FIX (the actual "WhatsApp khulta hai, samajh nahi aata" report):
+    // this used to auto-redirect an already-opened popup straight to
+    // WhatsApp the moment this data arrived — before the customer had
+    // any real chance to read what's actually on this screen (how much
+    // their friend saves, how many people they've referred, their
+    // pending/earned rewards). The referral program's own value was
+    // invisible; it just looked like a plain "share this link" button
+    // that mysteriously opens WhatsApp. Now shows all of that plainly
+    // first, with a clear, explicit "Share on WhatsApp" button the
+    // customer taps only once they understand what they're sharing and
+    // why — WhatsApp only opens on that explicit tap, never automatically.
     body.innerHTML = `
+      <div class="row2" style="margin-bottom:10px;padding:10px 12px;background:#e7f8ee;border-radius:var(--radius-sm);color:var(--ink);">
+        🎁 Share your link — your friend gets <strong>₹${info.referredDiscount} off</strong> their first service, and you get a reward coupon once their service is completed.
+      </div>
       <div class="row2" style="margin-bottom:8px;">Your link: <a href="${info.link}" style="color:var(--blue-600);word-break:break-all;">${info.link}</a></div>
       <div class="row1"><span>People you've referred</span><strong>${info.referredCount || 0}</strong></div>
       <div class="row1"><span>Rewards pending (waiting for their service to complete)</span><strong>${info.pendingCount || 0}</strong></div>
       ${rewardsHtml ? `<div style="margin-top:10px;"><strong style="color:var(--blue-900);font-size:0.88rem;">Your reward coupons</strong>${rewardsHtml}</div>` : `<div class="row2" style="margin-top:8px;">No reward coupons yet — you'll get one automatically once someone you referred completes their first service.</div>`}
+      <a href="${whatsappUrl}" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-top:14px;">💬 Share on WhatsApp</a>
     `;
-    const shareText = `Hi! I use Seerua Appliance Care for AC/Washing Machine/RO/Fridge repair — book through my link and get ₹${info.referredDiscount} off your first service: ${info.link}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-    if (popup) popup.location.href = whatsappUrl;
-    else window.open(whatsappUrl, '_blank'); // popup blocked anyway — try once more directly
   } catch (e) {
-    if (popup) popup.close();
     body.innerHTML = `<p style="color:var(--red)">${e.message || 'Could not get your referral link. Please try again.'}</p>`;
   }
 }
