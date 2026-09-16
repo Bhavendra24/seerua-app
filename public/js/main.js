@@ -214,31 +214,8 @@ function openBookingForm() {
 function closeBookingForm() {
   const backdrop = document.getElementById('bookingModalBackdrop');
   if (backdrop) backdrop.classList.remove('open');
-  clearSuccessRedirectCountdown();
 }
 
-// "Thank you for booking!" auto-redirect countdown (Jay Home Services
-// style) — closes the booking modal on its own a few seconds after a
-// successful booking, same as the reference flow, while still letting
-// the person tap "Continue Shopping" (closeBookingForm()) immediately.
-let successRedirectTimer = null;
-function clearSuccessRedirectCountdown() {
-  if (successRedirectTimer) { clearInterval(successRedirectTimer); successRedirectTimer = null; }
-}
-function startSuccessRedirectCountdown(seconds) {
-  clearSuccessRedirectCountdown();
-  let remaining = seconds || 5;
-  const el = document.getElementById('successRedirectSeconds');
-  if (el) el.textContent = remaining;
-  successRedirectTimer = setInterval(() => {
-    remaining--;
-    if (el) el.textContent = Math.max(remaining, 0);
-    if (remaining <= 0) {
-      clearSuccessRedirectCountdown();
-      closeBookingForm();
-    }
-  }, 1000);
-}
 // Tapping the dark backdrop itself (not the form card) closes it too —
 // same pattern as every other modal on the site.
 document.getElementById('bookingModalBackdrop')?.addEventListener('click', (e) => {
@@ -2233,7 +2210,6 @@ function bindFormEvents() {
       document.getElementById('successVisit').textContent = `${data.booking.timeSlot}, ${data.booking.bookingDate}`;
       document.getElementById('bookingForm').style.display = 'none';
       document.getElementById('bookingSuccessView').style.display = 'block';
-      startSuccessRedirectCountdown();
       form.reset();
       // BUG FIX: form.reset() alone doesn't reliably clear the phone
       // field — many mobile browsers ignore autocomplete="off" for phone
