@@ -3186,6 +3186,21 @@ function proceedAfterAccountGate(acc) {
   } else if (agIntent === 'quickbook') {
     applyAccountToBookingFields(acc);
     openQuickBookModalReal(agPendingApplianceId);
+    // BUG FIX ("appliance fir khul jaata hai jo confused kar raha hai"):
+    // openQuickBookModalReal() above visually opens the Quick Book
+    // popup (city/type/price) as a side effect of preparing its
+    // internal state — right before immediately auto-resuming
+    // Add/Book below. The customer had already made their appliance
+    // choice before this whole phone+address step even started, so
+    // seeing that screen flash back open, even briefly, before jumping
+    // straight to the real booking form reads as a confusing "did I
+    // lose my selection?" moment. Hidden again immediately once its
+    // state is set, whenever there's an actual resume action queued —
+    // it only stays genuinely visible if there's nothing to resume
+    // (the true "just opened Quick Book" case, not a resume).
+    if (resumeQbAction || resumeQbServiceAction) {
+      document.getElementById('quickBookModal')?.classList.remove('open');
+    }
     // Resume whichever action (Add / Book Now) was actually being
     // attempted when this got paused for phone+OTP — see qbDoAdd() and
     // the qbAddBtn/qbBookBtn click handlers. Small delay so the modal's
