@@ -2224,17 +2224,25 @@ function bindFormEvents() {
       // right after — right on top of the green "Booking confirmed!"
       // message the person is still reading, which felt pointless/
       // confusing (two confirmations of the same thing, back to back).
-      // Now it just closes the form and leaves them on the page; they
-      // can open Track Booking themselves whenever they actually want to
-      // check on it.
+      // Now it just shows the success screen and leaves the customer to
+      // close it themselves; they can open Track Booking whenever they
+      // actually want to check on it.
       const bookedPhone = payload.phone;
       if (payload.accessToken) {
         verifiedBookingPhone = bookedPhone;
         verifiedBookingAccessToken = payload.accessToken;
       }
-      setTimeout(() => {
-        closeBookingForm();
-      }, 3500);
+      // BUG FIX ("popup bhi bhi bhaag raha hai" — the success screen
+      // closing itself before OK was tapped): this used to also auto-
+      // close the whole booking modal 3.5 seconds after success, via a
+      // setTimeout left over from an earlier version of this flow —
+      // completely separate from (and missed when removing) the visible
+      // countdown-and-redirect behavior removed earlier in this same
+      // session. That timer fired regardless of whether the customer
+      // had even seen or read the confirmation yet, let alone tapped
+      // OK, directly contradicting "screen ruke jab tak OK na dabaye".
+      // Removed entirely — OK (closeBookingForm(), wired to the button
+      // in the template) is now the only thing that closes this screen.
     } catch (err) {
       msg.className = 'form-msg error';
       msg.textContent = err.message || 'Something went wrong with your booking, please try again.';
