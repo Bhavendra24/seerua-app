@@ -3149,13 +3149,15 @@ function proceedAfterAccountGate(acc) {
     // actually asked for. Own intent, opens the right thing.
     openReferModal();
   } else if (agIntent === 'account') {
-    // FLOW CHANGE: opens the Track Booking popup directly — no more
-    // revealing the old permanent on-page section first.
-    const trackPhoneInput = document.getElementById('trackPhone');
-    if (trackPhoneInput) trackPhoneInput.value = acc.phone;
-    verifiedBookingPhone = acc.phone;
-    if (acc.accessToken) verifiedBookingAccessToken = acc.accessToken;
-    document.getElementById('trackBtn')?.click();
+    // BUG FIX ("customer login karta hai to uska tracking kyun self khul
+    // jaata hai"): this used to jump straight to Track Booking the
+    // moment someone registered via the header profile icon — even if
+    // they'd tapped it just to see what's there (Edit Profile, Refer a
+    // Friend, etc.), not specifically to track a booking. Opens the
+    // account menu itself instead, same as tapping the profile icon
+    // normally does once an account already exists — Track Booking is
+    // one tap away from there if that's what they actually wanted.
+    document.getElementById('headerAccountMenu')?.classList.add('open');
   } else if (agIntent === 'quickbook') {
     applyAccountToBookingFields(acc);
     openQuickBookModalReal(agPendingApplianceId);
