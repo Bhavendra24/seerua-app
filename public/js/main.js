@@ -2377,7 +2377,7 @@ function closeReferModal() {
 // reusing the old always-on-page "My Account" section.
 async function openReferModal() {
   const acc = getAccount();
-  if (!acc) { openAccountGate('account'); return; }
+  if (!acc) { openAccountGate('refer'); return; }
   const modal = document.getElementById('referModal');
   const body = document.getElementById('referModalBody');
   if (!modal || !body) return;
@@ -3141,6 +3141,13 @@ function proceedAfterAccountGate(acc) {
     // runs.
     applyAccountToBookingFields(acc);
     showToast('✅ Details updated');
+  } else if (agIntent === 'refer') {
+    // BUG FIX: this used to share the plain 'account' intent with the
+    // header's own Track Booking button — so a customer who tapped
+    // "Refer a Friend" without an account yet, registered, and landed
+    // back here got sent to Track Booking instead of back to what they
+    // actually asked for. Own intent, opens the right thing.
+    openReferModal();
   } else if (agIntent === 'account') {
     // FLOW CHANGE: opens the Track Booking popup directly — no more
     // revealing the old permanent on-page section first.
