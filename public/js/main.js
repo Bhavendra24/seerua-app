@@ -3186,20 +3186,39 @@ function proceedAfterAccountGate(acc) {
   } else if (agIntent === 'quickbook') {
     applyAccountToBookingFields(acc);
     openQuickBookModalReal(agPendingApplianceId);
-    // BUG FIX ("appliance fir khul jaata hai jo confused kar raha hai"):
-    // openQuickBookModalReal() above visually opens the Quick Book
-    // popup (city/type/price) as a side effect of preparing its
-    // internal state — right before immediately auto-resuming
-    // Add/Book below. The customer had already made their appliance
-    // choice before this whole phone+address step even started, so
-    // seeing that screen flash back open, even briefly, before jumping
-    // straight to the real booking form reads as a confusing "did I
-    // lose my selection?" moment. Hidden again immediately once its
-    // state is set, whenever there's an actual resume action queued —
-    // it only stays genuinely visible if there's nothing to resume
-    // (the true "just opened Quick Book" case, not a resume).
+    // BUG FIX ("appliance fir khul jaata hai" then, after an earlier fix
+    // attempt, "confirmation ke baad main site — keemat ki details nahi
+    // aayi"): openQuickBookModalReal() above visually opens the Quick
+    // Book popup (city/type/price) as a side effect of preparing its
+    // internal state, right before auto-resuming Add/Book 300ms later.
+    // The customer had already made their appliance choice before this
+    // phone+address step even started, so that screen flashing back
+    // open was confusing. The first fix for that (just hiding the modal
+    // here) created a WORSE gap: for that same ~300ms, literally
+    // nothing was visible at all — no modal, just the bare homepage
+    // underneath — reading as if the whole thing had silently failed
+    // and dumped them back on the main site. Now keeps the modal itself
+    // open (so there's no blank gap) but swaps its content for a plain
+    // "Preparing your booking…" loading state instead — continuous
+    // visible feedback the whole time, with no confusing flash of the
+    // appliance-selection screen either. qbShowDetails() (called from
+    // deeper inside the resumed Add/Book flow moments later) replaces
+    // this loading content with the real form when it's ready.
     if (resumeQbAction || resumeQbServiceAction) {
-      document.getElementById('quickBookModal')?.classList.remove('open');
+      const qbModalBox = document.querySelector('#quickBookModal .quick-book-modal');
+      if (qbModalBox && !document.getElementById('qbResumeLoadingOverlay')) {
+        // CSS overlay, NOT an innerHTML replacement — #qbAddBtn/#qbBookBtn
+        // and the rest of the real form underneath must stay in the DOM
+        // exactly as they are, since the resume click below targets them
+        // directly a moment later. This only visually covers them.
+        const overlay = document.createElement('div');
+        overlay.id = 'qbResumeLoadingOverlay';
+        overlay.style.cssText = 'position:absolute;inset:0;background:#fff;border-radius:inherit;display:flex;align-items:center;justify-content:center;z-index:5;';
+        overlay.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Preparing your booking…</p>';
+        qbModalBox.style.position = 'relative';
+        qbModalBox.appendChild(overlay);
+        setTimeout(() => overlay.remove(), 600);
+      }
     }
     // Resume whichever action (Add / Book Now) was actually being
     // attempted when this got paused for phone+OTP — see qbDoAdd() and
