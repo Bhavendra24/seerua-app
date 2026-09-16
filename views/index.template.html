@@ -263,10 +263,6 @@
       <button type="button" class="booking-close-btn" onclick="closeBookingForm()" aria-label="Close booking form">✕</button>
       <div class="booking-info">
         <span class="eyebrow" data-i18n="booking.eyebrow">Book a service</span>
-        <div class="trust-badge-row">
-          <div class="trust-badge"><span>🔧</span> <span data-i18n="booking.verified">Trained Technicians</span></div>
-          <div class="trust-badge"><span>💳</span> <span data-i18n="booking.payAfter">Pay After Service</span></div>
-        </div>
       </div>
 
       <!-- Shown instead of the form when Admin has paused new bookings
@@ -340,20 +336,6 @@
         <div class="cart-empty" id="cartEmpty" data-i18n="booking.emptyCart">No appliances added yet. Add at least one above.</div>
         <div class="quick-book-scope-note" id="quickBookScopeNote" style="display:none;">🔒 Booking just this one item. Anything already in your regular cart is untouched and still waiting for you there.</div>
 
-        <!-- SUGGESTION IMPLEMENTED: dedicated Payment Summary card,
-             appearing once at least one item is in the cart — Item
-             Total / Taxes & Fee / Total Amount, matching the requested
-             visual pattern (no platform fee, per explicit request). -->
-        <div class="payment-summary-card" id="paymentSummaryCard" style="display:none;">
-          <h4>Payment Summary</h4>
-          <div class="payment-summary-row"><span>Total Amount</span><span id="paymentSummaryItemTotal">₹0</span></div>
-          <div class="payment-summary-row" id="paymentSummaryDiscountRow" style="display:none;"><span>Discount</span><span id="paymentSummaryDiscountPct" style="color:#16a34a;">0%</span></div>
-          <div class="payment-summary-row"><span>Taxes and Fee</span><span id="paymentSummaryTaxes">₹0</span></div>
-          <div class="payment-summary-row" id="paymentSummarySavedRow" style="display:none;"><span>Saved</span><span id="paymentSummarySaved" style="color:#16a34a;">₹0</span></div>
-          <div class="payment-summary-row payment-summary-total"><span>Grand Total</span><span id="paymentSummaryTotal">₹0</span></div>
-          <p style="font-size:0.76rem;color:var(--slate);margin:8px 0 0;">(Inc. Taxes &amp; Other Charges)</p>
-        </div>
-
         <div class="coupon-row" id="couponRow" style="display:none;">
           <input type="text" id="couponCode" placeholder="Have a coupon code?" style="text-transform:uppercase;">
           <button type="button" class="btn btn-outline btn-sm" id="applyCouponBtn">Apply</button>
@@ -413,22 +395,19 @@
            a booking succeeds — per request, simple like most home-service
            booking apps: one big checkmark, a short "you're booked"
            statement, then just the few details that actually matter
-           (booking ID, total, visit time), not a dense text paragraph. -->
+           (booking ID, total, visit time), not a dense text paragraph.
+           SIMPLIFIED FURTHER (per explicit request): stripped down to
+           just checkmark + booking number + slot/time — no heading text,
+           no extra message, no service/price line, no website link.
+           Small popup, stays until the customer taps Done themselves
+           (no auto-close). -->
       <div id="bookingSuccessView" style="display:none;text-align:center;padding:20px 0;">
         <div class="success-check-circle">✓</div>
-        <h3 style="margin:18px 0 6px;color:#16a34a;">Thank you for booking!</h3>
-        <div class="success-detail-card">
-          <div class="success-detail-row"><span>Booking ID</span><strong id="successBookingId"></strong></div>
-          <div class="success-detail-row"><span>Service</span><strong id="successService"></strong></div>
-          <div class="success-detail-row"><span>Date &amp; Time</span><strong id="successVisit"></strong></div>
-          <div class="success-detail-row"><span>Service Charge</span><strong id="successTotal"></strong></div>
+        <div class="success-detail-card" style="max-width:280px;margin:18px auto 0;">
+          <div class="success-detail-row"><span>Booking No.</span><strong id="successBookingId"></strong></div>
+          <div class="success-detail-row"><span>Slot</span><strong id="successVisit"></strong></div>
         </div>
-        <p style="margin-top:16px;color:var(--slate);font-size:0.9rem;line-height:1.6;">
-          Thank you! For submitting the contact details our team will get back to you soon.<br>
-          To know more about our products and services,<br>
-          <a href="/" style="color:var(--blue-600);font-weight:600;">Visit Website</a>
-        </p>
-        <button type="button" class="btn btn-primary btn-block" style="margin-top:14px;" onclick="closeBookingForm()">Done</button>
+        <button type="button" class="btn btn-primary btn-block" style="margin-top:16px;max-width:280px;margin-left:auto;margin-right:auto;" onclick="closeBookingForm()">OK</button>
       </div>
     </div>
   </div>
@@ -892,12 +871,15 @@
     <button type="button" class="modal-close" id="dateTimeModalClose" aria-label="Close">✕</button>
     <h3>Select Date &amp; Time</h3>
 
-    <p class="dt-modal-label">Select Date</p>
-    <div class="dt-date-pills">
-      <button type="button" class="dt-pill" id="dtPill0"><span class="dt-pill-day"></span><span class="dt-pill-date"></span></button>
-      <button type="button" class="dt-pill" id="dtPill1"><span class="dt-pill-day"></span><span class="dt-pill-date"></span></button>
-      <button type="button" class="dt-pill" id="dtPill2"><span class="dt-pill-day"></span><span class="dt-pill-date"></span></button>
-      <button type="button" class="dt-pill dt-pill-pick" id="dtPillPick"><span class="dt-pill-icon">📅</span><span class="dt-pill-date">Pick</span></button>
+    <!-- SIMPLIFIED (per explicit request): a plain calendar (see
+         #dateCalendarModal, opened directly by #dtTriggerBtn now) picks
+         the date instead of a row of quick-pick pills — this just shows
+         whichever date that calendar landed on, with a small link back
+         to it to change the date. -->
+    <p class="dt-modal-label">Selected Date</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--mist);border-radius:var(--radius-sm);margin-bottom:8px;">
+      <strong id="dtSelectedDateLabel" style="color:var(--ink);"></strong>
+      <button type="button" id="dtChangeDateBtn" style="background:none;border:none;color:var(--blue-600);font-weight:600;font-size:0.85rem;cursor:pointer;">Change</button>
     </div>
 
     <p class="dt-modal-label" style="margin-top:20px;">Select Time Slot</p>
@@ -1062,7 +1044,7 @@
   </div>
 </div>
 
-<script src="/js/main.js?v=202609081r"></script>
+<script src="/js/main.js?v=202609081s"></script>
 <script src="/js/i18n.js?v=202609080a"></script>
 <script src="/js/chatbot.js?v=202609080a"></script>
 </body>

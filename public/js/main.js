@@ -216,6 +216,28 @@ function closeBookingForm() {
   if (backdrop) backdrop.classList.remove('open');
 }
 
+// Short confirmation chime played alongside the checkmark when a booking
+// succeeds — same technique as the technician panel's own completion
+// sound (generated via Web Audio API, no audio file needed).
+function playSuccessChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) { /* Web Audio not available/blocked — the visual checkmark alone is still shown */ }
+}
+
 // Tapping the dark backdrop itself (not the form card) closes it too —
 // same pattern as every other modal on the site.
 document.getElementById('bookingModalBackdrop')?.addEventListener('click', (e) => {
@@ -1410,12 +1432,10 @@ function renderCart() {
   const list = document.getElementById('cartList');
   const empty = document.getElementById('cartEmpty');
   const couponRow = document.getElementById('couponRow');
-  const summaryCard = document.getElementById('paymentSummaryCard');
   if (!visibleItems.length) {
     list.innerHTML = '';
     empty.style.display = 'block';
     couponRow.style.display = 'none';
-    if (summaryCard) summaryCard.style.display = 'none';
     return;
   }
   empty.style.display = 'none';
@@ -1450,7 +1470,6 @@ function renderCart() {
         ${qtyHtml}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-        <span class="cart-item-price">₹${it.lineTotal}</span>
         <button type="button" class="cart-item-trash" onclick="removeCartItem(${idx})" title="Remove">🗑️</button>
       </div>
     </div>
@@ -1467,34 +1486,11 @@ function renderCart() {
       <span class="amount">₹${finalTotal}</span>
     </div>`;
 
-  // Payment Summary card — Jay Home Services style layout: Total Amount /
-  // Discount % / Taxes and Fee / Saved / Grand Total. IMPORTANT: Taxes and
-  // Fee is kept at ₹0 below because the booking API (see /api/bookings in
-  // server.js) doesn't currently add any tax/platform fee to what's
-  // actually charged — Grand Total here always matches finalTotal (the
-  // real charge) so this stays accurate. If the business wants a real
-  // tax/fee added to bookings, that needs to be added server-side too
-  // (not just here), so the two numbers don't quietly drift apart.
-  const TAXES_AND_FEE = 0;
-  if (summaryCard) {
-    summaryCard.style.display = 'block';
-    const discountPct = (subtotal > 0 && discount > 0) ? Math.round((discount / subtotal) * 100) : 0;
-    const grandTotal = finalTotal + TAXES_AND_FEE;
-    document.getElementById('paymentSummaryItemTotal').textContent = `₹${subtotal}`;
-    document.getElementById('paymentSummaryTaxes').textContent = `₹${TAXES_AND_FEE}`;
-    document.getElementById('paymentSummaryTotal').textContent = `₹${grandTotal}`;
-    const discountRow = document.getElementById('paymentSummaryDiscountRow');
-    const savedRow = document.getElementById('paymentSummarySavedRow');
-    if (discount > 0) {
-      discountRow.style.display = 'flex';
-      savedRow.style.display = 'flex';
-      document.getElementById('paymentSummaryDiscountPct').textContent = `${discountPct}%`;
-      document.getElementById('paymentSummarySaved').textContent = `₹${discount}`;
-    } else {
-      discountRow.style.display = 'none';
-      savedRow.style.display = 'none';
-    }
-  }
+  // SIMPLIFIED (per explicit request): the separate Payment Summary card
+  // (Total Amount / Discount / Taxes / Grand Total) was showing amount
+  // info in a SECOND place, right below the cart's own single Total row
+  // — removed entirely so there's exactly one place, the cart-total-row
+  // above, showing the amount.
 }
 
 // Adjusts an already-added item's quantity directly from the cart line
@@ -1872,46 +1868,17 @@ function updateDtTriggerText() {
   else el.textContent = '📅 Select Date & Time';
 }
 
-function dtPillDateStr(offsetDays) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return dateCalToStr(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-function renderDtDatePills() {
-  const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const current = document.getElementById('fDate').value;
-  for (let i = 0; i < 3; i++) {
-    const str = dtPillDateStr(i);
-    const d = new Date(str + 'T00:00:00');
-    const pill = document.getElementById(`dtPill${i}`);
-    if (!pill) continue;
-    pill.querySelector('.dt-pill-day').textContent = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : weekdayNames[d.getDay()];
-    pill.querySelector('.dt-pill-date').textContent = d.getDate();
-    pill.classList.toggle('selected', current === str);
-    pill.onclick = () => selectDtDate(str);
-  }
-  // "Pick" pill highlights instead whenever the chosen date isn't one of
-  // the three quick options above (i.e. it came from the full calendar).
-  const pickPill = document.getElementById('dtPillPick');
-  if (pickPill) {
-    const isQuickDate = [0, 1, 2].some(i => dtPillDateStr(i) === current);
-    pickPill.classList.toggle('selected', !!current && !isQuickDate);
-    pickPill.onclick = () => { openDateCalendar(); };
-  }
-}
-
-function selectDtDate(str) {
-  const d = new Date(str + 'T00:00:00');
-  document.getElementById('fDate').value = str;
-  document.getElementById('fDateDisplay').value = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  document.getElementById('fDate').dispatchEvent(new Event('change')); // existing 'change' listener calls refreshSlots()
-  renderDtDatePills();
-  updateDtTriggerText();
-}
-
 function openDateTimeModal() {
-  renderDtDatePills();
+  const fDateEl = document.getElementById('fDate');
+  const label = document.getElementById('dtSelectedDateLabel');
+  if (label) {
+    if (fDateEl.value) {
+      const d = new Date(fDateEl.value + 'T00:00:00');
+      label.textContent = d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    } else {
+      label.textContent = 'No date selected';
+    }
+  }
   refreshSlots();
   document.getElementById('dateTimeModal').classList.add('open');
 }
@@ -1919,8 +1886,16 @@ function closeDateTimeModal() {
   document.getElementById('dateTimeModal')?.classList.remove('open');
 }
 function bindDateTimeModal() {
-  document.getElementById('dtTriggerBtn')?.addEventListener('click', openDateTimeModal);
+  document.getElementById('dtTriggerBtn')?.addEventListener('click', () => {
+    // SIMPLIFIED (per explicit request): opens the plain calendar
+    // directly instead of the quick-pills step first — selecting a day
+    // there (see selectDateCalendarDay()) already returns to this same
+    // Date & Time popup to show that date's slots, so nothing else here
+    // needs to change.
+    openDateCalendar();
+  });
   document.getElementById('dateTimeModalClose')?.addEventListener('click', closeDateTimeModal);
+  document.getElementById('dtChangeDateBtn')?.addEventListener('click', openDateCalendar);
   document.getElementById('dateTimeModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'dateTimeModal') closeDateTimeModal();
   });
@@ -2199,17 +2174,15 @@ function bindFormEvents() {
       const savedBits = [];
       if (data.booking.discountAmount) savedBits.push(`coupon: ₹${data.booking.discountAmount}`);
       if (data.booking.referralDiscount) savedBits.push(`referral: ₹${data.booking.referralDiscount}`);
-      // SIMPLIFIED (per explicit request): a clean checkmark + summary
-      // card view instead of a dense text paragraph — form (and its
-      // inline message) hides entirely, replaced by #bookingSuccessView.
+      // SIMPLIFIED FURTHER (per explicit request): just booking number +
+      // slot, nothing else — plus a short confirmation sound alongside
+      // the checkmark, same idea as the technician panel's own
+      // completion sound.
       document.getElementById('successBookingId').textContent = data.booking.id;
-      document.getElementById('successService').textContent =
-        itemsToSubmit.map(it => `${it.applianceName || ''}${it.typeName ? ' - ' + it.typeName : ''} (${it.qty})`).join(' + ');
-      document.getElementById('successTotal').textContent =
-        `₹${data.booking.totalPrice}${savedBits.length ? ` (saved ${savedBits.join(' + ')})` : ''}`;
       document.getElementById('successVisit').textContent = `${data.booking.timeSlot}, ${data.booking.bookingDate}`;
       document.getElementById('bookingForm').style.display = 'none';
       document.getElementById('bookingSuccessView').style.display = 'block';
+      playSuccessChime();
       form.reset();
       // BUG FIX: form.reset() alone doesn't reliably clear the phone
       // field — many mobile browsers ignore autocomplete="off" for phone
