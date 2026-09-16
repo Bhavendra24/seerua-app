@@ -258,6 +258,16 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   padding: 0 3px;
   border: 2px solid #fff;
 }
+/* BUG FIX ("mobile mein cart 2 jagah dikh raha hai"): the desktop
+   header's own Cart icon (added since mobile has no other way to reach
+   it) was also showing on mobile, right alongside the bottom nav's own,
+   separate Cart button. Placed AFTER the base .header-cart-btn rule
+   above (not just inside an earlier @media block) so this actually wins
+   in the cascade at equal specificity — mobile has its own Cart button
+   in the bottom nav bar, so this one is redundant there. */
+@media (max-width: 720px) {
+  .header-cart-btn { display: none; }
+}
 .header-account-initial { font-size: 1rem; font-family: var(--font-body); line-height: 1; }
 .header-account-menu {
   display: none;
