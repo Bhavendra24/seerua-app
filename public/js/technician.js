@@ -346,6 +346,34 @@ async function uploadCompletionPhoto(bookingId, itemId, inputEl) {
   }
 }
 
+// Brief success overlay (checkmark + sound + "Complete" text) shown
+// right after a job is successfully marked completed — see setProgress()
+// below. Sound is a short, simple generated tone (Web Audio API) rather
+// than an audio file, so there's nothing extra to load/host.
+function showCompleteSuccessOverlay() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    }
+  } catch (e) { /* Web Audio not available/blocked — the visual overlay alone is still shown */ }
+  const overlay = document.getElementById('completeSuccessOverlay');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  setTimeout(() => { overlay.style.display = 'none'; }, 1400);
+}
+
 async function setProgress(bookingId, itemId, status) {
   const taskId = `${bookingId}__${itemId}`;
   const reportEl = document.getElementById(`report-${taskId}`);
@@ -368,6 +396,7 @@ async function setProgress(bookingId, itemId, status) {
   try {
     await api(`/api/technician/orders/${bookingId}/items/${itemId}/progress`, { method: 'PUT', body: JSON.stringify(body) });
     delete pendingCompletionPhotos[taskId];
+    if (status === 'completed') showCompleteSuccessOverlay();
   } catch (e) {
     alert(e.message || 'Could not update this job. Please try again.');
     return;

@@ -129,6 +129,20 @@
   </main>
 </div>
 
-<script src="/js/technician.js?v=202609040c"></script>
+<!-- Brief success overlay shown right after marking a job complete —
+     per request: a checkmark, a sound, and the word "Complete", so the
+     technician gets clear, immediate confirmation the tap actually
+     registered, instead of just watching the list silently re-render. -->
+<div id="completeSuccessOverlay" style="display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;background:rgba(15,42,67,0.35);">
+  <div style="background:#fff;border-radius:20px;padding:36px 44px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.2);animation:completeOverlayPop 0.3s ease;">
+    <div style="width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--green,#16a34a);color:#fff;font-size:2rem;display:flex;align-items:center;justify-content:center;">✓</div>
+    <div style="font-size:1.15rem;font-weight:700;color:var(--green,#16a34a);">Complete</div>
+  </div>
+</div>
+<style>
+@keyframes completeOverlayPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+</style>
+
+<script src="/js/technician.js?v=202609040d"></script>
 </body>
 </html>
