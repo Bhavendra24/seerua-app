@@ -119,10 +119,15 @@
     <div class="hero-coded-text">
       <h1>Your Appliance. <span class="hero-accent-wrap">Our Care.<svg class="hero-underline" viewBox="0 0 220 14" preserveAspectRatio="none"><path d="M2 10c40-10 160-10 216 0" stroke="var(--accent-500)" stroke-width="4" stroke-linecap="round" fill="none"/></svg></span></h1>
       <p class="hero-sub">Fast, Reliable &amp; Professional Appliance Service at Your Doorstep.</p>
-      <div class="hero-badges">
-        <span>⭐ 100% Customer Satisfaction</span>
+      <!-- Real, admin-entered Google rating (Admin > Site Rating) — only
+           shown once loadPublicStats() (main.js) confirms real numbers
+           are actually configured; hidden by default so nothing fake or
+           placeholder ever displays. Links straight to the real Google
+           listing so it's independently verifiable. -->
+      <div class="hero-badges" id="heroRating" style="display:none;">
+        <span id="heroRatingText">⭐ Loading rating…</span>
       </div>
-    </div>
+      </div>
   </div>
 </section>
 
