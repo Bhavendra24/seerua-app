@@ -942,7 +942,14 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 
 
 /* Booking form */
-.booking-wrap { display: grid; grid-template-columns: 1fr 1.15fr; gap: 40px; align-items: start; position: relative; }
+/* BUG FIX ("double page jaisa lagta hai" on desktop): this used to be a
+   2-column grid (the "Book a service" side-info panel + the actual form
+   fields side by side) — on a wide screen this genuinely looked like two
+   separate pages/panels sitting next to each other, especially once the
+   trust badges were removed from that side panel (leaving it almost
+   empty). Single column now, on every screen size — matches how it
+   already displayed on mobile. */
+.booking-wrap { display: block; position: relative; max-width: 480px; margin: 0 auto; }
 /* .booking-wrap sets its own "display", which (being author CSS) would
    otherwise silently override the browser's default [hidden] → display:none
    rule. This higher-specificity rule makes sure hiding the form actually
@@ -1087,7 +1094,7 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    info+form layout). Falls back to the same width as a normal modal on
    narrow/mobile screens, where .booking-wrap's own responsive rule
    already collapses it to one column anyway. */
-.modal.modal-lg { max-width: 900px; }
+.modal.modal-lg { max-width: 560px; }
 
 /* Quick Book modal (opened from tapping an appliance card) */
 .qb-city-select { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 0.95rem; font-family: var(--font-body); }
@@ -1940,7 +1947,6 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
   .services-grid { grid-template-columns: repeat(2, 1fr); }
   .steps { grid-template-columns: 1fr; }
   .why-grid { grid-template-columns: repeat(2, 1fr); }
-  .booking-wrap { grid-template-columns: 1fr; }
   .booking-close-btn { top: -10px; right: 6px; }
 }
 @media (max-width: 720px) {

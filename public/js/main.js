@@ -1485,21 +1485,18 @@ function renderCart() {
   `;
   }).join('') +
     (discount ? `<div class="discount-row"><span>Coupon "${appliedCoupon.code}" applied</span><span>− ₹${discount}</span></div>` : '') +
-    // In the standalone Quick Book (direct-book) view, this is always a
-    // single fixed item — showing an item-count next to it ("Total (1
-    // item)") is redundant clutter for what's meant to be a simple direct
-    // checkout, so just "Total" there; the full item count still shows in
-    // the real multi-item cart view.
-    `<div class="cart-total-row">
-      <span>${quickBookViewStartIndex === null ? `Total (${visibleItems.length} item${visibleItems.length > 1 ? 's' : ''})` : 'Total'}</span>
-      <span class="amount">₹${finalTotal}</span>
+    // SIMPLIFIED (per explicit request): a compact 3-line summary
+    // instead of the earlier, more detailed Payment Summary card —
+    // Service Amount / Processing Charges / Total, in one place right
+    // under the cart items (not a separate card lower down). Processing
+    // Charges stays ₹0 because the booking API doesn't currently add any
+    // fee on top of the item total — Total here always matches
+    // finalTotal (the real charge), so this stays accurate.
+    `<div class="cart-total-row" style="flex-direction:column;align-items:stretch;gap:4px;">
+      <div style="display:flex;justify-content:space-between;font-size:0.85rem;font-weight:500;"><span>Service Amount</span><span>₹${finalTotal}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.85rem;font-weight:500;"><span>Processing Charges</span><span>₹0</span></div>
+      <div style="display:flex;justify-content:space-between;padding-top:4px;border-top:1px solid rgba(255,255,255,0.25);"><span>Total</span><span class="amount">₹${finalTotal}</span></div>
     </div>`;
-
-  // SIMPLIFIED (per explicit request): the separate Payment Summary card
-  // (Total Amount / Discount / Taxes / Grand Total) was showing amount
-  // info in a SECOND place, right below the cart's own single Total row
-  // — removed entirely so there's exactly one place, the cart-total-row
-  // above, showing the amount.
 }
 
 // Adjusts an already-added item's quantity directly from the cart line
