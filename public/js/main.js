@@ -1479,7 +1479,12 @@ function renderCart() {
         ${qtyHtml}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-        <button type="button" class="cart-item-trash" onclick="removeCartItem(${idx})" title="Remove">🗑️</button>
+        ${visibleItems.length > 1 ? `<button type="button" class="cart-item-trash" onclick="removeCartItem(${idx})" title="Remove">🗑️</button>` : ''}
+        <!-- BUG FIX (per explicit request): removing the only item in a
+             single-item booking doesn't make sense the same way it does
+             in a real multi-item cart — there's nothing to "pick between"
+             once it's the only one. The delete/trash icon now only shows
+             once there are 2+ items, matching a true cart scenario. -->
       </div>
     </div>
   `;
@@ -1495,7 +1500,7 @@ function renderCart() {
     `<div class="cart-total-row" style="flex-direction:column;align-items:stretch;gap:4px;">
       <div style="display:flex;justify-content:space-between;font-size:0.85rem;font-weight:500;"><span>Service Amount</span><span>₹${finalTotal}</span></div>
       <div style="display:flex;justify-content:space-between;font-size:0.85rem;font-weight:500;"><span>Processing Charges</span><span>₹0</span></div>
-      <div style="display:flex;justify-content:space-between;padding-top:4px;border-top:1px solid rgba(255,255,255,0.25);"><span>Total</span><span class="amount">₹${finalTotal}</span></div>
+      <div style="display:flex;justify-content:space-between;padding-top:4px;border-top:1px solid var(--line);"><span style="font-weight:700;">Total</span><span class="amount">₹${finalTotal}</span></div>
     </div>`;
 }
 

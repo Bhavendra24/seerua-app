@@ -541,6 +541,16 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 .calc-badge { font-size: 0.85rem; font-weight: 700; color: var(--green); background: #e7f8ee; padding: 4px 10px; border-radius: 999px; }
 .calc-note { font-size: 0.85rem; color: var(--slate); margin-bottom: 14px; }
 .field { margin-bottom: 11px; }
+/* BUG FIX ("sabhi khane patle aur paas-paas kar do" -- fields too tall/
+   spaced out): booking form specifically gets tighter field spacing and
+   shorter input/textarea/select height, per explicit request. Scoped to
+   just this form so other forms on the site (Admin panel, careers, etc.)
+   are unaffected. */
+#bookingForm .field { margin-bottom: 8px; }
+#bookingForm .field select,
+#bookingForm .field input,
+#bookingForm .field textarea { padding: 8px 12px; }
+#bookingForm .field label { margin-bottom: 3px; font-size: 0.8rem; }
 .field label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--blue-900); margin-bottom: 6px; }
 .field select, .field input, .field textarea {
   width: 100%;
@@ -1216,8 +1226,8 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
   margin: 0 0 14px;
   line-height: 1.4;
 }
-.cart-total-row { display: flex; justify-content: space-between; align-items: center; background: var(--blue-900); color: var(--white); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 16px; font-weight: 700; }
-.cart-total-row .amount { color: var(--accent-500); font-size: 1.2rem; font-family: var(--font-display); }
+.cart-total-row { display: flex; justify-content: space-between; align-items: center; background: var(--mist); color: var(--ink); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 16px; font-weight: 700; }
+.cart-total-row .amount { color: var(--ink); font-weight: 800; font-size: 1.2rem; font-family: var(--font-display); }
 
 /* Quantity stepper directly in a cart line item — lets the customer
    adjust qty after adding, not just at the moment of adding, matching
