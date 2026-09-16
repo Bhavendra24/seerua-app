@@ -68,7 +68,17 @@ async function initDb() {
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       waitForConnections: true,
-      connectionLimit: 5
+      // PERFORMANCE: raised from 5 -- this app's actual DB usage is a
+      // simple key-value GET/SET on one table by primary key (see the
+      // app_data table below), never a complex query, so each connection
+      // is only held briefly. 5 was fine at very low traffic but could
+      // start queuing requests once dozens of people browse at once.
+      // Kept well under typical free/shared MySQL plan connection caps
+      // (Aiven's free tier, for example, caps total connections in the
+      // low 20s across everything using that database, including the
+      // separate session pool below) -- if that total is ever raised,
+      // this can safely go higher too.
+      connectionLimit: 15
     });
 
     await pool.query(`

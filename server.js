@@ -111,7 +111,22 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(bodyParser.json({ limit: '10mb' })); // raised from the 100kb default — the backup/restore endpoint below can be a large payload once real booking history builds up
+// PERFORMANCE/SECURITY: default JSON body limit kept modest (1mb, up from
+// Express's own 100kb default) -- covers every normal API payload (forms,
+// bookings, admin edits) with plenty of headroom. Photo uploads go through
+// multer as multipart/form-data (see upload/uploadCompletionPhoto below),
+// entirely separate from this JSON parser and its own size limits, so
+// they're unaffected by this being smaller. Only one single endpoint
+// (POST /api/admin/restore, a full data-backup upload that can legitimately
+// be several MB once real booking history builds up) needs a larger limit
+// -- skipped here (via bodyParser's own `type` check on the path) so that
+// route's own, separately-applied 10mb parser is the one that actually
+// runs for it, rather than this smaller global one rejecting a big backup
+// file before it even gets there.
+app.use(bodyParser.json({
+  limit: '1mb',
+  type: (req) => req.path !== '/api/admin/restore' && (req.headers['content-type'] || '').includes('json')
+}));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // BUG FIX: the session secret used to be hardcoded right here in the source
@@ -150,7 +165,15 @@ if (process.env.DB_HOST) {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     waitForConnections: true,
-    connectionLimit: 3
+    // PERFORMANCE: raised from 3, alongside the main data pool's own
+    // increase in db.js (5 -> 15) -- sessions are looked up on nearly
+    // every request (checking if someone's logged into Admin/technician
+    // panels), so this pool being too small queues those checks up
+    // right alongside the main data pool's own traffic. Kept the
+    // combined total (this + the main pool) at a level that should
+    // comfortably fit under a typical free/shared MySQL plan's overall
+    // connection cap.
+    connectionLimit: 5
   });
   sessionStore = new MySQLStore({}, sessionPool);
 } else {
@@ -739,7 +762,11 @@ app.get('/api/version', (req, res) => {
 });
 
 app.get('/api/cities', (req, res) => {
-  const cities = readData('cities').filter(c => c.active);
+  // PERFORMANCE: same reasoning as GET /api/price and /api/appliances
+  // earlier — this is a hot, purely read-only path (called on nearly
+  // every page load), safe to skip readData()'s deep-copy since this
+  // handler only ever reads (.filter()), never mutates, the result.
+  const cities = readDataReadOnly('cities').filter(c => c.active);
   res.json(cities);
 });
 
@@ -1656,7 +1683,7 @@ app.post('/api/admin/lock-date', requireAdmin, (req, res) => {
 // accepts known, already-existing data keys (never arbitrary new ones) as
 // a safety guard against a malformed or tampered file silently creating
 // unexpected new data files.
-app.post('/api/admin/restore', requireAdmin, (req, res) => {
+app.post('/api/admin/restore', requireAdmin, bodyParser.json({ limit: '10mb' }), (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
     return res.status(400).json({ error: 'Invalid backup file format.' });
@@ -5559,6 +5586,14 @@ app.get('/careers/:citySlug', (req, res) => renderCareersPage(req, res, req.para
 app.use((err, req, res, next) => {
   console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, err);
   if (res.headersSent) return next(err);
+  // PERFORMANCE (added alongside lowering the default JSON body limit to
+  // 1mb): without this, a request that's too large surfaced as a raw,
+  // unhelpful 500 "something went wrong" — a genuine 413 with a clear
+  // reason is both more correct and easier to debug from the client
+  // side if this is ever hit unexpectedly.
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'That request is too large. Please try again with less data (e.g. a smaller photo or shorter text).' });
+  }
   const isFsError = err && (err.code === 'EROFS' || err.code === 'EACCES' || err.code === 'ENOSPC');
   res.status(500).json({
     error: isFsError
