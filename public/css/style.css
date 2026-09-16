@@ -549,8 +549,11 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 #bookingForm .field { margin-bottom: 8px; }
 #bookingForm .field select,
 #bookingForm .field input,
-#bookingForm .field textarea { padding: 8px 12px; }
+#bookingForm .field textarea { padding: 6px 10px; }
 #bookingForm .field label { margin-bottom: 3px; font-size: 0.8rem; }
+#bookingForm .dt-trigger-btn,
+#bookingForm .address-select-btn { padding: 8px 12px; font-size: 0.85rem; }
+#bookingForm #editAddressBtn { padding: 5px 12px; font-size: 0.78rem; }
 .field label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--blue-900); margin-bottom: 6px; }
 .field select, .field input, .field textarea {
   width: 100%;
