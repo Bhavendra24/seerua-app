@@ -309,6 +309,14 @@
         </table></div>
       </div>
 
+      <!-- SIMPLIFIED (per explicit request): Day Lock and Archive are
+           both occasional/advanced settings rather than something
+           checked while looking at today's bookings — collapsed behind
+           their own toggle so the Orders page reads as just "the
+           bookings table" day to day, with these one tap away when
+           actually needed. -->
+      <button type="button" id="ordersAdvancedToggle" class="advanced-toggle">⚙️ Advanced (Day Lock &amp; Archive) <span id="ordersAdvancedArrow">▾</span></button>
+      <div id="ordersAdvancedGroup" style="display:none;">
       <div class="card settings-card" style="border-left:4px solid #b45309;" id="dayLockCard">
         <div class="card-head"><h3>🔒 Day Lock <small style="font-weight:400;color:var(--slate);">— protects previous days' records</small></h3></div>
         <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Every date before today is locked automatically — no one can reassign a technician, reactivate a completed job, rate an item, or delete a booking from a past date. This keeps yesterday's numbers from being quietly changed later. Only you (Super Admin) can unlock a specific date below, when a genuine correction is needed.</p>
@@ -334,7 +342,17 @@
         </form>
         <div class="msg-inline" id="archiveMsg"></div>
       </div>
+      </div>
     </section>
+    <script>
+      document.getElementById('ordersAdvancedToggle').addEventListener('click', () => {
+        const group = document.getElementById('ordersAdvancedGroup');
+        const arrow = document.getElementById('ordersAdvancedArrow');
+        const isOpen = group.style.display !== 'none';
+        group.style.display = isOpen ? 'none' : 'block';
+        arrow.textContent = isOpen ? '▾' : '▴';
+      });
+    </script>
 
     <!-- CITIES -->
     <section class="panel-view" id="view-cities">
