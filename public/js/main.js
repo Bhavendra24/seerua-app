@@ -2883,7 +2883,6 @@ function verifyPhoneWithOtp(phone) {
 // know to skip binding its own generic fallback for this button.
 function updateBottomNavCartBadge() {
   const badge = document.getElementById('bottomNavCartBadge');
-  if (!badge) return;
   // BUG FIX: during a standalone Quick Book (direct-book) session, the
   // item being booked is technically appended to cartItems (for code
   // reuse with the normal Add-to-cart flow), but it isn't really "in the
@@ -2894,28 +2893,40 @@ function updateBottomNavCartBadge() {
   const count = quickBookViewStartIndex !== null
     ? quickBookViewStartIndex
     : ((typeof cartItems !== 'undefined') ? cartItems.length : 0);
-  badge.textContent = count;
-  badge.hidden = count === 0;
+  if (badge) {
+    badge.textContent = count;
+    badge.hidden = count === 0;
+  }
+  // Same count, same visibility rule, for the desktop header's own Cart
+  // icon (see headerCartBtn) — kept in sync here rather than duplicating
+  // this whole counting rule a second time.
+  const headerBadge = document.getElementById('headerCartBadge');
+  if (headerBadge) {
+    headerBadge.textContent = count;
+    headerBadge.hidden = count === 0;
+  }
 }
 
 function bindBottomNav() {
   const cartBtn = document.getElementById('bottomNavCartBtn');
-  if (cartBtn) {
-    cartBtn.addEventListener('click', () => {
-      document.querySelectorAll('.bottom-sheet-backdrop.open').forEach(el => el.classList.remove('open'));
-      document.getElementById('bottomNavSupportBtn')?.classList.remove('open');
-      document.getElementById('supportFanOut')?.classList.remove('open');
-      quickBookViewStartIndex = null;
-      renderCart();
-      if (cartItems.length) {
-        openBookingForm();
-        hideRedundantBookingFields();
-      } else {
-        const services = document.getElementById('services');
-        if (services) services.scrollIntoView({ behavior: 'smooth' });
-      }
-    });
-  }
+  const cartClickHandler = () => {
+    document.querySelectorAll('.bottom-sheet-backdrop.open').forEach(el => el.classList.remove('open'));
+    document.getElementById('bottomNavSupportBtn')?.classList.remove('open');
+    document.getElementById('supportFanOut')?.classList.remove('open');
+    quickBookViewStartIndex = null;
+    renderCart();
+    if (cartItems.length) {
+      openBookingForm();
+      hideRedundantBookingFields();
+    } else {
+      const services = document.getElementById('services');
+      if (services) services.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+  if (cartBtn) cartBtn.addEventListener('click', cartClickHandler);
+  // Desktop header's own Cart icon — identical behavior to the
+  // mobile-only bottom-nav one above, just reachable when that's hidden.
+  document.getElementById('headerCartBtn')?.addEventListener('click', cartClickHandler);
   updateBottomNavCartBadge();
 }
 

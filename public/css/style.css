@@ -228,6 +228,36 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   color: #fff;
   font-weight: 700;
 }
+/* Desktop header's own Cart icon — same visual treatment as the
+   profile icon right next to it, with a small count badge matching the
+   bottom-nav's own badge style. */
+.header-cart-btn {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: #000;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+.header-cart-btn:hover { background: #262626; }
+.header-cart-badge {
+  position: absolute;
+  top: -4px; right: -6px;
+  background: #e0455a;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px;
+  border: 2px solid #fff;
+}
 .header-account-initial { font-size: 1rem; font-family: var(--font-body); line-height: 1; }
 .header-account-menu {
   display: none;
