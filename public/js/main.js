@@ -635,6 +635,20 @@ async function fetchJSON(url, opts) {
   return data;
 }
 
+// Consistent "DD Mon YYYY" date display used everywhere a date is shown
+// to a customer (booking success screen, Track Booking, etc.) — per
+// explicit request, since dates were previously a mix of raw ISO
+// strings (e.g. "2026-09-20") and differently-formatted ones depending
+// on which screen showed them. Accepts either a "YYYY-MM-DD" string or
+// an ISO datetime string; returns the input unchanged if it can't be
+// parsed as a date, rather than showing "Invalid Date".
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 // Used whenever customer-typed free text (a review, etc.) is inserted into
 // the page, so it's shown as plain text and can't break out of the HTML.
 function escapeHtml(str) {
@@ -2190,7 +2204,7 @@ function bindFormEvents() {
       // the checkmark, same idea as the technician panel's own
       // completion sound.
       document.getElementById('successBookingId').textContent = data.booking.id;
-      document.getElementById('successVisit').textContent = `${data.booking.timeSlot}, ${data.booking.bookingDate}`;
+      document.getElementById('successVisit').textContent = `${data.booking.timeSlot}, ${formatDateDisplay(data.booking.bookingDate)}`;
       document.getElementById('bookingForm').style.display = 'none';
       document.getElementById('bookingSuccessView').style.display = 'block';
       playSuccessChime();
@@ -2272,8 +2286,8 @@ function bookingCardHtml(b, showBookAgain) {
   `).join('');
   return `
       <div class="track-order-card">
-        <div class="row2" style="font-weight:700;color:var(--blue-900);">Booking ID: ${b.id} · ${b.cityName} · ₹${b.totalPrice} · ${new Date(b.createdAt).toLocaleDateString('en-IN')}</div>
-        ${b.timeSlot ? `<div class="row2">🕐 Visit: ${b.bookingDate} · ${b.timeSlot}</div>` : ''}
+        <div class="row2" style="font-weight:700;color:var(--blue-900);">Booking ID: ${b.id} · ${b.cityName} · ₹${b.totalPrice} · ${formatDateDisplay(b.createdAt)}</div>
+        ${b.timeSlot ? `<div class="row2">🕐 Visit: ${formatDateDisplay(b.bookingDate)} · ${b.timeSlot}</div>` : ''}
         ${itemsHtml}
         ${showBookAgain ? `<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="bookAgain('${b.id}')">↻ Book Again</button>` : ''}
       </div>

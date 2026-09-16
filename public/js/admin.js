@@ -32,6 +32,17 @@ function fmtInr(n) {
   return num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
+// Consistent "DD Mon YYYY" date display everywhere a date is shown in
+// the admin panel — per explicit request, since dates were previously a
+// mix of raw ISO strings and differently-formatted ones (some with a
+// year, some without) depending on which screen showed them.
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 // A commission rate is always {mode:'flat'|'percent', value}. Renders it
 // the way Admin actually reads it: "₹50" or "10%".
 function fmtRate(rate) {
@@ -397,7 +408,7 @@ function renderDashboard() {
   const latest = sortOrdersByBookingTime(BOOKINGS).slice(0, 8);
   document.getElementById('dashLatestOrders').innerHTML = latest.length ? latest.map(b => `
     <tr>
-      <td>${b.id}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${b.timeSlot}</small>` : ''}</td>
+      <td>${b.id}<br><small style="color:var(--slate)">Booked: ${fmtDate(b.createdAt)}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${fmtDate(b.bookingDate)} · ${b.timeSlot}</small>` : ''}</td>
       <td>${esc(b.name)}<br><small style="color:var(--slate)">${esc(b.phone)}</small></td>
       <td>${itemsSummary(b)}</td>
       <td>${b.cityName}</td>
@@ -475,7 +486,7 @@ async function renderAnalytics() {
   const trendMax = Math.max(...data.dailyRevenue.map(d => d.revenue), 1);
   document.getElementById('trendChart').innerHTML = data.dailyRevenue.map(d => {
     const dt = new Date(d.date);
-    const label = dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const label = fmtDate(dt);
     const h = Math.max(2, Math.round((d.revenue / trendMax) * 100));
     return `
       <div class="trend-bar-wrap" title="${label}: ₹${fmtInr(d.revenue)}">
@@ -492,7 +503,7 @@ async function renderAnalytics() {
   const commissionMax = Math.max(...data.dailyRevenue.map(d => d.commission), 1);
   document.getElementById('commissionTrendChart').innerHTML = data.dailyRevenue.map(d => {
     const dt = new Date(d.date);
-    const label = dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const label = fmtDate(dt);
     const h = Math.max(2, Math.round((d.commission / commissionMax) * 100));
     return `
       <div class="trend-bar-wrap" title="${label}: ₹${fmtInr(d.commission)}">
@@ -628,7 +639,7 @@ function renderOrders() {
     // machinery to reproduce here, just what's in each one.
     document.getElementById('ordersTable').innerHTML = list.length ? list.map(b => `
       <tr>
-        <td>${b.id}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · ${b.timeSlot}</small>` : ''}</td>
+        <td>${b.id}<br><small style="color:var(--slate)">Booked: ${fmtDate(b.createdAt)}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${fmtDate(b.bookingDate)} · ${b.timeSlot}</small>` : ''}</td>
         <td>${esc(b.name)}<br><small style="color:var(--slate)">${esc(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small></td>
         <td>${b.items.map(it => `
           <div style="padding:6px 0;border-bottom:1px dashed var(--line);">
@@ -648,7 +659,7 @@ function renderOrders() {
 
   document.getElementById('ordersTable').innerHTML = list.length ? list.map(b => `
     <tr>
-      <td>${b.id}${isBookingDateLocked(b.bookingDate) ? ' <span class="pill" style="background:#fef3c7;color:#b45309;" title="Locked past date">🔒 Locked</span>' : ''}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${b.timeSlot}</small>` : ''}</td>
+      <td>${b.id}${isBookingDateLocked(b.bookingDate) ? ' <span class="pill" style="background:#fef3c7;color:#b45309;" title="Locked past date">🔒 Locked</span>' : ''}<br><small style="color:var(--slate)">Booked: ${fmtDate(b.createdAt)}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${fmtDate(b.bookingDate)} · ${b.timeSlot}</small>` : ''}</td>
       <td>${esc(b.name)} ${b.source === 'phone' ? '<span class="pill pill-assigned" title="Booked via phone call by Admin">📞 Phone</span>' : ''} ${isFirstBookingForPhone(b) ? '<span class="pill" style="background:#dcfce7;color:#166534;" title="This phone number\'s first-ever booking">🆕 New</span>' : '<span class="pill" style="background:#e0e7ff;color:#3730a3;" title="This phone number has booked before">🔁 Returning</span>'}<br><small style="color:var(--slate)">${esc(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small><br><small style="color:var(--slate)">📍 ${esc(b.cityName || '')}</small><br><button class="btn btn-outline btn-sm" style="margin-top:4px;" onclick="openEditBookingLocation('${b.id}')">✏️ Edit City/Address</button></td>
       <td>
         ${b.items.map(it => `
@@ -668,7 +679,7 @@ function renderOrders() {
               <div style="margin-top:6px;padding:8px 10px;background:var(--mist);border-radius:8px;">
                 <small style="color:var(--slate);">🔒 Locked — job is completed.</small><br>
                 ${isBookingDateLocked(b.bookingDate) ? `
-                  <small style="color:#b45309;display:block;margin-top:6px;">🔒 This booking is from ${b.bookingDate}, a locked past date — ask Super Admin to unlock it to rate or reactivate this job.</small>
+                  <small style="color:#b45309;display:block;margin-top:6px;">🔒 This booking is from ${fmtDate(b.bookingDate)}, a locked past date — ask Super Admin to unlock it to rate or reactivate this job.</small>
                 ` : `
                 <select style="margin-top:6px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:0.8rem;" onchange="rateItem('${b.id}','${it.id}', this.value)">
                   <option value="">${it.rating ? `Rated ⭐${it.rating} (${it.ratingSource === 'customer' ? 'by customer' : 'by admin'})` : 'Rate this job'}</option>
@@ -690,7 +701,7 @@ function renderOrders() {
             ` : `
               <div style="margin-top:8px;">
                 ${isBookingDateLocked(b.bookingDate) ? `
-                  <small style="color:#b45309;">🔒 This booking is from ${b.bookingDate}, a locked past date — ask Super Admin to unlock it to assign a technician.</small>
+                  <small style="color:#b45309;">🔒 This booking is from ${fmtDate(b.bookingDate)}, a locked past date — ask Super Admin to unlock it to assign a technician.</small>
                 ` : (it.technicianName && !assignmentUnlocked.has(`${b.id}__${it.id}`) ? `
                   <!-- ASSIGNMENT LOCK: once a technician is assigned, the
                        Reassign/Auto-Assign buttons stay behind an explicit
@@ -812,7 +823,7 @@ async function openAssign(bookingId, itemId) {
   const repeats = findSameDayRepeatBookings(booking);
   if (repeats.length) {
     repeatWarnEl.style.display = 'block';
-    repeatWarnEl.textContent = `⚠️ Repeat booking: ${booking.name} (${booking.phone}) has ${repeats.length} other booking${repeats.length === 1 ? '' : 's'} on ${booking.bookingDate} (ID${repeats.length === 1 ? '' : 's'}: ${repeats.map(r => r.id).join(', ')}). Please confirm this isn't a duplicate before assigning.`;
+    repeatWarnEl.textContent = `⚠️ Repeat booking: ${booking.name} (${booking.phone}) has ${repeats.length} other booking${repeats.length === 1 ? '' : 's'} on ${fmtDate(booking.bookingDate)} (ID${repeats.length === 1 ? '' : 's'}: ${repeats.map(r => r.id).join(', ')}). Please confirm this isn't a duplicate before assigning.`;
   }
 
   try {
@@ -834,7 +845,7 @@ async function openAssign(bookingId, itemId) {
         const overallText = t.avgRating ? `, overall ⭐${t.avgRating}` : '';
         const expText = `${t.experienceYears || 0} yr${t.experienceYears === 1 ? '' : 's'} exp.`;
         const liveText = t.isOnline ? ', 🟢 online now' : '';
-        const capacityText = t.atCapacity ? ` — ⚠️ at daily limit (${t.jobsOnDate}/${t.dailyLimit} jobs on ${booking.bookingDate || 'this date'})` : '';
+        const capacityText = t.atCapacity ? ` — ⚠️ at daily limit (${t.jobsOnDate}/${t.dailyLimit} jobs on ${booking.bookingDate ? fmtDate(booking.bookingDate) : 'this date'})` : '';
         return `<option value="${t.id}">${t.name} — ${apRatingText}${overallText}, ${expText}${liveText}${capacityText}</option>`;
       }).join('');
       sel.disabled = false;
@@ -869,7 +880,7 @@ async function autoAssign(bookingId, itemId) {
     const liveText = top.isOnline ? ', currently online' : ', currently offline';
     const capacityWarn = top.atCapacity ? `\n\n⚠️ All eligible technicians are already at their daily job limit for ${booking && booking.bookingDate ? booking.bookingDate : 'this date'}. ${top.name} is at ${top.jobsOnDate}/${top.dailyLimit} jobs — assigning anyway may cause delay.` : '';
     const repeats = booking ? findSameDayRepeatBookings(booking) : [];
-    const repeatWarn = repeats.length ? `\n\n⚠️ Repeat booking: ${booking.name} (${booking.phone}) has ${repeats.length} other booking${repeats.length === 1 ? '' : 's'} on ${booking.bookingDate} (ID${repeats.length === 1 ? '' : 's'}: ${repeats.map(r => r.id).join(', ')}). Please confirm this isn't a duplicate.` : '';
+    const repeatWarn = repeats.length ? `\n\n⚠️ Repeat booking: ${booking.name} (${booking.phone}) has ${repeats.length} other booking${repeats.length === 1 ? '' : 's'} on ${fmtDate(booking.bookingDate)} (ID${repeats.length === 1 ? '' : 's'}: ${repeats.map(r => r.id).join(', ')}). Please confirm this isn't a duplicate.` : '';
     if (!confirm(`Auto-assign ${top.name} — ${apRatingText}${liveText}?${capacityWarn}${repeatWarn}`)) return;
     await api(`/api/admin/bookings/${bookingId}/items/${itemId}/assign`, { method: 'PUT', body: JSON.stringify({ technicianId: top.id }) });
     // BUG FIX: a successful (re)assignment never removed this item from
@@ -1718,7 +1729,7 @@ async function renderReferrals() {
   const uses = await api('/api/admin/referral-uses');
   document.getElementById('referralUsesTable').innerHTML = uses.length ? uses.map(u => `
     <tr>
-      <td>${new Date(u.createdAt).toLocaleDateString('en-IN')}</td>
+      <td>${fmtDate(u.createdAt)}</td>
       <td>${u.referrerName || '-'}<br><small style="color:var(--slate)">${u.referrerPhone}</small></td>
       <td>${u.referredName || '-'}<br><small style="color:var(--slate)">${u.referredPhone}</small></td>
       <td>${u.bookingId}</td>
@@ -2428,7 +2439,7 @@ function drawApplications() {
 
   document.getElementById('applicationsTable').innerHTML = list.length ? list.map(a => `
     <tr>
-      <td>${new Date(a.createdAt).toLocaleDateString('en-IN')}</td>
+      <td>${fmtDate(a.createdAt)}</td>
       <td>${esc(a.name)}</td>
       <td>${esc(a.phone)}<br><small style="color:var(--slate)">${esc(a.address)}</small></td>
       <td>${a.cityName}</td>
