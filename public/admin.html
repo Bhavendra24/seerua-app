@@ -55,19 +55,47 @@
       <button data-view="commission">💵 Commission</button>
       <button data-view="customers">🧑‍🤝‍🧑 Customers</button>
       <button data-view="technicians">👷 Technicians</button>
-      <button data-view="reports">📊 Daily Report</button>
-      <button data-view="applications">📋 Career Applications</button>
-      <button data-view="subadmins">🧑‍💼 Admins</button>
-      <button data-view="analytics">📈 Analytics</button>
-      <button data-view="cities">🏙️ Cities</button>
-      <button data-view="appliances">🔧 Appliances &amp; Types</button>
-      <button data-view="pricing">₹ Pricing</button>
-      <button data-view="referrals">🎁 Refer &amp; Earn</button>
-      <button data-view="notifications">🔔 Notifications</button>
-      <button data-view="rating">⭐ Site Rating</button>
-      <button data-view="slots">🕒 Time Slots</button>
-      <button data-view="sitecontent">📝 Site Content</button>
+      <!-- SIMPLIFIED (per explicit request): the remaining items below
+           are all things configured occasionally (once at setup, or a
+           periodic check-in) rather than used every single day like the
+           5 above — collapsed behind one "More Settings" toggle instead
+           of all 17 buttons sitting in the sidebar at once. Nothing was
+           removed; switchView() and every button's own data-view value
+           are completely unchanged, so anything that already linked
+           directly to one of these views (e.g. a dashboard shortcut)
+           still works exactly as before. -->
+      <button type="button" id="moreSettingsToggle" class="side-nav-more-toggle">⚙️ More Settings <span id="moreSettingsArrow">▾</span></button>
+      <div id="moreSettingsGroup" style="display:none;">
+        <button data-view="reports">📊 Daily Report</button>
+        <button data-view="applications">📋 Career Applications</button>
+        <button data-view="subadmins">🧑‍💼 Admins</button>
+        <button data-view="analytics">📈 Analytics</button>
+        <button data-view="cities">🏙️ Cities</button>
+        <button data-view="appliances">🔧 Appliances &amp; Types</button>
+        <button data-view="pricing">₹ Pricing</button>
+        <button data-view="referrals">🎁 Refer &amp; Earn</button>
+        <button data-view="notifications">🔔 Notifications</button>
+        <button data-view="rating">⭐ Site Rating</button>
+        <button data-view="slots">🕒 Time Slots</button>
+        <button data-view="sitecontent">📝 Site Content</button>
+      </div>
     </nav>
+    <script>
+      // Kept as inline, plain JS (not part of admin.js's own bundle) so
+      // this works immediately on page load regardless of admin.js's own
+      // init/auth-check timing — purely a show/hide toggle, no data
+      // involved. Auto-expands on load if the current view (e.g. from a
+      // saved/shared link) happens to be one of the collapsed ones, so
+      // that view's own button is visible rather than needing an extra
+      // click to even see it's already selected.
+      document.getElementById('moreSettingsToggle').addEventListener('click', () => {
+        const group = document.getElementById('moreSettingsGroup');
+        const arrow = document.getElementById('moreSettingsArrow');
+        const isOpen = group.style.display !== 'none';
+        group.style.display = isOpen ? 'none' : 'block';
+        arrow.textContent = isOpen ? '▾' : '▴';
+      });
+    </script>
     <div class="sidebar-foot">
       <div class="who">Logged in as <b>Super Admin</b></div>
       <button class="btn btn-outline btn-block btn-sm" id="logoutBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);">Logout</button>

@@ -101,6 +101,12 @@ img { max-width: 100%; }
 }
 .side-nav button:hover { background: rgba(255,255,255,0.08); transform: translateX(2px); }
 .side-nav button.active { background: linear-gradient(90deg, rgba(14,165,233,0.22), rgba(14,165,233,0.06)); color: var(--white); border-left-color: var(--accent-500); }
+/* The "More Settings" collapsible group -- a visible separator above it
+   (the daily-use buttons end there) and its own inner buttons indented
+   very slightly so it's clear they're a nested sub-group, not more
+   top-level items at the same weight as Dashboard/Orders/etc. */
+#moreSettingsToggle { margin-top: 8px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.12); justify-content: space-between; color: #a8c0d6; }
+#moreSettingsGroup { display: flex; flex-direction: column; gap: 4px; padding-left: 6px; }
 .sidebar-foot { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 16px; margin-top: 16px; }
 .sidebar-foot .who { font-size: 0.82rem; color: #a9c1d6; margin-bottom: 10px; }
 
