@@ -239,9 +239,18 @@ function playSuccessChime() {
 }
 
 // Tapping the dark backdrop itself (not the form card) closes it too —
-// same pattern as every other modal on the site.
+// same pattern as every other modal on the site. BUG FIX: this used to
+// apply even once the booking succeeded and the confirmation screen
+// (#bookingSuccessView) was showing — a stray tap/click anywhere in the
+// dark area closed it without the customer ever tapping OK, which
+// directly contradicted "screen ruke jab tak OK na dabaye". Skipped
+// specifically while that success view is visible; the OK button is
+// the only way to close it from there.
 document.getElementById('bookingModalBackdrop')?.addEventListener('click', (e) => {
-  if (e.target.id === 'bookingModalBackdrop') closeBookingForm();
+  if (e.target.id !== 'bookingModalBackdrop') return;
+  const successView = document.getElementById('bookingSuccessView');
+  if (successView && successView.style.display !== 'none') return;
+  closeBookingForm();
 });
 
 // Soft nudge (not a hard block) if the typed address mentions a DIFFERENT
