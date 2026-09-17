@@ -611,8 +611,13 @@ function bindUrlTriggeredSections() {
     // redirects here with the appliance id in the URL instead of
     // calling openQuickBookModal() directly — see the small polyfill
     // of that same name in city.template.html).
-    const urlApplianceId = new URLSearchParams(window.location.search).get('appliance');
-    if (urlApplianceId) openQuickBookModal(urlApplianceId);
+    const qbUrlParams = new URLSearchParams(window.location.search);
+    const urlApplianceId = qbUrlParams.get('appliance');
+    // BUG FIX: also honor &type=... when present (a type-specific SEO
+    // page's Book link, e.g. "Split AC Service in Jalesar") so the modal
+    // opens straight to that type instead of always the first one.
+    const urlTypeId = qbUrlParams.get('type');
+    if (urlApplianceId) openQuickBookModal(urlApplianceId, urlTypeId);
   }
 }
 // A #track/#book link followed from outside the page (e.g. an SMS/WhatsApp
@@ -1147,12 +1152,18 @@ function autoOpenBookingFromUrlParams() {
   const params = new URLSearchParams(window.location.search);
   const applianceId = params.get('appliance');
   const cityId = params.get('city');
+  // BUG FIX: same &type=... fix as bindUrlTriggeredSections() below — this
+  // is the other code path that opens the modal from URL params (this one
+  // runs regardless of the #quickbook hash), so it needs the same fix or
+  // the type would only be honored sometimes depending on which of the two
+  // paths happens to fire first.
+  const typeId = params.get('type');
   if (cityId && document.getElementById('fCity')) {
     const match = CITIES.find(c => c.id === cityId);
     if (match) document.getElementById('fCity').value = cityId;
   }
   if (applianceId && APPLIANCES.find(a => a.id === applianceId && !a.hidden)) {
-    openQuickBookModal(applianceId);
+    openQuickBookModal(applianceId, typeId);
   } else if (window.location.hash === '#book' || window.location.hash === '#services') {
     document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
   }
@@ -2950,6 +2961,15 @@ const QB_CHECKLISTS = {
 
 let qbApplianceId = null;
 let qbSelectedTypeId = null;
+// Set right before opening the modal (by openQuickBookModal's optional
+// second argument) when the customer arrived via a link that already
+// names a specific type — e.g. a Google search result landing on the
+// "Split AC Service in Jalesar" SEO page, whose Book link now carries
+// &type=<id>. qbShowDetails() reads this ONCE to decide which tab starts
+// active, then clears it — so it never leaks into a later open (a
+// different appliance card tapped afterwards, or the same modal reopened)
+// which should keep defaulting to that appliance's first type as before.
+let qbInitialTypeId = null;
 let qbServiceType = 'service';
 let qbSkuOverride = null; // { price, skuName } — set when adding a specific service-list SKU
 // When set (to an index into cartItems), the cart display/submit only
@@ -3133,6 +3153,23 @@ function applyAccountToBookingFields(acc) {
 function openAccountGate(intent, applianceId) {
   agIntent = intent;
   agPendingApplianceId = applianceId || null;
+  // BUG FIX: this is the missing piece of the "wrong/default type opens
+  // first" fix above. A new customer arriving via a type-specific SEO link
+  // (e.g. "Split AC Service in Jalesar") lands with Split AC already
+  // correctly selected — but tapping Add/Book before an account exists
+  // routes through here, and proceedAfterAccountGate()'s 'quickbook'
+  // branch re-opens the modal from scratch (openQuickBookModalReal() ->
+  // qbShowDetails()) once they finish the phone+address step. By then
+  // qbInitialTypeId had already been consumed by that first open, so
+  // qbShowDetails() fell back to defaulting on appliance.types[0] again —
+  // silently switching them back to Window AC right when they finally see
+  // the price/booking form. Re-arming qbInitialTypeId here, from whatever
+  // type is actually selected right now (qbSelectedTypeId — covers both
+  // the SEO-link case and a manual tab switch), means the resumed re-open
+  // starts on the same type they were already looking at.
+  if (intent === 'quickbook' && qbSelectedTypeId) {
+    qbInitialTypeId = qbSelectedTypeId;
+  }
   const acc = getAccount();
   if (acc) {
     proceedAfterAccountGate(acc);
@@ -3452,7 +3489,17 @@ bindAccountGateModal();
 // flow. Once an account exists this is completely transparent: the
 // modal below (openQuickBookModalReal) opens immediately with the
 // mobile number field already filled in and hidden.
-function openQuickBookModal(applianceId) {
+function openQuickBookModal(applianceId, typeId) {
+  // BUG FIX (per explicit request): a customer who searched "AC service in
+  // Jalesar" on Google, landed on the Split-AC-specific SEO page, and
+  // tapped its Book button used to always see this modal open on Window AC
+  // (appliance.types[0]) instead of the Split AC they actually came for —
+  // qbShowDetails() had no way to know which type the link was for. The
+  // optional typeId argument here (threaded through from the URL's own
+  // &type=... param — see bindUrlTriggeredSections()/
+  // autoOpenBookingFromUrlParams()) lets qbShowDetails() start on the
+  // right tab instead of always defaulting to the first one.
+  qbInitialTypeId = typeId || null;
   if (BOOKING_PAUSED_STATUS && BOOKING_PAUSED_STATUS.bookingPaused) {
     // Don't open the modal at all — reveal the existing "not accepting
     // bookings" notice instead, right at the moment someone tries to
@@ -3568,11 +3615,25 @@ async function qbShowDetails() {
   qbImgEl.src = appliance.photoUrl ? toWebpUrl(appliance.photoUrl) : '';
   qbImgEl.alt = appliance.name;
 
+  // BUG FIX: pick the tab to start on. If openQuickBookModal() was called
+  // with a specific type (a SEO page's "Book <Type> Service" link), and
+  // that type actually exists on this appliance, start there instead of
+  // always on appliance.types[0] — that's the fix for the "wrong/default
+  // type opens first" report. Read qbInitialTypeId once and clear it
+  // immediately so it only affects this one open, not a later one (e.g.
+  // tapping a different appliance card afterwards).
+  const requestedTypeId = qbInitialTypeId;
+  qbInitialTypeId = null;
+  const initialType = (requestedTypeId && appliance.types.find(t => t.id === requestedTypeId))
+    || appliance.types[0]
+    || null;
+  const initialTypeId = initialType ? initialType.id : null;
+
   const tabsEl = document.getElementById('qbTypeTabs');
-  tabsEl.innerHTML = appliance.types.map((t, i) =>
-    `<button type="button" data-type="${t.id}" class="${i === 0 ? 'active' : ''}">${t.name}</button>`
+  tabsEl.innerHTML = appliance.types.map((t) =>
+    `<button type="button" data-type="${t.id}" class="${t.id === initialTypeId ? 'active' : ''}">${t.name}</button>`
   ).join('');
-  qbSelectedTypeId = appliance.types[0] ? appliance.types[0].id : null;
+  qbSelectedTypeId = initialTypeId;
 
   tabsEl.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
