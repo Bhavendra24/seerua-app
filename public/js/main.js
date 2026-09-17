@@ -295,6 +295,10 @@ document.getElementById('fCity')?.addEventListener('change', checkAddressCityMis
 // lookup (OpenStreetMap Nominatim) to prefill the Landmark field.
 let activeAddressTargetInputId = null;
 let activeAddressPreviewId = null;
+// Tracks whichever modal (Account Gate during a new booking, or the
+// Edit Details modal from My Account) this address flow was opened from
+// — see the BUG FIX comment in openSelectAddressModal() below for why.
+let activeAddressParentModalId = null;
 let selectedSaveAs = null;
 let pendingLatLng = null;
 // Tracks which saved address (by its own id) is currently being edited
@@ -330,9 +334,33 @@ function updateAddressPreview(targetInputId, previewId) {
   preview.textContent = target.value.trim() ? `📍 ${target.value.trim()}` : '📍 Select Address';
 }
 
+// BUG FIX ("Book Your Service ke do popup hote hain" — Add New Address ke
+// pehli baar click par do popup dikhte hain jabki matter same hai): this
+// address picker (and the Add/Edit Address form it leads to) opens ON TOP
+// OF whichever modal launched it — Account Gate during a new customer's
+// booking, or Edit Details from My Account. That parent modal was never
+// actually hidden while this one was open, only visually covered by it —
+// so its own popup card (same size, same center position) stuck out from
+// behind this narrower/shorter one, and on screen it genuinely looked like
+// two separate popups were open together. Hiding the parent for as long as
+// this address flow is on screen (restored the moment an address is
+// picked, or this is closed without picking one — see
+// closeSelectAddressModal()/closeAddAddressModal()/applyChosenAddress()
+// below) fixes the look without changing how the address itself is chosen.
+function hideAddressParentModal(targetInputId) {
+  activeAddressParentModalId = targetInputId === 'agEditAddress' ? 'accountEditModal' : 'accountGateModal';
+  document.getElementById(activeAddressParentModalId)?.classList.remove('open');
+}
+function restoreAddressParentModal() {
+  if (activeAddressParentModalId) {
+    document.getElementById(activeAddressParentModalId)?.classList.add('open');
+  }
+}
+
 function openSelectAddressModal(targetInputId, previewId) {
   activeAddressTargetInputId = targetInputId;
   activeAddressPreviewId = previewId;
+  hideAddressParentModal(targetInputId);
   const phone = currentAddressPhone();
   let list = getSavedAddresses(phone);
   // BUG FIX: this "saved addresses" list lives entirely in localStorage,
@@ -418,6 +446,13 @@ function openSelectAddressModal(targetInputId, previewId) {
 }
 function closeSelectAddressModal() {
   document.getElementById('selectAddressModal')?.classList.remove('open');
+  // Safe to always restore here, even when this is actually a same-tick
+  // hand-off to the Add/Edit Address form (closeSelectAddressModal()
+  // immediately followed by openAddAddressModal() — see the
+  // addNewAddressBtn/edit-btn handlers below): openAddAddressModal()
+  // re-hides the parent right after, synchronously, before the browser
+  // ever paints this in-between state, so there's no visible flash.
+  restoreAddressParentModal();
 }
 function applyChosenAddress(a) {
   const target = document.getElementById(activeAddressTargetInputId);
@@ -427,10 +462,22 @@ function applyChosenAddress(a) {
     target.dispatchEvent(new Event('change'));
   }
   if (activeAddressPreviewId) updateAddressPreview(activeAddressTargetInputId, activeAddressPreviewId);
+  // Both of these restore the parent modal themselves (see their own
+  // definitions) — calling both here is harmless (the second is a no-op)
+  // and keeps this working regardless of which of the two was actually
+  // open when the address got picked.
   closeSelectAddressModal();
   closeAddAddressModal();
 }
 function openAddAddressModal(isEditing) {
+  // Re-hides the parent modal (Account Gate / Edit Details) — this is
+  // reached either straight from openSelectAddressModal() (which already
+  // hid it, so this is a harmless no-op) or, when re-entered on its own
+  // via the edit-pencil handler after closeSelectAddressModal() already
+  // restored it, this is what actually keeps it hidden. Either way,
+  // activeAddressParentModalId was already set by the openSelectAddressModal()
+  // call that necessarily preceded this one.
+  document.getElementById(activeAddressParentModalId)?.classList.remove('open');
   if (!isEditing) editingAddressId = null;
   const titleEl = document.getElementById('addAddressModalTitle');
   if (titleEl) titleEl.textContent = isEditing ? 'Edit Address' : 'Add New Address';
@@ -451,6 +498,9 @@ function openAddAddressModal(isEditing) {
 }
 function closeAddAddressModal() {
   document.getElementById('addAddressModal')?.classList.remove('open');
+  // Safe to always restore here too — see closeSelectAddressModal()'s
+  // comment for why a same-tick hand-off elsewhere never causes a flash.
+  restoreAddressParentModal();
 }
 
 document.getElementById('addNewAddressBtn')?.addEventListener('click', () => {
@@ -590,6 +640,31 @@ document.addEventListener('click', (e) => {
 // height is still changing as content loads in, and a scroll started
 // too early ends up pointed at whatever content happened to land there
 // once the page settles, not the form itself.
+// BUG FIX ("page refresh karne par quick book appliance ka form khul raha
+// hai"): landing on /?city=..&appliance=..&type=..#quickbook (from a
+// Google-indexed SEO page's Book link) opens the Quick Book modal, but
+// that URL itself was never cleaned up afterward — so it just sits in the
+// address bar. Any later refresh of that same tab (or the customer coming
+// back to it, or forwarding the link to someone else) re-triggers the
+// exact same auto-open all over again, even though there's nothing left
+// to "land on" — they're just looking at their own homepage. Stripping
+// just the city/appliance/type params and the #quickbook hash right after
+// the modal has actually opened (via history.replaceState, which changes
+// the address bar without reloading the page or losing modal state) means
+// a refresh from here on just shows the plain homepage, exactly like a
+// customer who opened it directly. Other params some other feature might
+// still rely on (e.g. ?ref=... for referrals) are left untouched.
+function clearQuickBookUrlParams() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('city');
+    url.searchParams.delete('appliance');
+    url.searchParams.delete('type');
+    url.hash = '';
+    history.replaceState(null, '', url.pathname + url.search);
+  } catch (e) { /* URL/history APIs unavailable — not worth failing over */ }
+}
+
 function bindUrlTriggeredSections() {
   const trackPhoneParam = new URLSearchParams(window.location.search).get('trackPhone');
   if (trackPhoneParam && /^[0-9]{10}$/.test(trackPhoneParam)) {
@@ -617,7 +692,10 @@ function bindUrlTriggeredSections() {
     // page's Book link, e.g. "Split AC Service in Jalesar") so the modal
     // opens straight to that type instead of always the first one.
     const urlTypeId = qbUrlParams.get('type');
-    if (urlApplianceId) openQuickBookModal(urlApplianceId, urlTypeId);
+    if (urlApplianceId) {
+      openQuickBookModal(urlApplianceId, urlTypeId);
+      clearQuickBookUrlParams();
+    }
   }
 }
 // A #track/#book link followed from outside the page (e.g. an SMS/WhatsApp
@@ -1164,6 +1242,7 @@ function autoOpenBookingFromUrlParams() {
   }
   if (applianceId && APPLIANCES.find(a => a.id === applianceId && !a.hidden)) {
     openQuickBookModal(applianceId, typeId);
+    clearQuickBookUrlParams();
   } else if (window.location.hash === '#book' || window.location.hash === '#services') {
     document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
   }
@@ -2970,6 +3049,36 @@ let qbSelectedTypeId = null;
 // different appliance card tapped afterwards, or the same modal reopened)
 // which should keep defaulting to that appliance's first type as before.
 let qbInitialTypeId = null;
+// BUG FIX ("Book Your Service ke do popup hote hain, same content, ek ki
+// zaroorat hai" — reported AGAIN after the Select/Add Address stacking fix
+// above, this time with a screenshot showing the Account Gate's own
+// Name/Mobile/Address fields overlapping the Quick Book modal's service
+// card underneath, "Ongoing support for any follow-up questions" / Add /
+// Book bleeding through around the filled-in form): every path that opens
+// Account Gate from inside an already-open Quick Book modal — tapping
+// Add/Book on a service card, or "Book" on the single-service view, before
+// an account exists — called openAccountGate()/showed accountGateModal
+// directly without ever removing quickBookModal's own 'open' class. Both
+// modal-backdrops stayed visually open at once, so the Quick Book modal's
+// content showed through/around the Account Gate popup instead of being
+// hidden behind it. Same root pattern as the address-modal stacking bug,
+// same fix shape: hide the Quick Book modal for as long as Account Gate is
+// up, and bring it back exactly once Account Gate is done with it — either
+// closed outright (X / backdrop tap) or handed off to
+// openQuickBookModalReal(), which re-adds 'open' anyway once it has real
+// content to show.
+let qbModalHiddenByGate = false;
+function hideQuickBookModalForGate() {
+  const qbModalEl = document.getElementById('quickBookModal');
+  qbModalHiddenByGate = !!(qbModalEl && qbModalEl.classList.contains('open'));
+  if (qbModalHiddenByGate) qbModalEl.classList.remove('open');
+}
+function restoreQuickBookModalAfterGate() {
+  if (qbModalHiddenByGate) {
+    document.getElementById('quickBookModal')?.classList.add('open');
+    qbModalHiddenByGate = false;
+  }
+}
 let qbServiceType = 'service';
 let qbSkuOverride = null; // { price, skuName } — set when adding a specific service-list SKU
 // When set (to an index into cartItems), the cart display/submit only
@@ -3180,6 +3289,7 @@ function openAccountGate(intent, applianceId) {
   document.getElementById('agPhone').value = '';
   document.getElementById('agAddress').value = '';
   if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
+  hideQuickBookModalForGate();
   document.getElementById('accountGateModal').classList.add('open');
 }
 
@@ -3187,6 +3297,7 @@ function closeAccountGate() {
   document.getElementById('accountGateModal').classList.remove('open');
   qbPendingRetryAction = null;
   qbPendingServiceAction = null;
+  restoreQuickBookModalAfterGate();
 }
 
 // Called once the phone+address chain is fully complete (either just
@@ -3479,6 +3590,7 @@ async function openEditProfile() {
     const sub = document.getElementById('agPhoneSub');
     if (title) title.textContent = 'Please verify again';
     if (sub) sub.textContent = 'Your verification expired — please verify your mobile number again to update your details.';
+    hideQuickBookModalForGate();
     document.getElementById('accountGateModal').classList.add('open');
   }
 }
