@@ -1997,3 +1997,1959 @@ function renderDateCalendar() {
   if (!label || !grid) return;
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   label.textContent = `${monthNames[dateCalViewMonth]} ${dateCalViewYear}`;
+
+  const now = new Date();
+  const todayStr = dateCalToStr(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = dateCalToStr(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+  document.getElementById('dateCalTodayBtn')?.classList.toggle('active', dateCalSelected === todayStr);
+  document.getElementById('dateCalTomorrowBtn')?.classList.toggle('active', dateCalSelected === tomorrowStr);
+  // Can't navigate to a month before the current one — nothing bookable back there anyway.
+  prevBtn.disabled = (dateCalViewYear === now.getFullYear() && dateCalViewMonth === now.getMonth());
+
+  const firstWeekday = new Date(dateCalViewYear, dateCalViewMonth, 1).getDay();
+  const daysInMonth = new Date(dateCalViewYear, dateCalViewMonth + 1, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < firstWeekday; i++) html += '<span class="date-cal-day is-empty"></span>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const str = dateCalToStr(dateCalViewYear, dateCalViewMonth, d);
+    const isPast = str < todayStr;
+    const isToday = str === todayStr;
+    const isSelected = str === dateCalSelected;
+    html += `<button type="button" class="date-cal-day${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}" data-date="${str}" ${isPast ? 'disabled' : ''}>${d}</button>`;
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.date-cal-day[data-date]').forEach(btn => {
+    btn.addEventListener('click', () => selectDateCalendarDay(btn.getAttribute('data-date')));
+  });
+}
+
+function openDateCalendar() {
+  const now = new Date();
+  const current = document.getElementById('fDate').value;
+  if (current) {
+    const [y, m] = current.split('-').map(Number);
+    dateCalViewYear = y;
+    dateCalViewMonth = m - 1;
+    dateCalSelected = current;
+  } else {
+    dateCalViewYear = now.getFullYear();
+    dateCalViewMonth = now.getMonth();
+    dateCalSelected = null;
+  }
+  renderDateCalendar();
+  document.getElementById('dateCalendarModal').classList.add('open');
+}
+
+function closeDateCalendar() {
+  document.getElementById('dateCalendarModal').classList.remove('open');
+}
+
+function bindDateCalendar() {
+  document.getElementById('fDateDisplay').addEventListener('click', openDateCalendar);
+  document.getElementById('dateCalendarClose').addEventListener('click', closeDateCalendar);
+  document.getElementById('dateCalendarModal').addEventListener('click', (e) => {
+    if (e.target.id === 'dateCalendarModal') closeDateCalendar();
+  });
+  document.getElementById('dateCalPrev').addEventListener('click', () => {
+    dateCalViewMonth--;
+    if (dateCalViewMonth < 0) { dateCalViewMonth = 11; dateCalViewYear--; }
+    renderDateCalendar();
+  });
+  document.getElementById('dateCalNext').addEventListener('click', () => {
+    dateCalViewMonth++;
+    if (dateCalViewMonth > 11) { dateCalViewMonth = 0; dateCalViewYear++; }
+    renderDateCalendar();
+  });
+  // Quick shortcuts (matches the original wireframe) — jump straight to
+  // Today/Tomorrow without needing to find the right cell in the grid.
+  document.getElementById('dateCalTodayBtn').addEventListener('click', () => {
+    const now = new Date();
+    selectDateCalendarDay(dateCalToStr(now.getFullYear(), now.getMonth(), now.getDate()));
+  });
+  document.getElementById('dateCalTomorrowBtn').addEventListener('click', () => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    selectDateCalendarDay(dateCalToStr(t.getFullYear(), t.getMonth(), t.getDate()));
+  });
+}
+
+function bindFormEvents() {
+  document.getElementById('fAppliance').addEventListener('change', refreshFormTypes);
+  document.getElementById('addItemBtn').addEventListener('click', () => addItemToCart());
+  document.getElementById('fDate').addEventListener('change', refreshSlots);
+  bindDateCalendar();
+  bindDateTimeModal();
+
+  document.getElementById('fCity').addEventListener('change', async () => {
+    await refreshAppliancesForCity(document.getElementById('fCity').value);
+    refreshSlots();
+    if (cartItems.length) {
+      cartItems = [];
+      appliedCoupon = null;
+      renderCart();
+      // Same box as "Add to Booking" messages, right by the appliance
+      // fields — this notice is about the cart, so it belongs near where
+      // appliances get (re-)added, not down by the final Submit button.
+      const msg = document.getElementById('addItemMsg');
+      msg.className = 'form-msg error';
+      msg.textContent = 'City changed — please re-add your appliances so prices are correct for the new city.';
+    }
+  });
+
+  document.getElementById('fPhone').addEventListener('blur', () => autoFillReturningCustomer('fPhone', 'fName', 'fAddress', 'fCity'));
+  document.getElementById('qbPhone')?.addEventListener('blur', () => autoFillReturningCustomer('qbPhone', 'fName', 'fAddress', 'fCity'));
+
+  const form = document.getElementById('bookingForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('formMsg');
+    msg.className = 'form-msg';
+    msg.textContent = '';
+
+    if (!cartItems.length) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please add at least one appliance to your booking.';
+      return;
+    }
+
+    const phone = document.getElementById('fPhone').value.trim();
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return;
+    }
+
+    if (!selectedSlotId) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please select an available time slot for your visit.';
+      return;
+    }
+
+    const itemsToSubmit = quickBookViewStartIndex !== null ? cartItems.slice(quickBookViewStartIndex) : cartItems;
+    const payload = {
+      name: document.getElementById('fName').value.trim(),
+      phone,
+      address: document.getElementById('fAddress').value.trim(),
+      cityId: document.getElementById('fCity').value,
+      items: itemsToSubmit.map(it => ({ applianceId: it.applianceId, typeId: it.typeId, serviceType: it.serviceType, qty: it.qty, problem: it.problem, photoUrl: it.photoUrl || '', skuId: it.skuId || null })),
+      bookingDate: document.getElementById('fDate').value,
+      timeSlotId: selectedSlotId,
+      couponCode: (quickBookViewStartIndex === null && appliedCoupon) ? appliedCoupon.code : undefined,
+      referralCode: incomingReferralCode || undefined
+    };
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    // If this exact phone number was already verified when the item(s)
+    // were added to the cart, skip straight through — no need to ask
+    // for OTP a second time at the very end of the same session.
+    //
+    // BUG FIX: this used to unconditionally REUSE the cached
+    // verifiedBookingAccessToken here — but MSG91 access tokens are
+    // single-use, and that same token had already been consumed once
+    // already (validating it during the earlier combined-form step,
+    // which calls /api/customer-profile). Sending it again here for the
+    // SAME final booking submit had the server correctly reject it as
+    // already-used/invalid, surfacing as the generic "OTP verification
+    // failed" message right at the last step, even though the customer
+    // had genuinely already verified successfully minutes earlier.
+    // Re-checking isPhoneVerified() (server-side, persists regardless of
+    // any client-side token) is the actual source of truth for whether
+    // OTP is still needed at all — an accessToken is now only sent if
+    // this comes back false, matching what the server's own check
+    // already prioritizes.
+    let phoneAlreadyVerified = false;
+    try {
+      const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+      phoneAlreadyVerified = !!check.verified;
+    } catch (e) { /* if the check itself fails, fall back to normal OTP flow */ }
+
+    let otpEnabled = true;
+    try {
+      const cfg = await ensureOtpConfig();
+      otpEnabled = cfg.enabled !== false;
+    } catch (e) { /* if the config fetch fails, fall back to normal OTP flow */ }
+
+    if (otpEnabled && !phoneAlreadyVerified) {
+      submitBtn.textContent = 'Sending OTP...';
+      msg.className = 'form-msg';
+      msg.textContent = 'Please complete the OTP verification that just opened to confirm your booking.';
+      try {
+        payload.accessToken = await verifyPhoneWithOtp(phone);
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+        msg.className = 'form-msg error';
+        msg.textContent = err.message || 'OTP verification failed. Please try again.';
+        return;
+      }
+    }
+
+    submitBtn.textContent = 'Booking...';
+
+    try {
+      const data = await fetchJSON('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const savedBits = [];
+      if (data.booking.discountAmount) savedBits.push(`coupon: ₹${data.booking.discountAmount}`);
+      if (data.booking.referralDiscount) savedBits.push(`referral: ₹${data.booking.referralDiscount}`);
+      // SIMPLIFIED FURTHER (per explicit request): just booking number +
+      // slot, nothing else — plus a short confirmation sound alongside
+      // the checkmark, same idea as the technician panel's own
+      // completion sound.
+      document.getElementById('successBookingId').textContent = data.booking.id;
+      document.getElementById('successVisit').textContent = `${data.booking.timeSlot}, ${formatDateDisplay(data.booking.bookingDate)}`;
+      document.getElementById('bookingForm').style.display = 'none';
+      document.getElementById('bookingSuccessView').style.display = 'block';
+      playSuccessChime();
+      form.reset();
+      // BUG FIX: form.reset() alone doesn't reliably clear the phone
+      // field — many mobile browsers ignore autocomplete="off" for phone
+      // number fields and silently refill it right back from their own
+      // saved-forms memory (without firing any input/blur event, so the
+      // "returning customer" address auto-fill never gets a chance to run
+      // for the next booking). Explicitly force it empty as well so a
+      // second booking in the same session starts with a clean phone
+      // field — typing the number back in (a real keystroke) correctly
+      // re-triggers the address lookup on blur, same as for any new visit.
+      document.getElementById('fPhone').value = '';
+      if (quickBookViewStartIndex !== null) {
+        cartItems.splice(quickBookViewStartIndex); // remove only this standalone booking's item(s), leave earlier cart items untouched
+        quickBookViewStartIndex = null;
+      } else {
+        cartItems = [];
+        appliedCoupon = null;
+      }
+      incomingReferralCode = null;
+      const referBanner = document.getElementById('referBannerReferred');
+      if (referBanner) referBanner.style.display = 'none';
+      document.getElementById('couponMsg').className = 'msg-inline-coupon';
+      document.getElementById('couponMsg').textContent = '';
+      renderCart();
+      selectedSlotId = null;
+      selectedSlotLabel = null;
+      document.getElementById('fDate').value = '';
+      document.getElementById('fDateDisplay').value = '';
+      updateDtTriggerText();
+      document.getElementById('dtSlotGroups').innerHTML = '<p style="font-size:0.82rem;color:var(--slate);margin:0;">Select a city and date above to see available slots.</p>';
+
+      // FLOW CHANGE: this used to also auto-open the Track Booking popup
+      // right after — right on top of the green "Booking confirmed!"
+      // message the person is still reading, which felt pointless/
+      // confusing (two confirmations of the same thing, back to back).
+      // Now it just shows the success screen and leaves the customer to
+      // close it themselves; they can open Track Booking whenever they
+      // actually want to check on it.
+      const bookedPhone = payload.phone;
+      if (payload.accessToken) {
+        verifiedBookingPhone = bookedPhone;
+        verifiedBookingAccessToken = payload.accessToken;
+      }
+      // BUG FIX ("popup bhi bhi bhaag raha hai" — the success screen
+      // closing itself before OK was tapped): this used to also auto-
+      // close the whole booking modal 3.5 seconds after success, via a
+      // setTimeout left over from an earlier version of this flow —
+      // completely separate from (and missed when removing) the visible
+      // countdown-and-redirect behavior removed earlier in this same
+      // session. That timer fired regardless of whether the customer
+      // had even seen or read the confirmation yet, let alone tapped
+      // OK, directly contradicting "screen ruke jab tak OK na dabaye".
+      // Removed entirely — OK (closeBookingForm(), wired to the button
+      // in the template) is now the only thing that closes this screen.
+    } catch (err) {
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'Something went wrong with your booking, please try again.';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit';
+    }
+  });
+
+  renderCart();
+}
+
+function bookingCardHtml(b, showBookAgain) {
+  const itemsHtml = (b.items || []).map(it => `
+    <div class="row1" style="margin-top:6px;">
+      <span>${it.qty}x ${it.applianceName} (${it.typeName}, ${it.serviceType === 'repair' ? 'Repair' : 'Service'})</span>
+      <span class="status-pill status-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
+    </div>
+    ${it.technicianName ? `<div class="row2">Technician: ${it.technicianName}</div>` : ''}
+    ${it.itemStatus === 'completed' && it.completionPhotoUrl ? `<div class="row2"><a href="${it.completionPhotoUrl}" target="_blank" rel="noopener" style="color:var(--blue-600);">📷 View photo of completed work</a></div>` : ''}
+    ${it.itemStatus === 'completed' ? ratingHtml(b.id, it) : ''}
+  `).join('');
+  return `
+      <div class="track-order-card">
+        <div class="row2" style="font-weight:700;color:var(--blue-900);">Booking ID: ${b.id} · ${b.cityName} · ₹${b.totalPrice} · ${formatDateDisplay(b.createdAt)}</div>
+        ${b.timeSlot ? `<div class="row2">🕐 Visit: ${formatDateDisplay(b.bookingDate)} · ${b.timeSlot}</div>` : ''}
+        ${itemsHtml}
+        ${showBookAgain ? `<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="bookAgain('${b.id}')">↻ Book Again</button>` : ''}
+      </div>
+    `;
+}
+
+function ratingHtml(bookingId, item) {
+  if (item.rating) {
+    const reviewLine = item.reviewText ? `<div class="row2" style="font-style:italic;">"${escapeHtml(item.reviewText)}"</div>` : '';
+    return `<div class="row2">Your rating: ${'⭐'.repeat(item.rating)}</div>${reviewLine}`;
+  }
+  const taskKey = `${bookingId}__${item.id}`;
+  const stars = [1, 2, 3, 4, 5].map(n =>
+    `<span class="rate-star" data-task="${taskKey}" data-n="${n}" onclick="selectRatingStar('${bookingId}','${item.id}',${n})" title="${n} star${n > 1 ? 's' : ''}">☆</span>`
+  ).join('');
+  return `
+    <div class="row2">Rate this service: <span class="rate-stars" id="stars-${taskKey}">${stars}</span></div>
+    <div class="row2" id="reviewBox-${taskKey}" style="display:none;margin-top:6px;">
+      <textarea id="reviewText-${taskKey}" maxlength="280" placeholder="Optional: share a quick word about the service (shown on our homepage, no phone number shared)" style="width:100%;min-height:52px;padding:8px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit;font-size:0.85rem;"></textarea>
+      <button type="button" class="btn btn-primary btn-sm" style="margin-top:6px;" onclick="submitCustomerRating('${bookingId}','${item.id}')">Submit Rating</button>
+    </div>
+  `;
+}
+
+let pendingRating = {};
+function selectRatingStar(bookingId, itemId, rating) {
+  const taskKey = `${bookingId}__${itemId}`;
+  pendingRating[taskKey] = rating;
+  const starsWrap = document.getElementById(`stars-${taskKey}`);
+  if (starsWrap) {
+    starsWrap.querySelectorAll('.rate-star').forEach(el => {
+      el.textContent = Number(el.getAttribute('data-n')) <= rating ? '★' : '☆';
+    });
+  }
+  const box = document.getElementById(`reviewBox-${taskKey}`);
+  if (box) box.style.display = 'block';
+}
+
+async function submitCustomerRating(bookingId, itemId) {
+  const taskKey = `${bookingId}__${itemId}`;
+  const rating = pendingRating[taskKey];
+  if (!rating) return;
+  const phone = document.getElementById('trackPhone').value.trim();
+  if (!/^[0-9]{10}$/.test(phone)) {
+    alert('Please enter your mobile number above and search first.');
+    return;
+  }
+  const reviewEl = document.getElementById(`reviewText-${taskKey}`);
+  const reviewText = reviewEl ? reviewEl.value.trim() : '';
+  try {
+    await fetchJSON(`/api/bookings/${bookingId}/items/${itemId}/rate`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating, phone, reviewText })
+    });
+    // Only happy customers (4-5 stars) get asked to also post on Google —
+    // asking unhappy customers would just invite a public bad review, and
+    // we only ever link to a real, Admin-verified Google profile.
+    if (rating >= 4 && GOOGLE_REVIEW_URL) {
+      showGoogleReviewPrompt();
+    } else {
+      document.getElementById('trackBtn').click();
+    }
+  } catch (e) {
+    alert(e.message || 'Could not submit your rating.');
+  }
+}
+
+function showGoogleReviewPrompt() {
+  const results = document.getElementById('trackResults');
+  if (!results) { document.getElementById('trackBtn').click(); return; }
+  results.innerHTML = `
+    <div class="track-box" style="text-align:center;max-width:440px;margin:0 auto;">
+      <div style="font-size:2rem;">🎉</div>
+      <h4 style="margin:8px 0 6px;">Thanks for rating us!</h4>
+      <p style="color:var(--slate);font-size:0.88rem;margin-bottom:16px;">Glad you had a good experience. Would you mind sharing it on Google too? It takes 30 seconds and really helps other people in your city find us.</p>
+      <a href="${GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" class="btn btn-primary btn-block" onclick="document.getElementById('trackBtn').click();">⭐ Rate us on Google</a>
+      <button type="button" class="btn btn-outline btn-block" style="margin-top:8px;" onclick="document.getElementById('trackBtn').click();">Maybe later</button>
+    </div>
+  `;
+}
+
+function closeReferModal() {
+  const modal = document.getElementById('referModal');
+  const body = document.getElementById('referModalBody');
+  if (modal) modal.classList.remove('open');
+  if (body) body.innerHTML = ''; // truly gone, not just hidden with stale content
+}
+
+// Own popup for "Refer a Friend" (same pattern as Track Booking) — opens
+// WhatsApp with the referral message pre-filled AND shows the referral
+// stats/rewards here, in this one self-contained box, instead of
+// reusing the old always-on-page "My Account" section.
+async function openReferModal() {
+  const acc = getAccount();
+  if (!acc) { openAccountGate('refer'); return; }
+  const modal = document.getElementById('referModal');
+  const body = document.getElementById('referModalBody');
+  if (!modal || !body) return;
+  modal.classList.add('open');
+  body.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Getting your referral link...</p>';
+  try {
+    const info = await fetchJSON(`/api/referral/my-info?phone=${acc.phone}`);
+    if (!info.active) {
+      body.innerHTML = '<p style="color:var(--red)">The referral program is not active right now. Please check back later.</p>';
+      return;
+    }
+    const rewardsHtml = info.rewardCoupons && info.rewardCoupons.length
+      ? info.rewardCoupons.map(c => `
+          <div class="row1" style="padding:8px 0;border-bottom:1px solid var(--line);">
+            <span><strong style="color:var(--blue-900);">${escapeHtml(c.code)}</strong> · ₹${c.discountValue} off</span>
+            <span class="status-pill ${c.used ? 'status-completed' : 'status-assigned'}">${c.used ? 'Used' : 'Available'}</span>
+          </div>
+          ${!c.used ? `<div class="row2" style="margin-top:-4px;margin-bottom:6px;">Valid till ${c.expiryDate} — enter this code at checkout on your own next booking.</div>` : ''}
+        `).join('')
+      : '';
+    const shareText = `Hi! I use Seerua Appliance Care for AC/Washing Machine/RO/Fridge repair — book through my link and get ₹${info.referredDiscount} off your first service: ${info.link}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    // BUG FIX (the actual "WhatsApp khulta hai, samajh nahi aata" report):
+    // this used to auto-redirect an already-opened popup straight to
+    // WhatsApp the moment this data arrived — before the customer had
+    // any real chance to read what's actually on this screen (how much
+    // their friend saves, how many people they've referred, their
+    // pending/earned rewards). The referral program's own value was
+    // invisible; it just looked like a plain "share this link" button
+    // that mysteriously opens WhatsApp. Now shows all of that plainly
+    // first, with a clear, explicit "Share on WhatsApp" button the
+    // customer taps only once they understand what they're sharing and
+    // why — WhatsApp only opens on that explicit tap, never automatically.
+    body.innerHTML = `
+      <div class="row2" style="margin-bottom:10px;padding:10px 12px;background:#e7f8ee;border-radius:var(--radius-sm);color:var(--ink);">
+        🎁 Share your link — your friend gets <strong>₹${info.referredDiscount} off</strong> their first service, and you get a reward coupon once their service is completed.
+      </div>
+      <div class="row2" style="margin-bottom:8px;">Your link: <a href="${info.link}" style="color:var(--blue-600);word-break:break-all;">${info.link}</a></div>
+      <div class="row1"><span>People you've referred</span><strong>${info.referredCount || 0}</strong></div>
+      <div class="row1"><span>Rewards pending (waiting for their service to complete)</span><strong>${info.pendingCount || 0}</strong></div>
+      ${rewardsHtml ? `<div style="margin-top:10px;"><strong style="color:var(--blue-900);font-size:0.88rem;">Your reward coupons</strong>${rewardsHtml}</div>` : `<div class="row2" style="margin-top:8px;">No reward coupons yet — you'll get one automatically once someone you referred completes their first service.</div>`}
+      <a href="${whatsappUrl}" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-top:14px;">💬 Share on WhatsApp</a>
+    `;
+  } catch (e) {
+    body.innerHTML = `<p style="color:var(--red)">${e.message || 'Could not get your referral link. Please try again.'}</p>`;
+  }
+}
+
+function bindReferModal() {
+  document.getElementById('referModalClose')?.addEventListener('click', closeReferModal);
+  document.getElementById('referModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'referModal') closeReferModal();
+  });
+}
+bindReferModal();
+
+// ---------------- Track Booking popup (its own box, not a permanent
+// section left open on the page) ----------------
+function closeTrackBookingModal() {
+  const modal = document.getElementById('trackBookingModal');
+  const body = document.getElementById('trackBookingModalBody');
+  if (modal) modal.classList.remove('open');
+  if (body) body.innerHTML = ''; // truly gone, not just hidden with stale content
+}
+
+// Thin wrapper reused by the header's "Track Booking" button and the
+// Account Gate's 'account' intent — both just need "look up this
+// account's phone", and the shared #trackBtn engine above already does
+// the OTP-check/fetch/render-into-the-popup work in one place.
+function openTrackBookingModal() {
+  const acc = getAccount();
+  const modal = document.getElementById('trackBookingModal');
+  const body = document.getElementById('trackBookingModalBody');
+  if (acc) {
+    // Logged in — pre-fill and search immediately, same as before.
+    const trackPhoneInput = document.getElementById('trackPhone');
+    if (trackPhoneInput) trackPhoneInput.value = acc.phone;
+    document.getElementById('trackBtn')?.click();
+    return;
+  }
+  // BUG FIX: the visible popup (#trackBookingModal) never actually had
+  // its own phone-input field — the underlying #trackPhone/#trackBtn
+  // engine this reuses sits inside a permanently display:none box on
+  // the page itself, which a real person can never type into (only
+  // JS setting .value programmatically, as in the branch above, ever
+  // worked). A logged-out customer opening this had nothing to type
+  // into at all. Renders an actual, visible phone-input form directly
+  // into this popup for that case.
+  if (modal) modal.classList.add('open');
+  if (body) {
+    body.innerHTML = `
+      <div class="field">
+        <label for="trackPhoneModal">Mobile Number</label>
+        <input type="tel" id="trackPhoneModal" placeholder="10 digit number" maxlength="10" inputmode="numeric">
+      </div>
+      <button type="button" class="btn btn-primary btn-block" id="trackBtnModal">Check Status</button>
+    `;
+    document.getElementById('trackBtnModal').addEventListener('click', async () => {
+      const phone = document.getElementById('trackPhoneModal').value.trim();
+      if (!/^[0-9]{10}$/.test(phone)) {
+        body.insertAdjacentHTML('beforeend', '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>');
+        return;
+      }
+      body.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
+      try {
+        const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
+        lastTrackedBookings = bookings;
+        knownReferralPhone = phone;
+        body.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<div style="text-align:center;padding:24px 10px;"><div style="font-size:2.4rem;margin-bottom:8px;">📭</div><p style="color:var(--slate);margin:0;">No bookings found for this number.</p></div>';
+      } catch (e) {
+        body.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
+      }
+    });
+  }
+}
+
+function bindTrackBookingModal() {
+  document.getElementById('trackBookingModalClose')?.addEventListener('click', closeTrackBookingModal);
+  document.getElementById('trackBookingModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'trackBookingModal') closeTrackBookingModal();
+  });
+}
+bindTrackBookingModal();
+
+// My Account — was "Track my booking", now OTP-protected (see the
+// matching server-side fix on /api/bookings/track): a customer's booking
+// history includes their name, home address, and exact appliance
+// details, which anyone could previously read just by typing in any
+// 10-digit number. Reuses the exact same OTP flow as placing a booking —
+// if this phone was already verified earlier in this session (e.g. they
+// just booked something), it's reused instead of asking twice.
+let lastTrackedBookings = [];
+let knownReferralPhone = null; // set once the customer has looked themselves up in "My Booking", so the referral button doesn't need to ask for the number a second time
+document.getElementById('trackBtn').addEventListener('click', async () => {
+  const phone = document.getElementById('trackPhone').value.trim();
+  // FLOW CHANGE: results render into the Track Booking popup, not the
+  // old always-on-page "Registered Mobile Number" box (that box, and
+  // its results div, are now permanently hidden — see .track-box in
+  // the template). This one popup is the single display surface for
+  // every path that leads here: header "Track Booking", after placing
+  // a booking, or a "rate your service" SMS/WhatsApp link.
+  const modal = document.getElementById('trackBookingModal');
+  const results = document.getElementById('trackBookingModalBody');
+  if (modal) modal.classList.add('open');
+  if (!/^[0-9]{10}$/.test(phone)) {
+    results.innerHTML = '<p style="color:var(--red)">Please enter a valid 10 digit mobile number.</p>';
+    return;
+  }
+  // SIMPLIFIED (per explicit request): OTP removed from Track Booking —
+  // just looking up bookings by phone number now, no verification step.
+  // Note: this does mean anyone who knows/guesses a phone number can see
+  // that number's booking history (name, address, appliance details) —
+  // a deliberate tradeoff made explicitly in favor of simplicity here.
+  try {
+    results.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
+    const bookings = await fetchJSON(`/api/bookings/track?phone=${phone}`);
+    lastTrackedBookings = bookings;
+    knownReferralPhone = phone; // so the header's "Refer a Friend" doesn't need to ask for the number again
+    results.innerHTML = bookings.length ? bookings.map(b => bookingCardHtml(b, true)).join('') : '<div style="text-align:center;padding:24px 10px;"><div style="font-size:2.4rem;margin-bottom:8px;">📭</div><p style="color:var(--slate);margin:0;">No bookings found for this number.</p></div>';
+  } catch (e) {
+    results.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
+  }
+});
+
+// One-click reorder: pre-fill the booking form from a past booking
+function bookAgain(bookingId) {
+  const b = lastTrackedBookings.find(x => x.id === bookingId);
+  if (!b) return;
+  closeTrackBookingModal(); // "Book Again" tapped from the popup — close it so it doesn't sit on top of the booking form
+  document.getElementById('fName').value = b.name;
+  document.getElementById('fPhone').value = b.phone;
+  document.getElementById('fAddress').value = b.address;
+  document.getElementById('fCity').value = b.cityId;
+  refreshAppliancesForCity(b.cityId);
+
+  cartItems = (b.items || []).map(it => ({
+    applianceId: it.applianceId, applianceName: it.applianceName,
+    typeId: it.typeId, typeName: it.typeName,
+    serviceType: it.serviceType, qty: it.qty, problem: '',
+    unitPrice: it.unitPrice, lineTotal: it.unitPrice * it.qty
+  }));
+  appliedCoupon = null;
+  document.getElementById('couponCode').value = '';
+  renderCart();
+  selectedSlotId = null;
+  selectedSlotLabel = null;
+  document.getElementById('fDate').value = '';
+  document.getElementById('fDateDisplay').value = '';
+  if (typeof updateDtTriggerText === 'function') updateDtTriggerText();
+  refreshSlots();
+
+  const msg = document.getElementById('formMsg');
+  msg.className = 'form-msg success';
+  msg.textContent = 'Your saved details and past items have been filled in. Please pick a fresh date and time slot, then confirm below.';
+
+  openBookingForm();
+}
+
+// FAQ accordion
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.querySelector('.faq-q').addEventListener('click', () => {
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  });
+});
+const faqMoreBtn = document.getElementById('faqMoreBtn');
+if (faqMoreBtn) {
+  // BUG FIX: this used to be one-way — clicking it revealed the extra
+  // questions and then removed itself, with no way to collapse them back
+  // down again. Now toggles between "+ More questions" and "- Show less".
+  let faqExpanded = false;
+  faqMoreBtn.addEventListener('click', () => {
+    faqExpanded = !faqExpanded;
+    document.querySelectorAll('.faq-item-extra').forEach(item => { item.style.display = faqExpanded ? '' : 'none'; });
+    faqMoreBtn.innerHTML = faqExpanded ? '<span class="plus">−</span> Show less' : '<span class="plus">+</span> More questions';
+  });
+}
+
+// ---------------- OTP verification (used at booking time) ----------------
+let OTP_CONFIG = null;
+let otpScriptLoaded = false;
+
+function loadOtpScript(urls) {
+  return new Promise((resolve, reject) => {
+    if (otpScriptLoaded && typeof window.initSendOTP === 'function') return resolve();
+    let i = 0;
+    function attempt() {
+      const s = document.createElement('script');
+      s.src = urls[i];
+      s.async = true;
+      s.onload = () => {
+        if (typeof window.initSendOTP === 'function') {
+          otpScriptLoaded = true;
+          resolve();
+        } else {
+          reject(new Error('OTP service did not load correctly.'));
+        }
+      };
+      s.onerror = () => {
+        i++;
+        if (i < urls.length) attempt();
+        else reject(new Error('Could not load OTP service. Check your internet connection.'));
+      };
+      document.head.appendChild(s);
+    }
+    attempt();
+  });
+}
+
+async function ensureOtpConfig() {
+  if (!OTP_CONFIG) OTP_CONFIG = await fetchJSON('/api/otp-config');
+  return OTP_CONFIG;
+}
+
+// BUG FIX: calling window.initSendOTP({exposeMethods: true, ...}) does NOT
+// attach window.sendOtp/verifyOtp/retryOtp synchronously — MSG91's widget
+// does its own async setup first (fetching the widget's config from their
+// servers) before those methods exist. Calling window.sendOtp immediately
+// afterward, with no wait, hits "window.sendOtp is not a function" almost
+// every time. This polls briefly until they're actually attached (or
+// times out with a clear error, e.g. if the Widget ID/Token in Admin
+// Panel are wrong and the widget never finishes initializing at all).
+function waitForOtpMethods(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    (function poll() {
+      if (typeof window.sendOtp === 'function' && typeof window.verifyOtp === 'function') {
+        resolve();
+      } else if (Date.now() - start > timeoutMs) {
+        reject(new Error('OTP service did not initialize in time. In Admin Panel, double-check the Widget ID / Token, and on your MSG91 dashboard make sure this website\'s domain is whitelisted for that widget.'));
+      } else {
+        setTimeout(poll, 150);
+      }
+    })();
+  });
+}
+
+// Opens the MSG91 OTP widget for the given phone number and resolves with
+// the verified access-token once the customer completes the OTP step.
+// FLOW CHANGE / BUG FIX: this used to configure MSG91 with
+// `exposeMethods: false`, which relies entirely on MSG91's own built-in
+// popup to actually show the OTP entry box to the customer — and that
+// built-in popup was confirmed to send real SMS OTPs but never actually
+// render any visible UI on screen (see the comment on #otpEntryModal
+// below, which was built for exactly this reason but was never actually
+// wired up to anything, so it sat unused while the invisible built-in
+// popup kept being relied on underneath it). The customer would type
+// their number, the OTP would genuinely be sent, and then... nothing —
+// no popup to enter it into, so the promise never resolved and the flow
+// just sat there forever with no visible progress.
+//
+// Now uses MSG91's `exposeMethods: true` mode instead, which suppresses
+// MSG91's own popup entirely and hands us `window.sendOtp` /
+// `window.verifyOtp` / `window.retryOtp` to drive #otpEntryModal (our
+// own, always-visible modal) directly.
+function verifyPhoneWithOtp(phone) {
+  return new Promise(async (resolve, reject) => {
+    const modal = document.getElementById('otpEntryModal');
+    const phoneEl = document.getElementById('otpEntryPhone');
+    const codeEl = document.getElementById('otpEntryCode');
+    const msgEl = document.getElementById('otpEntryMsg');
+    const submitBtn = document.getElementById('otpEntrySubmit');
+    const resendBtn = document.getElementById('otpEntryResend');
+    const closeBtn = document.getElementById('otpEntryClose');
+    if (!modal || !phoneEl || !codeEl || !msgEl || !submitBtn || !resendBtn || !closeBtn) {
+      reject(new Error('OTP entry is not available on this page.'));
+      return;
+    }
+
+    let settled = false;
+    const cleanup = () => {
+      modal.classList.remove('open');
+      codeEl.value = '';
+      msgEl.className = 'form-msg';
+      msgEl.textContent = '';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Verify';
+      resendBtn.disabled = false;
+      resendBtn.textContent = 'Resend Code';
+      submitBtn.removeEventListener('click', onSubmit);
+      resendBtn.removeEventListener('click', onResend);
+      closeBtn.removeEventListener('click', onClose);
+      codeEl.removeEventListener('keydown', onKeydown);
+    };
+    const finishResolve = (token) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(token);
+    };
+    const finishReject = (err) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+
+    function onSubmit() {
+      const code = codeEl.value.trim();
+      if (!/^[0-9]{4,6}$/.test(code)) {
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Please enter the code you received.';
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying...';
+      msgEl.className = 'form-msg';
+      msgEl.textContent = '';
+      window.verifyOtp(code, (data) => {
+        const accessToken = data && (data.message || data.token || data['access-token']);
+        if (!accessToken) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Verify';
+          msgEl.className = 'form-msg error';
+          msgEl.textContent = 'Verification succeeded but no token was received. Please try again.';
+          return;
+        }
+        finishResolve(accessToken);
+      }, () => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verify';
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Incorrect or expired code. Please try again.';
+      });
+    }
+    function onKeydown(e) { if (e.key === 'Enter') onSubmit(); }
+
+    async function onResend() {
+      resendBtn.disabled = true;
+      resendBtn.textContent = 'Resending...';
+      msgEl.className = 'form-msg';
+      msgEl.textContent = '';
+      // SAFETY NET: if retryOtp's callbacks never fire for any reason
+      // (as happened when the channel arg was `undefined` instead of
+      // the required `null` — fixed below, but this guards against any
+      // similar silent-hang case in the future), don't leave the button
+      // stuck on "Resending..." forever.
+      let settledResend = false;
+      const resendTimeout = setTimeout(() => {
+        if (settledResend) return;
+        settledResend = true;
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Resend timed out. Please try again.';
+      }, 15000);
+      // BUG FIX: MSG91's docs specify the channel argument must be the
+      // literal `null` for "use the widget's default channel" — passing
+      // `undefined` instead makes the widget hang silently (neither
+      // success nor failure ever fires), which is exactly what was seen
+      // stuck on "Resending...".
+      window.retryOtp(null, () => {
+        if (settledResend) return;
+        settledResend = true;
+        clearTimeout(resendTimeout);
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+        msgEl.className = 'form-msg success';
+        msgEl.textContent = 'A new code has been sent.';
+      }, (error) => {
+        if (settledResend) return;
+        settledResend = true;
+        clearTimeout(resendTimeout);
+        console.log('OTP resend failure:', error);
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+        msgEl.className = 'form-msg error';
+        const detail = (error && (error.message || error.type || (typeof error === 'string' ? error : JSON.stringify(error)))) || 'Unknown error';
+        msgEl.textContent = `Could not resend the code: ${detail}.`;
+      });
+    }
+
+    function onClose() {
+      finishReject(new Error('OTP verification was cancelled.'));
+    }
+
+    submitBtn.addEventListener('click', onSubmit);
+    resendBtn.addEventListener('click', onResend);
+    closeBtn.addEventListener('click', onClose);
+    codeEl.addEventListener('keydown', onKeydown);
+
+    try {
+      const cfg = await ensureOtpConfig();
+      if (!cfg.widgetId || !cfg.tokenAuth) {
+        finishReject(new Error('OTP is turned ON but the Widget ID / Token are not set in Admin Panel > OTP Settings. Add them there first.'));
+        return;
+      }
+      await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
+      const identifier = '91' + phone; // MSG91 requires country code, no '+' or spaces
+      phoneEl.textContent = phone;
+      modal.classList.add('open');
+      msgEl.className = 'form-msg';
+      msgEl.textContent = 'Sending code...';
+      codeEl.focus();
+      window.initSendOTP({
+        widgetId: cfg.widgetId,
+        tokenAuth: cfg.tokenAuth,
+        // BUG FIX: 'identifier' was passed here AND again in the
+        // explicit window.sendOtp(identifier, ...) call just below —
+        // per MSG91's own docs, identifier here is only optional/for
+        // their own (unused, since exposeMethods:true) UI flow, while
+        // sendOtp() is what actually, genuinely sends the OTP. Having
+        // it in both places was very likely triggering two separate
+        // sends for one tap — exactly matching two different OTP codes
+        // arriving in two separate SMS for a single "Send OTP" tap.
+        exposeMethods: true,
+        success: (data) => {
+          // Some widget versions call this directly rather than via the
+          // verifyOtp callback below — handled the same way either way.
+          const accessToken = data && (data.message || data.token || data['access-token']);
+          if (accessToken) finishResolve(accessToken);
+        },
+        failure: (error) => { console.log('OTP failure:', error); }
+      });
+      await waitForOtpMethods(10000);
+      msgEl.className = 'form-msg';
+      msgEl.textContent = 'Sending code...';
+      let settledSend = false;
+      const sendTimeout = setTimeout(() => {
+        if (settledSend) return;
+        settledSend = true;
+        msgEl.className = 'form-msg error';
+        msgEl.textContent = 'Sending the code timed out. Tap "Resend Code" to try again.';
+      }, 15000);
+      window.sendOtp(identifier, () => {
+        if (settledSend) return;
+        settledSend = true;
+        clearTimeout(sendTimeout);
+        msgEl.className = 'form-msg';
+        msgEl.textContent = '';
+      }, (error) => {
+        if (settledSend) return;
+        settledSend = true;
+        clearTimeout(sendTimeout);
+        console.log('OTP send failure:', error);
+        msgEl.className = 'form-msg error';
+        // Surfaces MSG91's actual failure reason on screen (not just a
+        // generic message) so it can be screenshotted/read directly —
+        // this is genuine diagnostic info (wrong DLT template, domain
+        // not whitelisted, low balance, etc.), not something to hide.
+        const detail = (error && (error.message || error.type || (typeof error === 'string' ? error : JSON.stringify(error)))) || 'Unknown error';
+        msgEl.textContent = `Could not send the code: ${detail}. Tap "Resend Code" to try again.`;
+      });
+    } catch (err) {
+      finishReject(err);
+    }
+  });
+}
+// ---------------- Bottom navigation — Cart button (homepage only) ----------------
+// Support/City/Menu sheet wiring lives in chatbot.js (loaded on every
+// page — homepage, city pages, appliance+city pages) so it works
+// identically everywhere without duplicating that logic here. Only the
+// Cart button is genuinely homepage-specific (only this page has a real
+// cart), so only it is wired here — see the data-has-cart="true"
+// attribute on the button in the template, which chatbot.js checks to
+// know to skip binding its own generic fallback for this button.
+function updateBottomNavCartBadge() {
+  const badge = document.getElementById('bottomNavCartBadge');
+  // BUG FIX: during a standalone Quick Book (direct-book) session, the
+  // item being booked is technically appended to cartItems (for code
+  // reuse with the normal Add-to-cart flow), but it isn't really "in the
+  // cart" from the customer's point of view — it's a separate, one-off
+  // direct booking. The bottom-nav cart badge used to count it anyway,
+  // showing a number even during what's meant to be a cart-free flow.
+  // Only count real, pre-existing cart items here.
+  const count = quickBookViewStartIndex !== null
+    ? quickBookViewStartIndex
+    : ((typeof cartItems !== 'undefined') ? cartItems.length : 0);
+  if (badge) {
+    badge.textContent = count;
+    badge.hidden = count === 0;
+  }
+  // Same count, same visibility rule, for the desktop header's own Cart
+  // icon (see headerCartBtn) — kept in sync here rather than duplicating
+  // this whole counting rule a second time.
+  const headerBadge = document.getElementById('headerCartBadge');
+  if (headerBadge) {
+    headerBadge.textContent = count;
+    headerBadge.hidden = count === 0;
+  }
+}
+
+function bindBottomNav() {
+  const cartBtn = document.getElementById('bottomNavCartBtn');
+  const cartClickHandler = () => {
+    document.querySelectorAll('.bottom-sheet-backdrop.open').forEach(el => el.classList.remove('open'));
+    document.getElementById('bottomNavSupportBtn')?.classList.remove('open');
+    document.getElementById('supportFanOut')?.classList.remove('open');
+    quickBookViewStartIndex = null;
+    renderCart();
+    if (cartItems.length) {
+      openBookingForm();
+      hideRedundantBookingFields();
+    } else {
+      const services = document.getElementById('services');
+      if (services) services.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+  if (cartBtn) cartBtn.addEventListener('click', cartClickHandler);
+  // Desktop header's own Cart icon — identical behavior to the
+  // mobile-only bottom-nav one above, just reachable when that's hidden.
+  document.getElementById('headerCartBtn')?.addEventListener('click', cartClickHandler);
+  updateBottomNavCartBadge();
+}
+
+// ---------------- Quick Book modal (per-appliance city→type→price flow) ----------------
+// Opened by tapping an appliance card. This is a friendlier front end
+// that populates the SAME hidden fields (#fCity, #fAppliance, #fType,
+// #fServiceType, #fPhone) and calls the SAME addItemToCart()/OTP logic
+// already built and tested for the main booking form — "Book" simply
+// reveals that form afterward for the remaining name/address/date/slot
+// fields, rather than re-implementing that logic a second time here.
+
+// Short, real feature bullets per appliance (not auto-generated from
+// serviceProcess text, which is too long/prose-y for a checklist) —
+// matches the reference layout's short tick-mark list style.
+const QB_CHECKLISTS = {
+  a1: ['Foam-jet wash of the indoor and outdoor units', 'High-pressure water flush of the cooling coil', 'Refrigerant pressure and leak check', 'Cooling tested before the technician leaves', 'Ongoing support for any follow-up questions'],
+  a2: ['Drum cleaned thoroughly inside and out', 'Drain path and motor checked for smooth running', 'Worn parts flagged before they cause bigger issues', 'Machine run-tested after the work is done', 'Support available if anything comes up later'],
+  a3: ['Filters and membrane checked for wear', 'Full system flushed and sanitized', 'Water flow rate and TDS level checked', 'Machine run-tested after the work is done', 'Support available if anything comes up later'],
+  a4: ['Cooling and compressor performance checked', 'Door seals checked for a proper, tight fit', 'Interior given a thorough clean', 'Machine run-tested after the work is done', 'Support available if anything comes up later']
+};
+
+let qbApplianceId = null;
+let qbSelectedTypeId = null;
+let qbServiceType = 'service';
+let qbSkuOverride = null; // { price, skuName } — set when adding a specific service-list SKU
+// When set (to an index into cartItems), the cart display/submit only
+// shows/books items from that index onward — used so "Book" behaves as
+// a standalone single-item checkout, completely separate from whatever
+// was already sitting in the cart from earlier "Add" actions. Reset to
+// null (showing the full cart again) whenever "Add" or the bottom-nav
+// Cart button is used instead.
+let quickBookViewStartIndex = null;
+
+// Hides the two fields that are redundant once a customer arrives here
+// via Quick Book's "Book" action — city was already chosen there, and
+// the appliance/type/etc. box was already filled+submitted there too.
+// What's left visible: the cart summary (so they can see exactly what
+// they're paying for), Payment Summary, coupon, and Name/Address/Date/
+// Slot — a much shorter checkout than filling the whole form from
+// scratch.
+function hideRedundantBookingFields() {
+  const cityField = document.getElementById('fCityField');
+  if (cityField) cityField.style.display = 'none';
+  // Per explicit request: for Instant Booking specifically (the "Book"
+  // button — always exactly one pre-selected item, as opposed to "Add",
+  // which goes into the real multi-item cart), the "Add an appliance to
+  // this booking" section doesn't make sense either — there's nothing
+  // else to add to a booking that's meant to be just this one item.
+  // hideRedundantBookingFields() is only ever called from the Instant
+  // Booking ("thenBook"/qbBookBtn) paths, never from the regular Add
+  // flow, so this only hides it for that specific case.
+  const addBox = document.querySelector('.cart-add-box');
+  if (addBox) addBox.style.display = 'none';
+}
+
+// ---------------- Unified Account Gate (Booking + My Account + Instant
+// Booking all share this) ----------------
+// One chain: Mobile Number -> OTP verify -> (new customers only) Add
+// Address. Saving the address is what actually "creates the account".
+// Once an account is saved (localStorage, keyed per-browser — this is a
+// customer convenience, not a security boundary; the server still
+// independently re-checks OTP verification on every real action), every
+// later visit to Booking, My Account, or Instant Booking skips straight
+// past all of this and goes directly to item selection / account
+// history, exactly as requested.
+const ACCOUNT_STORAGE_KEY = 'seerua_account_v1';
+
+function getAccount() {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+    const acc = raw ? JSON.parse(raw) : null;
+    return (acc && /^[0-9]{10}$/.test(acc.phone) && acc.name && acc.address && acc.cityId) ? acc : null;
+  } catch (e) { return null; }
+}
+function saveAccount(acc) {
+  try { localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(acc)); } catch (e) { /* private/incognito mode, etc. — chain still works, just won't be remembered next visit */ }
+  updateHeaderAccountUI();
+}
+function clearAccount() {
+  try { localStorage.removeItem(ACCOUNT_STORAGE_KEY); } catch (e) {}
+  verifiedBookingPhone = null;
+  verifiedBookingAccessToken = null;
+  updateHeaderAccountUI();
+}
+
+// Header icon: plain person icon with no account, a filled circle with
+// the customer's name-initial once one exists (see saveAccount/
+// clearAccount above, and the "Logout" menu item below).
+function updateHeaderAccountUI() {
+  const btn = document.getElementById('headerAccountBtn');
+  const icon = document.getElementById('headerAccountIcon');
+  const initialEl = document.getElementById('headerAccountInitial');
+  if (!btn) return;
+  const acc = getAccount();
+  if (acc && acc.name) {
+    btn.classList.add('has-account');
+    if (icon) icon.style.display = 'none';
+    if (initialEl) { initialEl.style.display = 'block'; initialEl.textContent = acc.name.trim().charAt(0).toUpperCase(); }
+  } else {
+    btn.classList.remove('has-account');
+    if (icon) icon.style.display = '';
+    if (initialEl) initialEl.style.display = 'none';
+  }
+}
+
+function bindHeaderAccountMenu() {
+  const wrap = document.getElementById('headerAccountWrap');
+  const btn = document.getElementById('headerAccountBtn');
+  const menu = document.getElementById('headerAccountMenu');
+  if (!btn || !menu) return;
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const acc = getAccount();
+    if (!acc) {
+      // No account yet — go straight into the Account Gate instead of
+      // showing a menu with nothing useful in it yet.
+      openAccountGate('account');
+      return;
+    }
+    menu.classList.toggle('open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (menu.classList.contains('open') && !wrap.contains(e.target)) {
+      menu.classList.remove('open');
+    }
+  });
+
+  document.getElementById('headerAccountTrackBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    openTrackBookingModal();
+  });
+
+  // Opens the same "Add Address" step (in edit mode) the booking form's
+  // own Edit button uses — one shared place a customer can update their
+  // saved name/address/city without needing to start a booking first.
+  document.getElementById('headerAccountEditBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    openEditProfile();
+  });
+
+  // One-tap "Refer a Friend" straight from the account menu — its own
+  // popup (same pattern as Track Booking), not the old always-on-page
+  // section.
+  document.getElementById('headerAccountReferBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    openReferModal();
+  });
+
+  document.getElementById('headerAccountLogoutBtn')?.addEventListener('click', () => {
+    menu.classList.remove('open');
+    clearAccount();
+    // Reset the booking form's fields too, in case it's open right now
+    // with the previous account's (now logged-out) details still showing.
+    const nameEl = document.getElementById('fName');
+    const addrEl = document.getElementById('fAddress');
+    if (nameEl) { nameEl.value = ''; nameEl.readOnly = false; }
+    if (addrEl) { addrEl.value = ''; addrEl.readOnly = false; }
+    const editBtn = document.getElementById('editAddressBtn');
+    if (editBtn) editBtn.style.display = 'none';
+    showToast('Logged out');
+  });
+}
+bindHeaderAccountMenu();
+updateHeaderAccountUI();
+
+// Pushes a known account's details into the shared hidden fields the
+// rest of the app (cart, submit, Quick Book) already reads from, and
+// marks this phone pre-verified for the session so the existing OTP
+// checks in addItemToCart()/the booking submit skip straight through
+// instead of asking a second time.
+function applyAccountToBookingFields(acc) {
+  const phoneEl = document.getElementById('fPhone');
+  const nameEl = document.getElementById('fName');
+  const addrEl = document.getElementById('fAddress');
+  const cityEl = document.getElementById('fCity');
+  if (phoneEl) phoneEl.value = acc.phone;
+  if (nameEl) { nameEl.value = acc.name; nameEl.readOnly = true; }
+  if (addrEl) { addrEl.value = acc.address; addrEl.readOnly = true; }
+  // SIMPLIFIED (per explicit request): City is never locked to the
+  // account, or cross-checked against it — Name/Address/Phone are the
+  // same everywhere, but City is a per-booking choice. Only pre-fills
+  // #fCity as a convenience default when it's currently empty — never
+  // overwrites a choice already sitting there, and never disables the
+  // field.
+  if (cityEl && acc.cityId && !cityEl.value) { cityEl.value = acc.cityId; refreshAppliancesForCity(acc.cityId); }
+  if (cityEl && cityEl.value && typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityEl.value);
+  const editBtn = document.getElementById('editAddressBtn');
+  if (editBtn) editBtn.style.display = 'inline-block';
+  verifiedBookingPhone = acc.phone;
+  if (acc.accessToken) verifiedBookingAccessToken = acc.accessToken;
+  // BUG FIX: both the address and city above get set programmatically
+  // here (readonly pre-fill from the saved account) — neither a plain
+  // .value assignment (city) nor a readonly field (address, never
+  // actually typed into) fires the 'change'/'input' events
+  // checkAddressCityMismatch() normally listens for. So if someone's
+  // OWN saved account address doesn't actually match their account's
+  // saved city, the warning never had a chance to show at all. Call it
+  // directly here so this exact scenario is covered too.
+  if (typeof checkAddressCityMismatch === 'function') checkAddressCityMismatch();
+}
+
+function openAccountGate(intent, applianceId) {
+  agIntent = intent;
+  agPendingApplianceId = applianceId || null;
+  const acc = getAccount();
+  if (acc) {
+    proceedAfterAccountGate(acc);
+    return;
+  }
+  document.getElementById('agPhoneMsg').textContent = '';
+  document.getElementById('agName').value = '';
+  document.getElementById('agPhone').value = '';
+  document.getElementById('agAddress').value = '';
+  if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
+  document.getElementById('accountGateModal').classList.add('open');
+}
+
+function closeAccountGate() {
+  document.getElementById('accountGateModal').classList.remove('open');
+  qbPendingRetryAction = null;
+  qbPendingServiceAction = null;
+}
+
+// Called once the phone+address chain is fully complete (either just
+// now, or already done on an earlier visit) — sends the customer
+// straight on to whatever they originally asked for. This is the
+// "chain advances itself" part: no extra taps needed in between.
+function proceedAfterAccountGate(acc) {
+  const resumeQbAction = qbPendingRetryAction; // capture before closeAccountGate() clears it
+  const resumeQbServiceAction = qbPendingServiceAction; // same, for the per-service-card Add/Book buttons
+  closeAccountGate();
+  if (agIntent === 'profile-edit') {
+    // Just a re-verification so an expired Edit Profile could go
+    // through — nothing further to do, already saved by the time this
+    // runs.
+    applyAccountToBookingFields(acc);
+    showToast('✅ Details updated');
+  } else if (agIntent === 'refer') {
+    // BUG FIX: this used to share the plain 'account' intent with the
+    // header's own Track Booking button — so a customer who tapped
+    // "Refer a Friend" without an account yet, registered, and landed
+    // back here got sent to Track Booking instead of back to what they
+    // actually asked for. Own intent, opens the right thing.
+    openReferModal();
+  } else if (agIntent === 'account') {
+    // BUG FIX ("customer login karta hai to uska tracking kyun self khul
+    // jaata hai"): this used to jump straight to Track Booking the
+    // moment someone registered via the header profile icon — even if
+    // they'd tapped it just to see what's there (Edit Profile, Refer a
+    // Friend, etc.), not specifically to track a booking. Opens the
+    // account menu itself instead, same as tapping the profile icon
+    // normally does once an account already exists — Track Booking is
+    // one tap away from there if that's what they actually wanted.
+    document.getElementById('headerAccountMenu')?.classList.add('open');
+  } else if (agIntent === 'quickbook') {
+    applyAccountToBookingFields(acc);
+    const qbRenderPromise = openQuickBookModalReal(agPendingApplianceId);
+    // BUG FIX ("appliance fir khul jaata hai" then, after an earlier fix
+    // attempt, "confirmation ke baad main site — keemat ki details nahi
+    // aayi", then — after THAT fix — "AC service Jalesar search kiya...
+    // book davaya... appliance khul gaye, fir book davaya tab price
+    // details aayi"): openQuickBookModalReal() above visually opens the
+    // Quick Book popup (city/type/price) as a side effect of preparing
+    // its internal state, right before auto-resuming Add/Book. The
+    // customer had already made their appliance choice before this
+    // phone+address step even started, so that screen flashing back
+    // open was confusing, and just hiding the modal for that gap left a
+    // worse blank-screen flash — both covered by this same loading
+    // overlay.
+    //
+    // THIS bug was a THIRD, deeper issue underneath that overlay: the
+    // auto-resume click used to fire on a fixed guessed delay (300ms),
+    // and the overlay itself was removed on another fixed guessed delay
+    // (600ms) — both tuned against this sandbox's near-instant local
+    // network, where qbShowDetails()'s price fetch reliably finishes
+    // well within 300ms. On a real phone's mobile network (and any
+    // Render cold start), that same fetch can easily take longer.
+    // qbRenderServicesList() (called from inside qbShowDetails()) throws
+    // away and REBUILDS the service-card buttons from scratch once its
+    // fetch resolves — so if that hadn't happened yet when the fixed
+    // 300ms timer fired, the auto-click's querySelector found nothing
+    // (the old placeholder had no such button yet) and silently did
+    // nothing. The overlay then also vanished at 600ms regardless,
+    // exposing the now-loaded-but-never-auto-clicked appliance/service
+    // list sitting there — exactly "appliance khul gaye" — and the
+    // customer had to tap Book themselves a second time to finally see
+    // the price/booking-details form.
+    //
+    // Fix: openQuickBookModalReal() now returns the actual render
+    // promise (see its own comment, and qbShowDetails()'s), so the
+    // overlay is removed and the resume click is dispatched only once
+    // the real, priced buttons genuinely exist in the DOM — no more
+    // guessing at a delay. A generous safety-net timeout still forces
+    // the overlay away if that promise never settles for some
+    // unexpected reason, so nobody gets stuck looking at "Preparing
+    // your booking…" forever.
+    if (resumeQbAction || resumeQbServiceAction) {
+      const qbModalBox = document.querySelector('#quickBookModal .quick-book-modal');
+      let overlay = null;
+      if (qbModalBox && !document.getElementById('qbResumeLoadingOverlay')) {
+        // CSS overlay, NOT an innerHTML replacement — #qbAddBtn/#qbBookBtn
+        // and the rest of the real form underneath must stay in the DOM
+        // exactly as they are, since the resume click below targets them
+        // directly. This only visually covers them until they're ready.
+        overlay = document.createElement('div');
+        overlay.id = 'qbResumeLoadingOverlay';
+        overlay.style.cssText = 'position:absolute;inset:0;background:#fff;border-radius:inherit;display:flex;align-items:center;justify-content:center;z-index:5;';
+        overlay.innerHTML = '<p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Preparing your booking…</p>';
+        qbModalBox.style.position = 'relative';
+        qbModalBox.appendChild(overlay);
+      }
+      const overlaySafetyTimer = setTimeout(() => overlay?.remove(), 10000);
+      Promise.resolve(qbRenderPromise).catch(() => {}).then(() => {
+        clearTimeout(overlaySafetyTimer);
+        overlay?.remove();
+        // Resume whichever action (Add / Book Now, or a specific
+        // service card's Add/Book) was actually being attempted when
+        // this got paused for phone+OTP — see qbDoAdd(), qbAddService(),
+        // and the qbAddBtn/qbBookBtn/service-card click handlers. The
+        // buttons targeted here are now guaranteed to exist, since we
+        // waited for the real render above instead of guessing a delay.
+        if (resumeQbAction === 'add') {
+          document.getElementById('qbAddBtn')?.click();
+        } else if (resumeQbAction === 'book') {
+          document.getElementById('qbBookBtn')?.click();
+        } else if (resumeQbServiceAction) {
+          const action = resumeQbServiceAction.thenBook ? 'book' : 'add';
+          document.querySelector(
+            `#qbServicesList button[data-action="${action}"][data-service-id="${resumeQbServiceAction.svcId}"]`
+          )?.click();
+        }
+      });
+    }
+  } else {
+    openBookingForm();
+    applyAccountToBookingFields(acc);
+  }
+}
+
+function bindAccountGateModal() {
+  document.getElementById('accountGateClose').addEventListener('click', closeAccountGate);
+  document.getElementById('accountGateModal').addEventListener('click', (e) => {
+    if (e.target.id === 'accountGateModal') closeAccountGate();
+  });
+
+  // SIMPLIFIED (per explicit request): one combined submit instead of
+  // phone-first-then-address. Validates Name + Phone + Address together,
+  // sends OTP only once everything else already checks out, and saves
+  // the complete account the moment OTP succeeds — no separate second
+  // step. City comes from whatever's already selected on the page
+  // (#fCity) at the point of booking, not asked again here.
+  let agSending = false;
+  async function attemptAccountGateVerification() {
+    if (agSending) return;
+    const msg = document.getElementById('agPhoneMsg');
+    const name = document.getElementById('agName').value.trim();
+    const phone = document.getElementById('agPhone').value.trim();
+    const address = document.getElementById('agAddress').value.trim();
+    const btn = document.getElementById('agSendBtn');
+    if (!name) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter your name.';
+      return;
+    }
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return;
+    }
+    if (!address) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please select or add your address.';
+      return;
+    }
+    const cityId = document.getElementById('fCity').value;
+    if (!cityId) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please select a city first.';
+      return;
+    }
+    agSending = true;
+    btn.disabled = true;
+    btn.textContent = 'Confirming...';
+    msg.className = 'form-msg';
+    msg.textContent = '';
+    try {
+      // Same check every other OTP entry point in this app already does
+      // (addItemToCart, the booking submit, My Account) — a number
+      // already verified before, or OTP turned OFF in Admin Panel, skips
+      // straight through with no popup at all.
+      let phoneAlreadyVerified = false;
+      try {
+        const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+        phoneAlreadyVerified = !!check.verified;
+      } catch (e) { /* fall back to normal OTP flow */ }
+
+      let otpEnabled = true;
+      try {
+        const cfg = await ensureOtpConfig();
+        otpEnabled = cfg.enabled !== false;
+      } catch (e) { /* fall back to normal OTP flow */ }
+
+      let accessToken = null;
+      if (otpEnabled && !phoneAlreadyVerified) {
+        accessToken = await verifyPhoneWithOtp(phone);
+      }
+      verifiedBookingPhone = phone;
+      verifiedBookingAccessToken = accessToken;
+      msg.textContent = 'Confirming your details...';
+      try {
+        await fetchJSON('/api/customer-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, name, address, cityId, accessToken })
+        });
+      } catch (e) { /* non-fatal — worst case, later steps re-check phone-verified the normal way */ }
+      const acc = { phone, name, address, cityId, accessToken };
+      saveAccount(acc);
+      proceedAfterAccountGate(acc);
+    } catch (err) {
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'Something went wrong. Please try again.';
+    } finally {
+      agSending = false;
+      btn.disabled = false;
+      btn.textContent = 'Confirm Booking';
+    }
+  }
+  document.getElementById('agSendBtn').addEventListener('click', attemptAccountGateVerification);
+
+  document.getElementById('agSaveBtn').addEventListener('click', async () => {
+    const msg = document.getElementById('agAddressMsg');
+    const existingAcc = getAccount();
+    const phone = (existingAcc && existingAcc.phone) || verifiedBookingPhone;
+    const name = document.getElementById('agEditName').value.trim();
+    const address = document.getElementById('agEditAddress').value.trim();
+    const cityId = document.getElementById('agCity').value;
+    if (!phone) { msg.className = 'form-msg error'; msg.textContent = 'Please verify your mobile number first.'; return; }
+    if (!name) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your name.'; return; }
+    if (!address) { msg.className = 'form-msg error'; msg.textContent = 'Please select or add your address.'; return; }
+    if (!cityId) { msg.className = 'form-msg error'; msg.textContent = 'Please select your city.'; return; }
+    const btn = document.getElementById('agSaveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    msg.className = 'form-msg';
+    msg.textContent = '';
+    try {
+      await fetchJSON('/api/customer-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, name, address, cityId, accessToken: (existingAcc && existingAcc.accessToken) || verifiedBookingAccessToken || undefined })
+      });
+      const acc = { phone, name, address, cityId, accessToken: (existingAcc && existingAcc.accessToken) || verifiedBookingAccessToken };
+      saveAccount(acc);
+      document.getElementById('accountEditModal').classList.remove('open');
+      applyAccountToBookingFields(acc);
+      showToast('✅ Details updated');
+    } catch (err) {
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'Could not save your details. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    }
+  });
+
+  document.getElementById('editAddressBtn')?.addEventListener('click', openEditProfile);
+}
+// Shared by the booking form's own "Edit Address / City" button AND the
+// account menu's new "Edit Profile" item — same Account Gate "Add
+// Address" step, reused in edit mode, so there's exactly one place that
+// actually writes to the saved account either way.
+async function openEditProfile() {
+  const acc = getAccount();
+  if (!acc) return;
+  document.getElementById('agAddressMsg').textContent = '';
+
+  // BUG FIX: a saved account lives in the browser (localStorage)
+  // basically forever, but the server's memory of "this phone passed
+  // OTP once" (data/verified-phones.json) can be lost independently —
+  // e.g. a redeploy without a database configured. When that happens,
+  // this used to jump straight to the edit form using the old
+  // (now-unrecognized) accessToken from localStorage, and Save always
+  // failed with a confusing "OTP verification failed, expired, or does
+  // not match this phone number" error with no way to recover short of
+  // logging out. Now it re-checks with the server first: if the phone
+  // is still verified, opens the (name/city/address only) edit modal as
+  // before; if not, re-uses the main combined booking form to re-verify
+  // AND update their details in one go, since that form already does
+  // exactly that.
+  let stillVerified = true;
+  try {
+    const check = await fetchJSON(`/api/phone-verified?phone=${acc.phone}`);
+    stillVerified = !!check.verified;
+  } catch (e) { /* can't tell — assume still verified, Save will surface any real problem */ }
+
+  if (stillVerified) {
+    document.getElementById('agEditName').value = acc.name || '';
+    document.getElementById('agEditAddress').value = acc.address || '';
+    if (typeof updateAddressPreview === 'function') updateAddressPreview('agEditAddress', 'agEditAddressPreview');
+    populateSelect(document.getElementById('agCity'), CITIES, 'Select city');
+    if (acc.cityId) document.getElementById('agCity').value = acc.cityId;
+    document.getElementById('accountEditModal').classList.add('open');
+  } else {
+    agIntent = 'profile-edit';
+    document.getElementById('agPhoneMsg').textContent = '';
+    document.getElementById('agName').value = acc.name || '';
+    document.getElementById('agPhone').value = acc.phone;
+    document.getElementById('agAddress').value = acc.address || '';
+    if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
+    const title = document.getElementById('agPhoneTitle');
+    const sub = document.getElementById('agPhoneSub');
+    if (title) title.textContent = 'Please verify again';
+    if (sub) sub.textContent = 'Your verification expired — please verify your mobile number again to update your details.';
+    document.getElementById('accountGateModal').classList.add('open');
+  }
+}
+bindAccountGateModal();
+
+// Instant Booking entry point (tapping an appliance card) — now gated by
+// the same shared Account Gate as Booking/My Account, per the unified
+// flow. Once an account exists this is completely transparent: the
+// modal below (openQuickBookModalReal) opens immediately with the
+// mobile number field already filled in and hidden.
+function openQuickBookModal(applianceId) {
+  if (BOOKING_PAUSED_STATUS && BOOKING_PAUSED_STATUS.bookingPaused) {
+    // Don't open the modal at all — reveal the existing "not accepting
+    // bookings" notice instead, right at the moment someone tries to
+    // start, rather than letting them go through city/service selection
+    // only to be turned away at the very end. openBookingForm() un-hides
+    // the wrapper this notice lives inside (it's hidden by default until
+    // someone starts booking) and scrolls to it in one step.
+    if (typeof openBookingForm === 'function') openBookingForm();
+    return;
+  }
+  // BUG FIX (per explicit request): this used to gate on having an
+  // account BEFORE ever showing appliance type/price — meaning "Book
+  // Now" on a card asked for a phone number + OTP immediately, before
+  // the customer had seen anything about what they were even booking.
+  // Now opens straight to type/price; account (and OTP, if this number
+  // isn't already verified) is only ever asked for once they actually
+  // try to Add/Book — see qbDoAdd().
+  const acc = getAccount();
+  if (acc) applyAccountToBookingFields(acc);
+  openQuickBookModalReal(applianceId);
+}
+
+function openQuickBookModalReal(applianceId) {
+  qbApplianceId = applianceId;
+  qbServiceType = 'service';
+  const modal = document.getElementById('quickBookModal');
+  const msg = document.getElementById('qbMsg');
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+  // FLOW CHANGE: the mobile number field is hidden (see #qbPhoneField in
+  // the template) — by the time this runs, openQuickBookModal() has
+  // already gated on the shared account, so it's filled in from there
+  // instead of typed here.
+  const qbPhoneEl = document.getElementById('qbPhone');
+  const qbAcc = getAccount();
+  if (qbPhoneEl) qbPhoneEl.value = qbAcc ? qbAcc.phone : '';
+
+  // SIMPLIFIED (per explicit request): City selector and Type/Price now
+  // share one single screen instead of a separate "pick city, tap
+  // Continue" step first — always shows qbDetailsStep, with the city
+  // dropdown pre-filled from whatever's already chosen this session (if
+  // anything). Selecting/changing the city right here (see its own
+  // 'change' listener below) is what triggers loading the price.
+  const citySelect = document.getElementById('qbCitySelect');
+  populateSelect(citySelect, CITIES, 'Select city');
+  const existingCity = document.getElementById('fCity').value;
+  // BUG FIX: this used to just call qbShowDetails() without keeping its
+  // promise — fine for a normal manual open (nobody's waiting on it),
+  // but the account-gate "quickbook" resume flow in
+  // proceedAfterAccountGate() needs to know once the real, priced
+  // service-card buttons actually exist in the DOM before it can safely
+  // auto-click one. Returning the promise here (still undefined for a
+  // caller that doesn't await it, exactly as before) lets that one
+  // caller wait for it without changing behavior for anyone else.
+  let renderPromise = null;
+  if (existingCity) {
+    citySelect.value = existingCity;
+    renderPromise = qbShowDetails();
+  } else {
+    document.getElementById('qbTypeTabs').innerHTML = '';
+    document.getElementById('qbSingleServiceView').style.display = 'none';
+    document.getElementById('qbServicesList').style.display = 'none';
+    document.getElementById('qbNotAvailable').style.display = 'none';
+  }
+  modal.classList.add('open');
+  return renderPromise;
+}
+
+function closeQuickBookModal() {
+  document.getElementById('quickBookModal').classList.remove('open');
+}
+
+// Small, self-dismissing confirmation toast — used when the Quick Book
+// modal closes right after "Add" so the person still gets clear feedback
+// that it worked, even though the modal (and its inline message) is gone.
+// Top-level (not nested inside bindQuickBookModal) so both qbAddService
+// and qbAddBtn's own click handler can call it.
+function showToast(text) {
+  let toast = document.getElementById('globalToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'globalToast';
+    toast.className = 'global-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.remove('show');
+  // Force a reflow so re-triggering the animation works even if a toast
+  // is already showing when a second one comes in quick succession.
+  void toast.offsetWidth;
+  toast.classList.add('show');
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+async function qbShowDetails() {
+  const appliance = APPLIANCES.find(a => a.id === qbApplianceId);
+  if (!appliance) {
+    // BUG FIX: this used to just silently `return` here, leaving whatever
+    // was already in the modal (often its default empty/blank placeholder
+    // markup) on screen with no explanation. This is the "appliance isn't
+    // served in this city at all" case — a step earlier than "no pricing
+    // set for it" (which qbUpdatePrice/qbRenderServicesList already
+    // handle) — same friendly notice applies here too.
+    document.getElementById('qbApplianceTitle').textContent = 'Service';
+    document.getElementById('qbTypeTabs').innerHTML = '';
+    qbSetNotAvailable(true);
+    return;
+  }
+  qbSetNotAvailable(false); // clear any notice left over from a previous appliance in this same modal session
+  document.getElementById('qbApplianceTitle').textContent = appliance.name + ' Service';
+  const qbImgEl = document.getElementById('qbPriceImg');
+  qbImgEl.onerror = () => { qbImgEl.onerror = null; qbImgEl.src = appliance.photoUrl || ''; };
+  qbImgEl.src = appliance.photoUrl ? toWebpUrl(appliance.photoUrl) : '';
+  qbImgEl.alt = appliance.name;
+
+  const tabsEl = document.getElementById('qbTypeTabs');
+  tabsEl.innerHTML = appliance.types.map((t, i) =>
+    `<button type="button" data-type="${t.id}" class="${i === 0 ? 'active' : ''}">${t.name}</button>`
+  ).join('');
+  qbSelectedTypeId = appliance.types[0] ? appliance.types[0].id : null;
+
+  tabsEl.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabsEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      qbSelectedTypeId = btn.getAttribute('data-type');
+      qbRenderForSelectedType();
+    });
+  });
+
+  // BUG FIX: this used to fire-and-forget qbRenderForSelectedType() here
+  // (no `return`/`await`) — meaning qbShowDetails()'s own promise
+  // resolved immediately, well before qbRenderForSelectedType()'s inner
+  // qbRenderServicesList() had actually fetched pricing and rebuilt the
+  // service-card buttons. openQuickBookModalReal() (below) and the
+  // account-gate "quickbook" resume flow in proceedAfterAccountGate()
+  // both need to know when those buttons genuinely exist in the DOM —
+  // see the detailed comment there for the real-world bug this caused.
+  return qbRenderForSelectedType();
+}
+
+// Decides which view to show for the currently-selected type: the new
+// scrollable multi-service list (when the type has one defined, e.g.
+// AC's Service/Repair/Installation/Uninstallation/Gas Filling) or the
+// original single price-card fallback (everything else for now).
+async function qbRenderForSelectedType() {
+  const appliance = APPLIANCES.find(a => a.id === qbApplianceId);
+  const type = appliance ? appliance.types.find(t => t.id === qbSelectedTypeId) : null;
+  const servicesList = document.getElementById('qbServicesList');
+  const singleView = document.getElementById('qbSingleServiceView');
+  qbSetNotAvailable(false); // clear any "not available" notice left over from switching appliance/type tabs
+
+  if (type && Array.isArray(type.services) && type.services.length) {
+    singleView.style.display = 'none';
+    servicesList.style.display = 'grid';
+    await qbRenderServicesList(type);
+  } else {
+    servicesList.style.display = 'none';
+    singleView.style.display = 'block';
+    document.getElementById('qbChecklist').innerHTML =
+      (QB_CHECKLISTS[qbApplianceId] || ['Trained Technician', 'Transparent Pricing', 'Final Performance Check After Work', 'Full Support'])
+        .map(item => `<li>${item}</li>`).join('');
+    qbUpdatePrice();
+  }
+}
+
+async function qbRenderServicesList(type) {
+  const listEl = document.getElementById('qbServicesList');
+  const cityId = document.getElementById('fCity').value;
+  const appliance = APPLIANCES.find(a => a.id === qbApplianceId);
+  const city = CITIES.find(c => c.id === cityId);
+  const cityLabel = city ? city.name : 'Your City';
+  listEl.innerHTML = '<p style="text-align:center;color:var(--slate);padding:20px;">Loading prices…</p>';
+  if (!cityId) return;
+
+  let row;
+  try {
+    row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${qbApplianceId}&typeId=${type.id}`);
+  } catch (e) {
+    // Same "not available" notice as the single-service view — this
+    // appliance/type has no pricing set up for the selected city.
+    listEl.innerHTML = '';
+    listEl.style.display = 'none';
+    qbSetNotAvailable(true);
+    return;
+  }
+  const servicePrices = row.servicePrices || {};
+
+  listEl.innerHTML = type.services.map(svc => {
+    const price = servicePrices[svc.id];
+    const priceDisplay = typeof price === 'number'
+      ? (() => { const mrp = Math.round((price * 1.2) / 10) * 10; return `<span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span>`; })()
+      : '<span class="qb-price-now">Contact us for price</span>';
+    return `
+      <div class="qb-service-card" data-service-id="${svc.id}">
+        <div class="qb-price-card qb-price-card-nophoto">
+          <div>
+            <div class="qb-price-title">${type.name} ${svc.name} In ${cityLabel}</div>
+            <div class="qb-price-row">${priceDisplay}</div>
+            <div class="qb-price-trust">✔ Most Trusted Service</div>
+          </div>
+        </div>
+        <ul class="qb-checklist">${svc.checklist.map(item => `<li>${item}</li>`).join('')}</ul>
+        <div class="qb-actions">
+          <button type="button" class="qb-btn qb-btn-add" data-action="add" data-service-id="${svc.id}">🛒 Add</button>
+          <button type="button" class="qb-btn qb-btn-book" data-action="book" data-service-id="${svc.id}">Book</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const svcId = btn.getAttribute('data-service-id');
+      const svc = type.services.find(s => s.id === svcId);
+      const price = servicePrices[svcId];
+      if (btn.getAttribute('data-action') === 'add') qbAddService(svc, price, false);
+      else qbAddService(svc, price, true);
+    });
+  });
+}
+
+// Shared by both the "Add" and "Book" buttons on each service card —
+// sets the SKU price override, maps the specific service name onto the
+// existing service/repair field (plus notes it in the problem field for
+// anything more specific than plain Service/Repair, so it's never lost
+// even though the underlying booking record only tracks those two
+// categories), then reuses the same tested addItemToCart()/OTP logic.
+async function qbAddService(svc, price, thenBook) {
+  const msg = document.getElementById('qbMsg');
+  // BUG FIX: this used to read #qbPhone's own value — that field is
+  // permanently hidden (see the comment on it in the template), and
+  // nothing ever fills it in for this per-service-card path, so it was
+  // always empty. That made every service card's Add/Book fail with
+  // "please enter a valid mobile number" and no visible field to type
+  // one into. Same fix as qbDoAdd(): if we already have a signed-in
+  // account, read its verified phone directly; if not, pause here,
+  // remember exactly which card/action was being tried, and resume it
+  // automatically once the Account Gate (phone + OTP) succeeds — see
+  // qbPendingServiceAction and the 'quickbook' branch of
+  // proceedAfterAccountGate().
+  const acc = getAccount();
+  if (!acc) {
+    qbPendingServiceAction = { svcId: svc.id, thenBook };
+    openAccountGate('quickbook', qbApplianceId);
+    return;
+  }
+  const phone = acc.phone;
+  if (!/^[0-9]{10}$/.test(phone)) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'Please enter a valid 10 digit mobile number.';
+    return;
+  }
+  document.getElementById('fAppliance').value = qbApplianceId;
+  refreshFormTypes();
+  document.getElementById('fType').value = qbSelectedTypeId;
+  const mappedServiceType = (svc.id === 'svc-repair' || svc.id === 'svc-install' || svc.id === 'svc-uninstall' || svc.id === 'svc-gasfill') ? 'repair' : 'service';
+  document.getElementById('fServiceType').value = mappedServiceType;
+  document.getElementById('fQty').value = 1;
+  document.getElementById('fPhone').value = phone;
+  document.getElementById('fProblem').value = (svc.id === 'svc-service' || svc.id === 'svc-repair') ? '' : `${svc.name} requested.`;
+  qbSkuOverride = { price, skuName: svc.name, skuId: svc.id };
+
+  // For "Book": remember exactly where in cartItems this new item will
+  // land, so the checkout that follows shows/submits ONLY this item —
+  // completely separate from anything already sitting in the cart from
+  // earlier "Add" actions. For plain "Add": make sure we're NOT still in
+  // a leftover windowed view from an earlier abandoned Book attempt.
+  if (thenBook) quickBookViewStartIndex = cartItems.length;
+  else quickBookViewStartIndex = null;
+  const expectedIndex = cartItems.length;
+
+  await addItemToCart();
+  const addMsg = document.getElementById('addItemMsg');
+  if (addMsg && addMsg.className.includes('error')) {
+    msg.className = 'form-msg error';
+    msg.textContent = addMsg.textContent;
+    quickBookViewStartIndex = null;
+    return;
+  }
+  // BUG FIX: same issue as qbDoAdd — a duplicate item sets the 'notice'
+  // class (not 'error') and adds nothing, but this used to still proceed
+  // to "Book" anyway. That left quickBookViewStartIndex pointing past the
+  // real end of cartItems, which is exactly what let a later, unrelated
+  // cart item slip into what was supposed to be a standalone "book just
+  // this one" checkout. Double-checked here too: bail out unless a new
+  // item genuinely landed at the expected index.
+  if (thenBook && cartItems.length <= expectedIndex) {
+    quickBookViewStartIndex = null;
+    msg.className = addMsg ? addMsg.className.replace('form-msg', 'form-msg') : 'form-msg notice';
+    msg.textContent = addMsg ? addMsg.textContent : 'This is already in your cart.';
+    return;
+  }
+  if (thenBook) {
+    closeQuickBookModal();
+    openBookingForm();
+    hideRedundantBookingFields();
+  } else {
+    // BEHAVIOR CHANGE (per explicit request): close the Appliance Details
+    // modal immediately after a successful Add here too — this is the
+    // OTHER "Add" path (per-service-card Add/Book buttons, as opposed to
+    // qbAddBtn's single top-level Add), and was still leaving the modal
+    // open with an inline message. Same toast treatment as qbAddBtn now.
+    closeQuickBookModal();
+    showToast(`✅ ${svc.name} added to your cart!`);
+  }
+}
+
+async function qbUpdatePrice() {
+  const cityId = document.getElementById('fCity').value;
+  if (!cityId || !qbApplianceId || !qbSelectedTypeId) return;
+  const priceNowEl = document.getElementById('qbPriceNow');
+  const priceStrikeEl = document.getElementById('qbPriceStrike');
+  priceNowEl.textContent = '...';
+  priceStrikeEl.textContent = '';
+  try {
+    const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${qbApplianceId}&typeId=${qbSelectedTypeId}`);
+    const actual = qbServiceType === 'repair' ? row.repairPrice : row.servicePrice;
+    // A visual "was" price above the real one, purely for the discount-
+    // badge look in the reference layout — the real, actual price
+    // charged is always the one from pricing data (actual), never this.
+    const shownMrp = Math.round((actual * 1.2) / 10) * 10;
+    priceStrikeEl.textContent = `₹${shownMrp}`;
+    priceNowEl.textContent = `₹${actual}`;
+    qbSetNotAvailable(false);
+  } catch (e) {
+    // BUG FIX: this used to just show "Price unavailable" text inline
+    // while leaving everything else (Service/Repair toggle, checklist,
+    // Add/Book buttons) looking normal and clickable — confusing, since
+    // there's nothing to actually add or book. Most common real cause:
+    // this appliance/type was removed from (or never set up for) the
+    // customer's city. Now shows a clear, friendly notice instead and
+    // hides the rest of the step.
+    qbSetNotAvailable(true);
+  }
+}
+
+// Toggles between the normal price-card/checklist/actions view and the
+// "not available in your city" notice — used by both the single-service
+// view (qbUpdatePrice) and the multi-service list view (qbRenderServicesList).
+function qbSetNotAvailable(isUnavailable) {
+  const notAvailEl = document.getElementById('qbNotAvailable');
+  const singleView = document.getElementById('qbSingleServiceView');
+  const servicesList = document.getElementById('qbServicesList');
+  if (notAvailEl) notAvailEl.style.display = isUnavailable ? 'block' : 'none';
+  // #qbPhoneField stays permanently hidden now (see template) — no
+  // longer toggled here.
+  if (isUnavailable) {
+    if (singleView) singleView.style.display = 'none';
+    if (servicesList) servicesList.style.display = 'none';
+  }
+}
+
+function bindQuickBookModal() {
+  document.getElementById('qbCitySelect').addEventListener('change', () => {
+    const cityId = document.getElementById('qbCitySelect').value;
+    if (!cityId) return;
+    document.getElementById('fCity').value = cityId;
+    if (typeof updateCityButtonLabels === 'function') updateCityButtonLabels(cityId);
+    try { localStorage.setItem('seerua_last_city', cityId); } catch (e) { /* private browsing etc */ }
+    refreshAppliancesForCity(cityId).then(() => {
+      qbShowDetails();
+    });
+  });
+
+  document.querySelectorAll('.qb-service-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.qb-service-type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      qbServiceType = btn.getAttribute('data-service-type');
+      qbUpdatePrice();
+    });
+  });
+
+  document.getElementById('quickBookModalClose').addEventListener('click', closeQuickBookModal);
+  document.getElementById('quickBookModal').addEventListener('click', (e) => {
+    if (e.target.id === 'quickBookModal') closeQuickBookModal();
+  });
+
+  // Sets up the hidden main-form fields to match what was chosen here,
+  // then calls the same, already-tested addItemToCart() — this is the
+  // one place both "Add" and "Book" share, since both need the item
+  // actually added to the cart first.
+  async function qbDoAdd() {
+    const msg = document.getElementById('qbMsg');
+    // BUG FIX: this used to be unreachable without an account (the old
+    // gate in openQuickBookModal() already forced sign-in before the
+    // modal ever opened) — now that browsing type/price needs no
+    // account at all, this is the actual point that needs one. Pauses
+    // here, remembers exactly what was being tried (Add vs Book Now)
+    // via qbPendingRetryAction, and resumes it automatically once
+    // account-gate succeeds — see the 'quickbook' branch in
+    // proceedAfterAccountGate().
+    if (!getAccount()) {
+      openAccountGate('quickbook', qbApplianceId);
+      return false;
+    }
+    // BUG FIX: this used to read #qbPhone's own value — that field is
+    // intentionally hidden once an account exists (see the comment on
+    // its prefill in openQuickBookModalReal), so if it was ever empty at
+    // this exact moment for any reason (e.g. a timing gap right after
+    // the account-gate auto-retry re-opens this modal), the person saw
+    // 'please enter a valid mobile number' with literally no visible
+    // field to type one into. Reading straight from the account itself
+    // removes that fragile dependency entirely.
+    const phone = getAccount().phone;
+    if (!/^[0-9]{10}$/.test(phone)) {
+      msg.className = 'form-msg error';
+      msg.textContent = 'Please enter a valid 10 digit mobile number.';
+      return false;
+    }
+    document.getElementById('fAppliance').value = qbApplianceId;
+    refreshFormTypes();
+    document.getElementById('fType').value = qbSelectedTypeId;
+    document.getElementById('fServiceType').value = qbServiceType;
+    document.getElementById('fQty').value = 1;
+    document.getElementById('fPhone').value = phone;
+    const cartLengthBefore = cartItems.length;
+    await addItemToCart();
+    const addMsg = document.getElementById('addItemMsg');
+    if (addMsg && addMsg.className.includes('error')) {
+      msg.className = 'form-msg error';
+      msg.textContent = addMsg.textContent;
+      return false;
+    }
+    // BUG FIX: this used to only check for the 'error' class — but when
+    // the item is already in the cart (a duplicate), addItemToCart() sets
+    // the 'notice' class and does NOT actually add anything, yet this
+    // function still returned true (treated as success). The caller
+    // (qbBookBtn) had already set quickBookViewStartIndex = cartItems.length
+    // BEFORE this ran, expecting one new item to land there — if nothing
+    // actually got added, that index now points past the real end of the
+    // array, so the "just this item" checkout that follows ends up empty
+    // or, worse, mis-scoped once anything else changes cartItems.length
+    // afterward. Treat "nothing was actually added" as not-success too.
+    if (addMsg && addMsg.className.includes('notice')) {
+      msg.className = 'form-msg notice';
+      msg.textContent = addMsg.textContent;
+      return false;
+    }
+    // BUG FIX: the city-mismatch check inside addItemToCart() (a saved
+    // account's city differing from what's currently being booked) opens
+    // its OWN separate modal and does a bare `return` — setting neither
+    // the 'error' nor 'notice' class checked above. That meant THIS
+    // function still fell through to `return true`, and the caller
+    // showed a "✅ Added to your cart!" success toast — while the
+    // mismatch modal was still open in the background and NOTHING had
+    // actually been added. Checking whether cartItems' length genuinely
+    // grew is a definitive, mechanism-agnostic way to catch this (and
+    // any other future path that blocks the add without setting one of
+    // those two classes).
+    if (cartItems.length <= cartLengthBefore) {
+      return false;
+    }
+    return true;
+  }
+
+document.getElementById('qbAddBtn').addEventListener('click', async () => {
+  quickBookViewStartIndex = null;
+  qbPendingRetryAction = 'add';
+  const ok = await qbDoAdd();
+  if (ok) {
+    qbPendingRetryAction = null;
+    // BEHAVIOR CHANGE (per explicit request): close the Appliance Details
+    // modal immediately after a successful Add, instead of leaving it
+    // open with an inline message — a toast confirms it worked without
+    // requiring an extra tap to dismiss the modal.
+    closeQuickBookModal();
+    showToast('✅ Added to your cart!');
+  }
+});
+
+  document.getElementById('qbBookBtn').addEventListener('click', async () => {
+    const expectedIndex = cartItems.length;
+    quickBookViewStartIndex = expectedIndex;
+    qbPendingRetryAction = 'book';
+    const ok = await qbDoAdd();
+    // SAFETY CHECK: even if qbDoAdd() reported success, confirm a new item
+    // actually landed at the expected index before treating this as a
+    // scoped "book just this one" checkout — protects against this ever
+    // silently mis-scoping and pulling in unrelated cart items (or
+    // submitting nothing) if some other edge case slips past qbDoAdd's
+    // own check.
+    if (ok && cartItems.length > expectedIndex) {
+      qbPendingRetryAction = null;
+      closeQuickBookModal();
+      openBookingForm();
+      hideRedundantBookingFields();
+    } else if (ok) {
+      quickBookViewStartIndex = null;
+    }
+    // else: account-gate just opened (qbDoAdd returned false because no
+    // account existed yet) — leave qbPendingRetryAction set, so success
+    // there resumes this exact action automatically.
+  });
+}
+
+bindQuickBookModal();
+
+init();
