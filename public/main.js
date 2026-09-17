@@ -640,6 +640,31 @@ document.addEventListener('click', (e) => {
 // height is still changing as content loads in, and a scroll started
 // too early ends up pointed at whatever content happened to land there
 // once the page settles, not the form itself.
+// BUG FIX ("page refresh karne par quick book appliance ka form khul raha
+// hai"): landing on /?city=..&appliance=..&type=..#quickbook (from a
+// Google-indexed SEO page's Book link) opens the Quick Book modal, but
+// that URL itself was never cleaned up afterward — so it just sits in the
+// address bar. Any later refresh of that same tab (or the customer coming
+// back to it, or forwarding the link to someone else) re-triggers the
+// exact same auto-open all over again, even though there's nothing left
+// to "land on" — they're just looking at their own homepage. Stripping
+// just the city/appliance/type params and the #quickbook hash right after
+// the modal has actually opened (via history.replaceState, which changes
+// the address bar without reloading the page or losing modal state) means
+// a refresh from here on just shows the plain homepage, exactly like a
+// customer who opened it directly. Other params some other feature might
+// still rely on (e.g. ?ref=... for referrals) are left untouched.
+function clearQuickBookUrlParams() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('city');
+    url.searchParams.delete('appliance');
+    url.searchParams.delete('type');
+    url.hash = '';
+    history.replaceState(null, '', url.pathname + url.search);
+  } catch (e) { /* URL/history APIs unavailable — not worth failing over */ }
+}
+
 function bindUrlTriggeredSections() {
   const trackPhoneParam = new URLSearchParams(window.location.search).get('trackPhone');
   if (trackPhoneParam && /^[0-9]{10}$/.test(trackPhoneParam)) {
@@ -667,7 +692,10 @@ function bindUrlTriggeredSections() {
     // page's Book link, e.g. "Split AC Service in Jalesar") so the modal
     // opens straight to that type instead of always the first one.
     const urlTypeId = qbUrlParams.get('type');
-    if (urlApplianceId) openQuickBookModal(urlApplianceId, urlTypeId);
+    if (urlApplianceId) {
+      openQuickBookModal(urlApplianceId, urlTypeId);
+      clearQuickBookUrlParams();
+    }
   }
 }
 // A #track/#book link followed from outside the page (e.g. an SMS/WhatsApp
@@ -1214,6 +1242,7 @@ function autoOpenBookingFromUrlParams() {
   }
   if (applianceId && APPLIANCES.find(a => a.id === applianceId && !a.hidden)) {
     openQuickBookModal(applianceId, typeId);
+    clearQuickBookUrlParams();
   } else if (window.location.hash === '#book' || window.location.hash === '#services') {
     document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
   }
