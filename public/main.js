@@ -295,6 +295,10 @@ document.getElementById('fCity')?.addEventListener('change', checkAddressCityMis
 // lookup (OpenStreetMap Nominatim) to prefill the Landmark field.
 let activeAddressTargetInputId = null;
 let activeAddressPreviewId = null;
+// Tracks whichever modal (Account Gate during a new booking, or the
+// Edit Details modal from My Account) this address flow was opened from
+// — see the BUG FIX comment in openSelectAddressModal() below for why.
+let activeAddressParentModalId = null;
 let selectedSaveAs = null;
 let pendingLatLng = null;
 // Tracks which saved address (by its own id) is currently being edited
@@ -330,9 +334,33 @@ function updateAddressPreview(targetInputId, previewId) {
   preview.textContent = target.value.trim() ? `📍 ${target.value.trim()}` : '📍 Select Address';
 }
 
+// BUG FIX ("Book Your Service ke do popup hote hain" — Add New Address ke
+// pehli baar click par do popup dikhte hain jabki matter same hai): this
+// address picker (and the Add/Edit Address form it leads to) opens ON TOP
+// OF whichever modal launched it — Account Gate during a new customer's
+// booking, or Edit Details from My Account. That parent modal was never
+// actually hidden while this one was open, only visually covered by it —
+// so its own popup card (same size, same center position) stuck out from
+// behind this narrower/shorter one, and on screen it genuinely looked like
+// two separate popups were open together. Hiding the parent for as long as
+// this address flow is on screen (restored the moment an address is
+// picked, or this is closed without picking one — see
+// closeSelectAddressModal()/closeAddAddressModal()/applyChosenAddress()
+// below) fixes the look without changing how the address itself is chosen.
+function hideAddressParentModal(targetInputId) {
+  activeAddressParentModalId = targetInputId === 'agEditAddress' ? 'accountEditModal' : 'accountGateModal';
+  document.getElementById(activeAddressParentModalId)?.classList.remove('open');
+}
+function restoreAddressParentModal() {
+  if (activeAddressParentModalId) {
+    document.getElementById(activeAddressParentModalId)?.classList.add('open');
+  }
+}
+
 function openSelectAddressModal(targetInputId, previewId) {
   activeAddressTargetInputId = targetInputId;
   activeAddressPreviewId = previewId;
+  hideAddressParentModal(targetInputId);
   const phone = currentAddressPhone();
   let list = getSavedAddresses(phone);
   // BUG FIX: this "saved addresses" list lives entirely in localStorage,
@@ -418,6 +446,13 @@ function openSelectAddressModal(targetInputId, previewId) {
 }
 function closeSelectAddressModal() {
   document.getElementById('selectAddressModal')?.classList.remove('open');
+  // Safe to always restore here, even when this is actually a same-tick
+  // hand-off to the Add/Edit Address form (closeSelectAddressModal()
+  // immediately followed by openAddAddressModal() — see the
+  // addNewAddressBtn/edit-btn handlers below): openAddAddressModal()
+  // re-hides the parent right after, synchronously, before the browser
+  // ever paints this in-between state, so there's no visible flash.
+  restoreAddressParentModal();
 }
 function applyChosenAddress(a) {
   const target = document.getElementById(activeAddressTargetInputId);
@@ -427,10 +462,22 @@ function applyChosenAddress(a) {
     target.dispatchEvent(new Event('change'));
   }
   if (activeAddressPreviewId) updateAddressPreview(activeAddressTargetInputId, activeAddressPreviewId);
+  // Both of these restore the parent modal themselves (see their own
+  // definitions) — calling both here is harmless (the second is a no-op)
+  // and keeps this working regardless of which of the two was actually
+  // open when the address got picked.
   closeSelectAddressModal();
   closeAddAddressModal();
 }
 function openAddAddressModal(isEditing) {
+  // Re-hides the parent modal (Account Gate / Edit Details) — this is
+  // reached either straight from openSelectAddressModal() (which already
+  // hid it, so this is a harmless no-op) or, when re-entered on its own
+  // via the edit-pencil handler after closeSelectAddressModal() already
+  // restored it, this is what actually keeps it hidden. Either way,
+  // activeAddressParentModalId was already set by the openSelectAddressModal()
+  // call that necessarily preceded this one.
+  document.getElementById(activeAddressParentModalId)?.classList.remove('open');
   if (!isEditing) editingAddressId = null;
   const titleEl = document.getElementById('addAddressModalTitle');
   if (titleEl) titleEl.textContent = isEditing ? 'Edit Address' : 'Add New Address';
@@ -451,6 +498,9 @@ function openAddAddressModal(isEditing) {
 }
 function closeAddAddressModal() {
   document.getElementById('addAddressModal')?.classList.remove('open');
+  // Safe to always restore here too — see closeSelectAddressModal()'s
+  // comment for why a same-tick hand-off elsewhere never causes a flash.
+  restoreAddressParentModal();
 }
 
 document.getElementById('addNewAddressBtn')?.addEventListener('click', () => {
