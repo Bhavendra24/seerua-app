@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-EFFRPPGF3X"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+  gtag("config", "G-EFFRPPGF3X");
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+<!-- Tells browsers this site is light-themed only, so Android Chrome's
+     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
+     thing than just following prefers-color-scheme) leaves logos, photos,
+     and brand colors alone instead of algorithmically recoloring them. -->
+<meta name="color-scheme" content="light">
+<title>AC, Washing Machine, RO &amp; Fridge Repair at Home | Seerua</title>
+<meta name="description" content="Book AC, washing machine, RO or fridge repair at home. Verified technicians, transparent city-wise pricing, same-day doorstep service.">
+<meta name="keywords" content="AC repair near me, washing machine repair, RO service, fridge repair, appliance service booking, doorstep appliance repair, split AC service, window AC repair, seerua appliance care">
+<link rel="canonical" href="https://seerua.com/">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Seerua Appliance Care">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://seerua.com/">
+<meta property="og:title" content="Seerua Appliance Care | AC, Washing Machine, RO &amp; Fridge Service At Your Doorstep">
+<meta property="og:description" content="Book AC, washing machine, RO and fridge repair or service with verified technicians at fair, city-wise pricing.">
+<meta property="og:image" content="/images/logo.png">
+<meta property="og:locale" content="en_IN">
+
+<link rel="icon" href="/images/logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css?v=202609080t">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Seerua Appliance Care",
+  "image": "/images/logo.png",
+  "description": "Doorstep repair and service for AC, washing machine, RO and fridge - verified technicians, transparent city-wise pricing.",
+  "telephone": "+91-9389585479",
+  "email": "b4india@gmail.com",
+  "priceRange": "₹₹",
+  "areaServed": {{AREA_SERVED_JSON}},
+  "url": "https://seerua.com/",
+  "sameAs": {{SAME_AS_JSON}}{{AGGREGATE_RATING_JSON}}
+}
+</script>
+{{FAQ_SCHEMA_JSON}}
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="/" class="brand">
+      <picture><source srcset="/images/logo.webp" type="image/webp"><img src="/images/logo.png" alt="Seerua Appliance Care Logo"></picture>
+      <span class="brand-name-stack">
+        <span class="brand-name-main">SEERUA</span>
+        <span class="brand-name-sub">Appliance Care</span>
+      </span>
+    </a>
+    <nav class="nav-links" id="navLinks">
+      <!-- FLOW CHANGE: replaced the single "Menu" button with these 4
+           direct links/buttons for desktop — Home, Our Services,
+           Careers, and City (opens the same city-picker sheet the
+           bottom nav's City button already uses). -->
+      <a href="/">Home</a>
+      <a href="#services">Our Services</a>
+      <a href="/careers">👷 Careers</a>
+      <button type="button" class="nav-menu-btn" id="navCityBtn">City</button>
+    </nav>
+    <div class="header-actions">
+      <a class="call-link" href="tel:+919389585479">
+        📞 <span class="call-text">9389585479</span>
+      </a>
+      <!-- BUG FIX ("Desktop par Add to Cart ka symbol nahi hai kahi
+           bhi"): the only Cart icon on the whole site lived in the
+           mobile-only bottom-nav (hidden entirely on desktop via CSS) —
+           there was genuinely no way to see or open the cart from a
+           desktop browser at all. Same icon/badge/click-behavior as
+           that bottom-nav button, just placed in the desktop header
+           instead — see headerCartBtn's own binding in main.js. -->
+      <button type="button" class="header-cart-btn" id="headerCartBtn" aria-label="Cart">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        <span class="header-cart-badge" id="headerCartBadge" hidden>0</span>
+      </button>
+      <!-- FLOW CHANGE: "My Account" moved out of the nav-links text list
+           into its own always-visible icon here — a plain person icon
+           before an account exists, or a circular avatar with the
+           customer's name-initial once it does (see
+           updateHeaderAccountUI() in main.js). Tapping it either starts
+           the shared Account Gate (no account yet) or opens a small
+           menu with "My Account" + "Logout" (account exists). -->
+      <div class="header-account" id="headerAccountWrap">
+        <button type="button" class="header-account-btn" id="headerAccountBtn" aria-label="My Account">
+          <svg id="headerAccountIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span id="headerAccountInitial" class="header-account-initial" style="display:none;"></span>
+        </button>
+        <div class="header-account-menu" id="headerAccountMenu">
+          <button type="button" class="header-account-menu-item" id="headerAccountTrackBtn">📦 Track Booking</button>
+          <button type="button" class="header-account-menu-item" id="headerAccountEditBtn">✏️ Edit Profile</button>
+          <button type="button" class="header-account-menu-item" id="headerAccountReferBtn">🎁 Refer a Friend</button>
+          <button type="button" class="header-account-menu-item" id="headerAccountLogoutBtn">🚪 Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- HERO + PRICE CALCULATOR -->
+<section class="hero hero-coded-section">
+  <div class="container hero-coded-grid hero-coded-grid-solo">
+    <div class="hero-coded-text">
+      <h1>Your Appliance. <span class="hero-accent-wrap">Our Care.<svg class="hero-underline" viewBox="0 0 220 14" preserveAspectRatio="none"><path d="M2 10c40-10 160-10 216 0" stroke="var(--accent-500)" stroke-width="4" stroke-linecap="round" fill="none"/></svg></span></h1>
+      <p class="hero-sub">Fast, Reliable &amp; Professional Appliance Service at Your Doorstep.</p>
+      <!-- Real, admin-entered Google rating (Admin > Site Rating) — only
+           shown once loadPublicStats() (main.js) confirms real numbers
+           are actually configured; hidden by default so nothing fake or
+           placeholder ever displays. Links straight to the real Google
+           listing so it's independently verifiable. -->
+      <div class="hero-badges" id="heroRating" style="display:none;">
+        <span id="heroRatingText">⭐ Loading rating…</span>
+      </div>
+      </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="services.eyebrow">Our services</span>
+      <h2 data-i18n="services.title">One place for every appliance need</h2>
+      <p id="servicesSubText">From {{APPLIANCE_LIST_TEXT}}, repair and service for every essential home appliance.</p>
+    </div>
+    <div class="services-grid reveal" id="servicesGrid">{{SERVICES_GRID_HTML}}</div>
+  </div>
+</section>
+
+<!-- SERVICE DETAILS (SEO content) — built dynamically in main.js from each
+     appliance's aboutText (Admin panel → Appliances & Types), so this
+     section always matches whatever appliances currently exist: add an
+     appliance and write its text there, delete one and its block here
+     goes with it, automatically. -->
+<section class="bg-mist" id="serviceDetails" style="display:none;">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Know your appliance</span>
+      <h2>Appliance care, explained</h2>
+    </div>
+    <div class="reveal" style="display:grid; gap:8px;" id="serviceDetailsList"></div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS — hidden entirely until at least 3 real customer reviews
+     exist (see loadPublicReviews() in main.js); no placeholder/sample cards
+     are shown, so the site never displays anything that isn't real. -->
+<section id="testimonialsSection" style="display:none;">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Customer feedback</span>
+      <h2>What our customers say</h2>
+      <p id="testimonialSectionNote"></p>
+    </div>
+    <div class="testimonial-grid reveal" id="testimonialGrid"></div>
+  </div>
+</section>
+
+<!-- WHY CHOOSE US -->
+<section class="bg-mist" id="whyUs">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="why.eyebrow">Why Seerua Appliance Care</span>
+      <h2 data-i18n="why.title">The service to trust, every time</h2>
+    </div>
+    <div class="why-grid reveal">
+      <div class="why-item">
+        <div class="why-icon">✔</div>
+        <h4 data-i18n="why.item1Title">Verified Technicians</h4>
+        <p data-i18n="why.item1Desc">Every technician is trained and background verified.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">₹</div>
+        <h4 data-i18n="why.item2Title">Transparent City-wise Pricing</h4>
+        <p data-i18n="why.item2Desc">Each city has its own fair price, with no hidden charges.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">⏱</div>
+        <h4 data-i18n="why.item3Title">Choose Your Time Slot</h4>
+        <p data-i18n="why.item3Desc">Pick a morning, afternoon or evening slot that works for you — most visits happen the same day or the next.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="about.eyebrow">About Us</span>
+      <h2 data-i18n="about.title">Built to be your city's most trusted appliance care partner</h2>
+      <p>Seerua Appliance Care was founded on a simple idea: home appliance repair and maintenance should be fast, fair, and completely transparent. From {{APPLIANCE_LIST_TEXT}}, we bring together technology, trained professionals, and honest, upfront pricing to deliver a service experience customers can rely on, every single time.</p>
+    </div>
+    <div class="why-grid reveal">
+      <div class="why-item">
+        <div class="why-icon">🏢</div>
+        <h4 data-i18n="about.item1Title">Who We Are</h4>
+        <p data-i18n="about.item1Desc">A growing appliance care company built for the modern home, expanding city by city with one goal — bringing dependable, doorstep service to more households every month.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">🛠️</div>
+        <h4 data-i18n="about.item2Title">Our Technicians</h4>
+        <p data-i18n="about.item2Desc">Every technician on our platform is individually screened, trained, and background-verified before they're ever allowed into a customer's home — so you can trust the person at your door.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">🚀</div>
+        <h4 data-i18n="about.item3Title">Our Promise</h4>
+        <p data-i18n="about.item3Desc">Just like the platforms you already trust for everyday services, Seerua is built around speed, transparency, and customer-first support — because great service should never be complicated.</p>
+      </div>
+      <div class="why-item">
+        <div class="why-icon">🐾</div>
+        <h4>Beyond Appliances</h4>
+        <p>We believe good business should give back. A share of every service fee goes toward training underprivileged youth for real employment, and caring for street animals with food and medical aid — because looking after your home should also mean looking after our community.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CITIES -->
+<section class="bg-mist section-cities-compact" id="cities">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="cities.eyebrow">Service areas</span>
+      <h2 data-i18n="cities.title">We currently serve these cities</h2>
+    </div>
+    <div class="city-chip-row reveal" id="cityChipRow"></div>
+  </div>
+</section>
+
+
+<!-- BRANDS SERVICED -->
+<section class="bg-mist" id="brands">
+  <div class="container">
+    <div class="section-head reveal">
+      <h2 data-i18n="brands.title">We repair and service every major brand</h2>
+    </div>
+    <div class="brand-strip reveal">
+      <span class="brand-chip">LG</span>
+      <span class="brand-chip">Samsung</span>
+      <span class="brand-chip">Voltas</span>
+      <span class="brand-chip">Whirlpool</span>
+      <span class="brand-chip">IFB</span>
+      <span class="brand-chip">Godrej</span>
+      <span class="brand-chip">Haier</span>
+      <span class="brand-chip">Bosch</span>
+      <span class="brand-chip">Panasonic</span>
+      <span class="brand-chip">Blue Star</span>
+      <span class="brand-chip">Daikin</span>
+      <span class="brand-chip">Kent</span>
+    </div>
+  </div>
+</section>
+
+<!-- BOOKING FORM — proper popup modal now (was a plain page section that
+     just sat inline in the page flow, pushing content below it down
+     whenever it opened, instead of floating above everything like every
+     other modal on this site). -->
+<div class="modal-backdrop" id="bookingModalBackdrop">
+  <div class="modal modal-lg">
+    <div class="booking-wrap" id="bookingWrap">
+      <button type="button" class="booking-close-btn" onclick="closeBookingForm()" aria-label="Close booking form">✕</button>
+
+      <!-- Shown instead of the form when Admin has paused new bookings
+           (Admin Panel > Booking Status) — the rest of the site (SEO
+           pages, careers) stays fully live either way, see main.js. -->
+      <div id="bookingPausedNotice" hidden style="max-width:520px;margin:0 auto;text-align:center;padding:28px 20px;">
+        <div style="font-size:2rem;margin-bottom:10px;">🛠️</div>
+        <h3 style="margin-bottom:8px;">We're Not Accepting New Bookings Right Now</h3>
+        <p id="bookingPausedMessageText" style="color:var(--slate);">Please check back soon, or call us and we'll let you know when we're back.</p>
+        <a href="tel:+919389585479" class="btn btn-outline" style="margin-top:14px;">📞 Call Us</a>
+      </div>
+
+      <form class="booking-form" id="bookingForm">
+        <div class="field" id="fCityField">
+          <label for="fCity" data-i18n="booking.cityLabel">City *</label>
+          <select id="fCity" required></select>
+        </div>
+
+        <div class="cart-add-box">
+          <p class="cart-add-title" data-i18n="booking.addTitle">Add an appliance to this booking</p>
+          <div class="form-row">
+            <div class="field">
+              <label for="fAppliance" data-i18n="booking.applianceLabel">Appliance</label>
+              <select id="fAppliance"></select>
+            </div>
+            <div class="field">
+              <label for="fType" data-i18n="booking.typeLabel">Type</label>
+              <select id="fType"></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="fServiceType" data-i18n="booking.needLabel">What do you need?</label>
+              <select id="fServiceType">
+                <option value="service" data-i18n="booking.serviceOption">Service / AMC</option>
+                <option value="repair" data-i18n="booking.repairOption">Repair</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="fQty" data-i18n="booking.qtyLabel">Quantity</label>
+              <input type="number" id="fQty" min="1" max="10" value="1">
+            </div>
+          </div>
+          <div class="field">
+            <label for="fProblem" data-i18n="booking.problemLabel">Problem / Notes (optional)</label>
+            <textarea id="fProblem" rows="2" data-i18n-placeholder="booking.problemPlaceholder" placeholder="e.g. Not cooling properly"></textarea>
+          </div>
+          <div class="field">
+            <label for="fPhoto" data-i18n="booking.photoLabel">Photo of the appliance/issue (optional)</label>
+            <input type="file" id="fPhoto" accept="image/*" capture="environment">
+            <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;" data-i18n="booking.photoHelp">Helps the technician arrive prepared with the right spare part.</p>
+            <div id="fPhotoPreview" style="display:none;margin-top:8px;"></div>
+          </div>
+          <!-- FLOW CHANGE: mobile number is no longer typed here — it's
+               captured once, up front, by the shared Account Gate (see
+               #accountGateModal) before this form is ever shown. The
+               field stays in the DOM (hidden) purely so all the existing
+               OTP/cart logic in main.js that reads/writes #fPhone keeps
+               working unchanged; applyAccountToBookingFields() fills it
+               in automatically from the saved account. -->
+          <div class="field" id="fPhoneField" style="display:none;">
+            <label for="fPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
+            <input type="tel" id="fPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
+            <small id="fPhoneLockNote" style="display:none;color:var(--slate);margin-top:4px;">🔒 Locked to this number — remove all items below to use a different number.</small>
+          </div>
+          <button type="button" class="btn btn-outline btn-block" id="addItemBtn" data-i18n="booking.addBtn">+ Add to Booking</button>
+          <div class="form-msg" id="addItemMsg"></div>
+        </div>
+
+        <div class="cart-list" id="cartList"></div>
+        <div class="cart-empty" id="cartEmpty" data-i18n="booking.emptyCart">No appliances added yet. Add at least one above.</div>
+        <div class="quick-book-scope-note" id="quickBookScopeNote" style="display:none;">🔒 Booking just this one item. Anything already in your regular cart is untouched and still waiting for you there.</div>
+
+        <div class="coupon-row" id="couponRow" style="display:none;">
+          <input type="text" id="couponCode" placeholder="Have a coupon code?" style="text-transform:uppercase;">
+          <button type="button" class="btn btn-outline btn-sm" id="applyCouponBtn">Apply</button>
+        </div>
+        <div class="msg-inline-coupon" id="couponMsg"></div>
+
+        <!-- FLOW CHANGE: name + address are now collected once, up front,
+             in the Account Gate's "Add Address" step (see
+             #accountGateModal / openAccountGate() in main.js), not here.
+             These fields are auto-filled and set read-only from the
+             saved account; "✏️ Edit Address" re-opens that same step to
+             change them, rather than editing inline — matches the
+             wireframe's separate "Edit Address" screen. Kept as real
+             (not hidden) fields so nothing else in main.js that reads
+             #fName/#fAddress needs to change. -->
+        <div class="form-row">
+          <div class="field">
+            <label for="fName">Full Name *</label>
+            <input type="text" id="fName" required placeholder="Your name">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="fAddress">Full Address *</label>
+          <textarea id="fAddress" rows="3" required placeholder="House no., street, landmark, pincode"></textarea>
+          <button type="button" class="btn btn-outline btn-sm" id="editAddressBtn" style="display:none;margin-top:8px;">✏️ Edit Address / City</button>
+          <!-- Soft warning only, never blocks submitting — an address
+               legitimately can mention a nearby/other city's name as a
+               landmark (e.g. "near Moradabad road"), so this is just a
+               nudge to double-check, not a hard validation rule. -->
+          <p class="form-msg" id="fAddressCityWarning" style="display:none;color:#b45309;background:#fffbeb;padding:8px 10px;border-radius:8px;margin-top:8px;"></p>
+        </div>
+
+        <div class="field">
+          <label for="dtTriggerBtn">Date &amp; Time *</label>
+          <!-- FLOW CHANGE: date + time slot are now chosen together in one
+               popup (#dateTimeModal, Jay Home Services style: quick date
+               pills + a "Pick" calendar, then time slots grouped under
+               Morning/Afternoon/Evening) instead of two separate inline
+               fields. #fDate and #fDateDisplay stay as hidden fields
+               holding the same values everything else in main.js already
+               reads/writes — see openDateTimeModal()/refreshSlots() in
+               main.js. -->
+          <button type="button" id="dtTriggerBtn" class="dt-trigger-btn">
+            <span id="dtTriggerText">📅 Select Date &amp; Time</span>
+            <span class="dt-trigger-arrow">›</span>
+          </button>
+          <input type="text" id="fDateDisplay" style="display:none;" aria-hidden="true">
+          <input type="hidden" id="fDate" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="submitBookingBtn" data-i18n="booking.submitBtn">Submit</button>
+        <div class="form-msg" id="formMsg"></div>
+      </form>
+
+      <!-- Clean, celebratory confirmation shown INSTEAD of the form once
+           a booking succeeds — per request, simple like most home-service
+           booking apps: one big checkmark, a short "you're booked"
+           statement, then just the few details that actually matter
+           (booking ID, total, visit time), not a dense text paragraph.
+           SIMPLIFIED FURTHER (per explicit request): stripped down to
+           just checkmark + booking number + slot/time — no heading text,
+           no extra message, no service/price line, no website link.
+           Small popup, stays until the customer taps Done themselves
+           (no auto-close). -->
+      <div id="bookingSuccessView" style="display:none;text-align:center;padding:20px 0;">
+        <div class="success-check-circle">✓</div>
+        <div class="success-detail-card" style="max-width:280px;margin:18px auto 0;">
+          <div class="success-detail-row"><span>Booking No.</span><strong id="successBookingId"></strong></div>
+          <div class="success-detail-row"><span>Slot</span><strong id="successVisit"></strong></div>
+        </div>
+        <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
+        <button type="button" class="btn btn-primary btn-block" style="margin-top:8px;max-width:280px;margin-left:auto;margin-right:auto;" onclick="closeBookingForm()">Visit Website</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRACK ORDER + REFER & EARN (merged) -->
+<section id="track">
+  <div class="container">
+    <div id="trackWrap" hidden>
+      <div class="section-head">
+        <span class="eyebrow" data-i18n="track.eyebrow">Check your order</span>
+        <h2 data-i18n="track.title">My Account</h2>
+        <p data-i18n="track.sub">See the live status of every appliance in your booking, and quickly rebook with the same details.</p>
+      </div>
+      <!-- FLOW CHANGE: this box (mobile number + Check Status + results)
+           is no longer shown on the page — every path that used to
+           reveal it (header "Track Booking", after placing a booking, a
+           "rate your service" SMS link) now opens the Track Booking
+           popup instead (#trackBookingModal). Kept in the DOM, just
+           permanently hidden, because #trackPhone/#trackBtn/#trackResults
+           are still the underlying engine those flows drive — see
+           trackBtn's click handler in main.js. -->
+      <div class="track-box reveal" style="max-width:640px;display:none;">
+        <div class="field">
+          <label for="trackPhone" data-i18n="track.phoneLabel">Registered Mobile Number</label>
+          <input type="tel" id="trackPhone" data-i18n-placeholder="track.phonePlaceholder" placeholder="10 digit number" maxlength="10">
+        </div>
+        <button class="btn btn-primary btn-block" id="trackBtn" data-i18n="track.checkBtn">Check Status</button>
+        <div class="track-results" id="trackResults"></div>
+      </div>
+
+      <!-- Kept as its own separate card (not inside .track-box above) so it
+           doesn't read as part of the phone-number/tracking form — it's a
+           different action entirely. Starts as just a single button; the
+           actual link only appears once that button is tapped, and folds
+           back away right after the WhatsApp share is sent, so there's
+           never a stray "link box" left open on screen. -->
+      <div id="refer" class="track-box" style="max-width:640px;margin-top:20px;" hidden>
+        <div id="referBannerReferred" style="display:none;margin-bottom:16px;padding:12px 14px;border-radius:var(--radius-sm);background:#e7f8ee;color:var(--green);font-size:0.9rem;font-weight:700;"></div>
+
+        <div id="referToggleRow" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+          <div>
+            <strong style="color:var(--blue-900);" data-i18n="refer.cardTitle">🎁 Refer a Friend</strong>
+            <div style="font-size:0.84rem;color:var(--slate);margin-top:2px;" data-i18n="refer.cardSub">Share your link — you both get ₹100 off.</div>
+          </div>
+          <button type="button" class="btn btn-primary" id="referOpenBtn" data-i18n="refer.getLinkBtn">Get My Referral Link</button>
+        </div>
+
+        <div id="referLookup" style="display:none;margin-top:16px;">
+          <div class="field">
+            <label for="referPhone" data-i18n="refer.phoneLabel">Your Mobile Number</label>
+            <input type="tel" id="referPhone" data-i18n-placeholder="track.phonePlaceholder" placeholder="10 digit number" maxlength="10">
+          </div>
+          <button class="btn btn-primary btn-block" id="referGetLinkBtn" data-i18n="refer.getLinkBtn">Get My Referral Link</button>
+        </div>
+        <div class="form-msg" id="referMsg"></div>
+
+        <!-- Only populated once the customer's referral info has actually
+             loaded (see renderReferralStatus in main.js) — shows their
+             link, how many people they've referred, and every reward
+             coupon they've earned so far (code, amount, used/unused,
+             expiry). This used to be silently discarded by the code even
+             though the server already computed all of it — a referrer had
+             no way to ever find out they'd earned something. -->
+        <div id="referStatus" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="bg-mist" id="faq">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="faq.eyebrow">Frequently asked questions</span>
+      <h2 data-i18n="faq.title">FAQ</h2>
+    </div>
+    <div class="faq-list reveal" id="faqList">
+      {{FAQ_LIST_HTML}}
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-col-brand">
+      <div class="footer-brand">
+        <picture><source srcset="/images/logo.webp" type="image/webp"><img src="/images/logo.png" alt="Seerua Appliance Care"></picture>
+        <span>Seerua Appliance Care</span>
+      </div>
+      <p class="footer-slogan">{{FOOTER_SLOGAN}}</p>
+      <p>{{FOOTER_DESCRIPTION}}</p>
+      <div class="footer-contact-icons">
+        <a href="tel:+919389585479" class="footer-icon-link footer-icon-call" aria-label="Call us" title="Call us">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.49a1 1 0 011 1 11.36 11.36 0 00.57 3.56 1 1 0 01-.25 1.02l-2.2 2.2z" fill="currentColor"/></svg>
+        </a>
+        <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="footer-icon-link footer-icon-whatsapp" aria-label="Chat on WhatsApp" title="WhatsApp">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.36-.53.05-1.05.24-3.52-.73-2.98-1.17-4.86-4.2-5.01-4.4-.15-.19-1.2-1.59-1.2-3.03 0-1.44.75-2.15 1.02-2.44.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.76 1.26 1.63 2.04 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.73-.85.92-1.14.19-.29.39-.24.65-.14.27.1 1.68.79 1.97.93.29.15.48.22.55.34.07.13.07.75-.17 1.43z" fill="currentColor"/></svg>
+        </a>
+        <a href="mailto:b4india@gmail.com" class="footer-icon-link" aria-label="Email us" title="Email us">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5.5A1.5 1.5 0 014.5 4h15A1.5 1.5 0 0121 5.5v13a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5v-13z" stroke="currentColor" stroke-width="1.6"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year"></span> Seerua Appliance Care. All rights reserved.</span>
+      <span><a href="/terms">Terms &amp; Conditions</a></span>
+    </div>
+  </div>
+</footer>
+
+<a class="wa-float" href="https://wa.me/919389585479" target="_blank" rel="noopener" aria-label="Chat on WhatsApp" style="display:none;">
+  <svg width="30" height="30" viewBox="0 0 32 32" fill="white"><path d="M16.04 3C9.37 3 3.98 8.38 3.98 15.05c0 2.44.7 4.72 1.9 6.66L3 29l7.47-2.83c1.84.99 3.94 1.56 6.16 1.56h.01c6.66 0 12.06-5.38 12.06-12.05C28.7 8.38 23.31 3 16.04 3zm0 21.9c-2.03 0-3.94-.55-5.58-1.51l-.4-.24-4.43 1.68 1.7-4.32-.26-.44a9.9 9.9 0 0 1-1.53-5.4C5.54 9.34 10.29 4.6 16.04 4.6c2.79 0 5.42 1.09 7.39 3.06a10.34 10.34 0 0 1 3.05 7.39c0 5.75-4.75 10.5-10.44 10.85zm5.72-7.87c-.31-.16-1.85-.91-2.13-1.01-.29-.1-.5-.16-.7.16-.21.31-.81 1.01-.99 1.22-.18.21-.36.23-.67.08-.31-.16-1.32-.49-2.51-1.56-.93-.83-1.56-1.86-1.74-2.17-.18-.31-.02-.48.14-.63.14-.14.31-.36.47-.55.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.7-1.69-.96-2.31-.25-.6-.5-.52-.7-.53-.18-.01-.39-.01-.6-.01s-.55.08-.84.39c-.29.31-1.1 1.08-1.1 2.62s1.13 3.04 1.28 3.25c.16.21 2.23 3.4 5.4 4.77.75.32 1.34.51 1.8.66.76.24 1.44.21 1.99.13.61-.09 1.85-.75 2.11-1.48.26-.73.26-1.35.18-1.48-.08-.13-.29-.21-.6-.36z"/></svg>
+</a>
+
+<!-- Simple menu-driven chat assistant (own site code, no external AI/API cost) — see public/js/chatbot.js -->
+<div id="chatWidgetRoot"></div>
+
+<!-- SUGGESTION IMPLEMENTED: unified bottom navigation bar (Home / City /
+     Support / Cart / Menu) replacing the separate floating WhatsApp
+     bubble + mobile-only Call/Book bar — one consistent, always-visible
+     navigation on both mobile and desktop, matching a standard mobile-
+     app-style bottom tab bar. The center "Support" button opens a small
+     sheet with Call/WhatsApp/Chat so all 3 contact paths live in one
+     place instead of being scattered across separate floating buttons. -->
+<nav class="bottom-nav" id="bottomNav">
+  <a href="/" class="bottom-nav-item">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+    <span>Home</span>
+  </a>
+  <button type="button" class="bottom-nav-item" id="bottomNavCityBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+    <span>City</span>
+  </button>
+  <button type="button" class="bottom-nav-item" id="bottomNavCartBtn" data-has-cart="true">
+    <span class="bottom-nav-cart-wrap">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+      <span class="bottom-nav-badge" id="bottomNavCartBadge" hidden>0</span>
+    </span>
+    <span>Cart</span>
+  </button>
+  <button type="button" class="bottom-nav-item" id="bottomNavMenuBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+    <span>Menu</span>
+  </button>
+</nav>
+
+<!-- BUG FIX: this button + its fan-out used to live INSIDE <nav
+     class="bottom-nav">. Both are position:fixed and float completely
+     independently of that nav bar, but with the nav bar's position
+     forced to `static` on wider/laptop screens (so it can be visually
+     collapsed away there without also hiding these two — see the
+     display:none/height:0 story in style.css), these fixed children
+     ended up computing their fixed position against the full page
+     height instead of the viewport, landing thousands of pixels down
+     the page — effectively invisible on any laptop-sized screen. Moving
+     them to be plain siblings of <nav>, not descendants of it, sidesteps
+     that containing-block quirk entirely regardless of what the nav's
+     own position is set to. -->
+<button type="button" class="bottom-nav-support" id="bottomNavSupportBtn" aria-label="Contact us">
+  <span class="bottom-nav-support-inner">
+  <svg class="support-icon-default" viewBox="0 0 24 24" width="30" height="30" fill="white"><path d="M13.57,8.44 L13.08,9.10 L13.08,11.92 L13.41,12.58 L14.40,12.74 L15.39,12.25 L15.39,12.08 L15.72,11.75 L15.72,11.26 L15.89,11.09 L15.89,9.93 L15.72,9.77 L15.72,9.27 L15.06,8.61 L14.73,8.44 Z"></path><path d="M8.28,8.44 L7.94,8.61 L7.28,9.27 L7.28,9.77 L7.12,9.93 L7.12,11.26 L7.61,12.25 L7.78,12.25 L8.11,12.58 L9.10,12.74 L9.27,12.58 L9.60,12.58 L9.93,11.92 L9.93,9.10 L9.43,8.44 Z"></path><path d="M7.45,4.63 L6.12,6.12 L5.63,7.12 L5.63,7.45 L5.30,8.11 L5.30,8.94 L5.13,9.10 L5.13,10.59 L5.46,11.09 L5.96,11.09 L6.29,10.76 L6.29,8.61 L6.46,8.44 L6.62,7.61 L7.12,6.62 L8.61,5.13 L9.60,4.63 L10.59,4.47 L10.76,4.30 L12.25,4.30 L12.41,4.47 L13.41,4.63 L14.40,5.13 L15.89,6.62 L16.06,7.12 L16.39,7.45 L16.55,8.44 L16.72,8.61 L16.72,13.41 L16.55,13.74 L16.06,14.07 L12.91,14.07 L12.25,13.57 L10.76,13.57 L10.10,14.07 L9.93,14.90 L10.59,15.72 L10.92,15.72 L11.09,15.89 L11.92,15.89 L12.08,15.72 L12.41,15.72 L12.91,15.23 L16.22,15.23 L16.88,14.90 L17.54,14.23 L17.71,13.90 L17.71,13.41 L17.88,13.24 L17.88,9.10 L17.71,8.94 L17.71,8.11 L17.54,7.94 L17.54,7.45 L16.55,5.63 L15.56,4.63 L15.39,4.63 L14.57,3.97 L13.90,3.64 L13.57,3.64 L13.41,3.48 L12.91,3.48 L12.74,3.31 L10.43,3.31 L10.26,3.48 L9.60,3.48 L9.43,3.64 L9.10,3.64 L8.44,3.97 L8.11,4.30 Z"></path></svg>
+  <svg class="support-icon-close" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  </span>
+</button>
+<div class="support-fan-out" id="supportFanOut">
+  <a href="tel:+919389585479" class="support-fan-btn support-fan-call" aria-label="Call">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2z"></path></svg>
+  </a>
+  <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="support-fan-btn support-fan-whatsapp" aria-label="WhatsApp">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm5.8 14.1c-.24.68-1.4 1.3-1.93 1.38-.5.08-1.11.11-1.79-.11-.41-.13-.94-.31-1.61-.6-2.85-1.23-4.71-4.1-4.85-4.29-.14-.19-1.16-1.54-1.16-2.94s.73-2.09.99-2.38c.26-.28.56-.35.75-.35s.38 0 .54.01c.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.15.12.32.02.51-.09.19-.14.31-.28.48-.14.16-.29.36-.42.48-.14.13-.28.28-.12.55.16.28.7 1.16 1.51 1.88 1.04.92 1.91 1.21 2.19 1.35.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.28.36-.23.6-.14.24.1 1.53.72 1.79.85.26.13.44.19.5.3.06.11.06.63-.18 1.31z"></path></svg>
+  </a>
+  <button type="button" class="support-fan-btn support-fan-ai" id="supportFanAiBtn" aria-label="Chat with Bella AI">
+    <svg viewBox="0 0 48 48" width="28" height="28">
+      <circle cx="24" cy="6" r="2.2" fill="#0277FB"></circle>
+      <line x1="24" y1="8" x2="24" y2="13" stroke="#0277FB" stroke-width="2"></line>
+      <rect x="8" y="13" width="32" height="26" rx="10" fill="#0277FB"></rect>
+      <rect x="11.5" y="16.5" width="25" height="19" rx="7" fill="#eaf4ff"></rect>
+      <ellipse cx="18.5" cy="26" rx="3.6" ry="4.4" fill="#0277FB"></ellipse>
+      <circle cx="19.6" cy="24.4" r="1.2" fill="white"></circle>
+      <ellipse cx="29.5" cy="26" rx="3.6" ry="4.4" fill="#0277FB"></ellipse>
+      <circle cx="30.6" cy="24.4" r="1.2" fill="white"></circle>
+      <path d="M19 32.5 Q24 36 29 32.5" stroke="#0277FB" stroke-width="2" fill="none" stroke-linecap="round"></path>
+      <rect x="2" y="22" width="4" height="8" rx="2" fill="#0277FB"></rect>
+      <rect x="42" y="22" width="4" height="8" rx="2" fill="#0277FB"></rect>
+    </svg>
+  </button>
+</div>
+
+<!-- Support sheet: Call / WhatsApp / Chat with Bella, opened from the
+     center bottom-nav button — one place for every way to reach a human
+     or Bella, instead of separate floating icons. -->
+<div class="bottom-sheet-backdrop" id="supportSheetBackdrop">
+  <div class="bottom-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <h3>Humse Judein</h3>
+    <button type="button" class="bottom-sheet-option" id="supportSheetChatBtn">
+      <span class="bottom-sheet-icon" style="background:#eef0ff;color:#5b5bd6;">🤖</span>
+      <span><strong>Bella AI Seerua Assistant</strong></span>
+    </button>
+    <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e6f9ed;color:#1aa251;">💬</span>
+      <span><strong>WhatsApp</strong></span>
+    </a>
+    <a href="tel:+919389585479" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e8f4ff;color:#0d6efd;">📞</span>
+      <span><strong>Call</strong></span>
+    </a>
+  </div>
+</div>
+
+<!-- City sheet: pick a city to jump to its dedicated service page. -->
+<div class="bottom-sheet-backdrop" id="citySheetBackdrop">
+  <div class="bottom-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <h3>Select Your City</h3>
+    <div class="bottom-sheet-city-grid" id="bottomSheetCityGrid"></div>
+  </div>
+</div>
+
+<!-- Menu sheet: the site's own section links, in one tap-friendly sheet
+     instead of a top hamburger dropdown — consistent with the rest of
+     this bottom-nav pattern. -->
+<div class="bottom-sheet-backdrop" id="menuSheetBackdrop">
+  <div class="bottom-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <h3>Menu</h3>
+    <a href="/careers" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fff4e6;color:#d97706;">👷</span>
+      <span><strong>Careers</strong><br><small>Join as a technician partner</small></span>
+    </a>
+    <a href="/#services" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e8f4ff;color:#0d6efd;">🔧</span>
+      <span><strong>Our Services</strong><br><small>AC, Washing Machine, RO, Fridge</small></span>
+    </a>
+    <a href="/#serviceDetails" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fff8e1;color:#d97706;">💡</span>
+      <span><strong>Know Your Appliance</strong><br><small>Guides and tips</small></span>
+    </a>
+    <a href="/#testimonialsSection" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fde8f0;color:#d6336c;">⭐</span>
+      <span><strong>Reviews</strong><br><small>What customers say</small></span>
+    </a>
+    <a href="/#whyUs" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#e6f9ed;color:#1aa251;">🛡️</span>
+      <span><strong>Why Seerua Appliance Care</strong><br><small>Trust points</small></span>
+    </a>
+    <a href="/#cities" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fdeee6;color:#e8590c;">📍</span>
+      <span><strong>Service Area</strong><br><small>Cities covered</small></span>
+    </a>
+    <a href="/#brands" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#f0edff;color:#6741d9;">🏷️</span>
+      <span><strong>All Brands</strong><br><small>Supported brand logos</small></span>
+    </a>
+    <a href="/#faq" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#f3e8ff;color:#9333ea;">❓</span>
+      <span><strong>FAQ</strong><br><small>Common questions</small></span>
+    </a>
+  </div>
+</div>
+
+
+<!-- CAREERS MODAL — click the "Careers" button anywhere on this page to open
+     this form right here (no page navigation needed) and submit it directly.
+     A full standalone version of this same form also lives at /careers,
+     which keeps working even when Maintenance Mode is on. -->
+<!-- QUICK BOOK MODAL — opened by tapping any appliance card. Reuses the
+     same underlying fields/logic as the main booking form (fCity,
+     fAppliance, fType, fPhone, addItemToCart, etc. in main.js) so all
+     the OTP/pricing/cart behavior stays exactly as already tested —
+     this is just a friendlier, per-appliance front end for it. -->
+<div class="modal-backdrop" id="quickBookModal">
+  <div class="modal quick-book-modal">
+    <button type="button" class="modal-close" id="quickBookModalClose" aria-label="Close">✕</button>
+
+    <!-- SIMPLIFIED (per explicit request): City selector now lives at
+         the top of the SAME screen as Type/Price, instead of being a
+         separate step with its own "Continue" tap — selecting a city
+         here immediately refreshes the price below it. -->
+    <div id="qbDetailsStep">
+      <div class="field" id="qbCityField" style="margin-bottom:14px;">
+        <label for="qbCitySelect">City</label>
+        <select id="qbCitySelect" class="qb-city-select"></select>
+      </div>
+      <h3 id="qbApplianceTitle">Service</h3>
+      <div class="qb-type-tabs" id="qbTypeTabs"></div>
+
+      <!-- Shown instead of everything below when this appliance/type has
+           no pricing set up for the selected city (e.g. it was removed
+           from that city, or never added there) — a plain, friendly
+           notice rather than a confusing empty-looking price card with
+           active-but-pointless Add/Book buttons underneath it. -->
+      <div id="qbNotAvailable" class="qb-not-available" style="display:none;">
+        <div class="qb-not-available-icon">🚧</div>
+        <p><strong>Currently not serving this in your city.</strong><br>We're working on it — coming soon!</p>
+      </div>
+
+      <!-- FLOW CHANGE (Instant Booking): mobile number field removed from
+           here entirely — by the time this modal can open, openQuickBookModal()
+           in main.js has already gated on the shared Account Gate, so the
+           phone number is already known/verified. #qbPhone stays in the
+           DOM (hidden) only so the existing qbDoAdd()/qbAddService() code
+           reading it keeps working — it's auto-filled from the account. -->
+      <div class="field" id="qbPhoneField" style="display:none;">
+        <label for="qbPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
+        <input type="tel" id="qbPhone" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
+      </div>
+
+      <!-- Shown when the selected type has a defined list of specific
+           services (e.g. AC's Window/Split/Cassette AC: Service, Repair,
+           Installation, Uninstallation, Gas Filling) — a scrollable list
+           of cards, each its own price + checklist + Add/Book. -->
+      <div id="qbServicesList" class="qb-services-list" style="display:none;"></div>
+
+      <!-- Fallback for types WITHOUT a defined services list (most
+           appliances currently) — the original simple single price card
+           with a Service/Repair toggle. -->
+      <div id="qbSingleServiceView">
+        <div class="qb-price-card">
+          <img id="qbPriceImg" src="" alt="" class="qb-price-img">
+          <div>
+            <div class="qb-price-title" id="qbPriceTitle">Service in your city</div>
+            <div class="qb-price-row">
+              <span class="qb-price-tag">🏷️</span>
+              <span class="qb-price-strike" id="qbPriceStrike"></span>
+              <span class="qb-price-now" id="qbPriceNow"></span>
+            </div>
+            <div class="qb-price-trust">✔ Most Trusted Service</div>
+          </div>
+        </div>
+
+        <div class="qb-service-type-row">
+          <button type="button" class="qb-service-type-btn active" data-service-type="service">Service / AMC</button>
+          <button type="button" class="qb-service-type-btn" data-service-type="repair">Repair</button>
+        </div>
+
+        <ul class="qb-checklist" id="qbChecklist"></ul>
+
+        <div class="qb-actions">
+          <button type="button" class="qb-btn qb-btn-add" id="qbAddBtn">🛒 Add</button>
+          <button type="button" class="qb-btn qb-btn-book" id="qbBookBtn">Book</button>
+        </div>
+      </div>
+      <div class="form-msg" id="qbMsg"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="careersModal">
+  <div class="modal">
+    <button type="button" class="modal-close" id="careersModalClose" aria-label="Close">✕</button>
+    <h3>Join as a Technician Partner</h3>
+    <p class="modal-sub">Tell us about your experience — our team will contact you when there's an opening in your city.</p>
+    <form id="careersModalForm">
+      <div class="form-row">
+        <div class="field">
+          <label for="mcapName">Full Name *</label>
+          <input type="text" id="mcapName" required placeholder="Your name">
+        </div>
+        <div class="field">
+          <label for="mcapPhone">Mobile Number *</label>
+          <input type="tel" id="mcapPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label for="mcapAddress">Full Address *</label>
+        <textarea id="mcapAddress" rows="2" required placeholder="House no., street, landmark, pincode"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="mcapCity">City You Can Work In *</label>
+          <select id="mcapCity" required></select>
+        </div>
+        <div class="field">
+          <label for="mcapExperience">Experience (years) *</label>
+          <input type="number" id="mcapExperience" required min="0" max="50" placeholder="e.g. 3">
+        </div>
+      </div>
+      <div class="field">
+        <label for="mcapEducation">Highest Education *</label>
+        <select id="mcapEducation" required></select>
+      </div>
+      <div class="field">
+        <label>Appliances You Can Repair / Service *</label>
+        <div id="mcapAppliancePicker" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="mcapIdType">ID Type (optional, for verification)</label>
+          <select id="mcapIdType">
+            <option value="">Prefer not to share yet</option>
+            <option value="Aadhar">Aadhar Card</option>
+            <option value="PAN">PAN Card</option>
+            <option value="Driving License">Driving License</option>
+            <option value="Voter ID">Voter ID</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="mcapIdNumber">ID Number (optional)</label>
+          <input type="text" id="mcapIdNumber" placeholder="e.g. XXXX-XXXX-1234">
+        </div>
+      </div>
+      <div class="field">
+        <label for="mcapNotes">Anything else you'd like to share? (optional)</label>
+        <textarea id="mcapNotes" rows="2" placeholder="Certifications, brands you specialize in, past experience, etc."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="careersModalCancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit Application</button>
+      </div>
+      <div class="form-msg" id="mcapMsg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- REFER A FRIEND MODAL — its own popup box (same pattern as Track
+     Booking), opened from the header account menu's "Refer a Friend".
+     Closing it wipes its content too, so nothing is left behind. -->
+<div class="modal-backdrop" id="referModal">
+  <div class="modal" style="max-width:480px;">
+    <button type="button" class="modal-close" id="referModalClose" aria-label="Close">✕</button>
+    <h3>🎁 Refer a Friend</h3>
+    <div id="referModalBody">
+      <p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM DATE CALENDAR — replaces the native <input type="date"> for
+     #fDate (see the field in the booking form) to work around a real
+     Android bug where the OS's own calendar picker doesn't register a
+     tap specifically on "today". Fully our own markup/JS, so every date
+     behaves the same everywhere. -->
+<div class="modal-backdrop" id="dateCalendarModal">
+  <div class="modal" style="max-width:360px;">
+    <button type="button" class="modal-close" id="dateCalendarClose" aria-label="Close">✕</button>
+    <div class="date-cal-header">
+      <button type="button" class="date-cal-nav" id="dateCalPrev" aria-label="Previous month">‹</button>
+      <strong id="dateCalMonthLabel"></strong>
+      <button type="button" class="date-cal-nav" id="dateCalNext" aria-label="Next month">›</button>
+    </div>
+    <div class="date-cal-quick" id="dateCalQuick">
+      <button type="button" class="date-cal-quick-btn" id="dateCalTodayBtn">Today</button>
+      <button type="button" class="date-cal-quick-btn" id="dateCalTomorrowBtn">Tomorrow</button>
+    </div>
+    <div class="date-cal-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="date-cal-grid" id="dateCalGrid"></div>
+  </div>
+</div>
+
+<!-- SELECT DATE & TIME — Jay Home Services style: quick date pills
+     (Today / Tomorrow / day-after) plus a "Pick" button for anything
+     further out (reuses #dateCalendarModal above), then time slots
+     grouped under Morning/Afternoon/Evening headings. See
+     openDateTimeModal()/renderDtSlotGroups() in main.js. -->
+<div class="modal-backdrop" id="dateTimeModal">
+  <div class="modal" style="max-width:460px;">
+    <button type="button" class="modal-close" id="dateTimeModalClose" aria-label="Close">✕</button>
+    <h3>Select Date &amp; Time</h3>
+
+    <!-- SIMPLIFIED (per explicit request): a plain calendar (see
+         #dateCalendarModal, opened directly by #dtTriggerBtn now) picks
+         the date instead of a row of quick-pick pills — this just shows
+         whichever date that calendar landed on, with a small link back
+         to it to change the date. -->
+    <p class="dt-modal-label">Selected Date</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--mist);border-radius:var(--radius-sm);margin-bottom:8px;">
+      <strong id="dtSelectedDateLabel" style="color:var(--ink);"></strong>
+      <button type="button" id="dtChangeDateBtn" style="background:none;border:none;color:var(--blue-600);font-weight:600;font-size:0.85rem;cursor:pointer;">Change</button>
+    </div>
+
+    <p class="dt-modal-label" style="margin-top:20px;">Select Time Slot</p>
+    <div id="dtSlotGroups">
+      <p style="font-size:0.82rem;color:var(--slate);margin:0;">Select a city and date above to see available slots.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SELECT ADDRESS + ADD NEW ADDRESS — Jay Home Services style flow.
+     Saved addresses are kept per phone number in localStorage (see
+     main.js) since there's no server-side multi-address table; the
+     final chosen address string still lands in the same hidden
+     #agAddress / #agEditAddress fields the rest of the booking logic
+     already reads, so nothing downstream had to change. -->
+<div class="modal-backdrop" id="selectAddressModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="selectAddressModalClose" aria-label="Close">✕</button>
+    <h3>Select Address</h3>
+    <div id="savedAddressList" style="margin-bottom:14px;"></div>
+    <button type="button" class="btn btn-outline btn-block address-add-new-btn" id="addNewAddressBtn">+ Add New Address</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addAddressModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="addAddressModalClose" aria-label="Close">✕</button>
+    <h3 id="addAddressModalTitle">Add New Address</h3>
+    <button type="button" class="btn btn-primary btn-block" id="useCurrentLocationBtn" style="margin-bottom:6px;">📍 Use Current Location</button>
+    <p class="form-msg" id="addAddressLocationMsg" style="margin-bottom:12px;"></p>
+    <div class="field">
+      <label for="naHouseNo">House/Flat/Block No *</label>
+      <input type="text" id="naHouseNo" placeholder="e.g. B-204, Green Apartments">
+    </div>
+    <div class="field">
+      <label for="naLandmark">Landmark / Society name *</label>
+      <input type="text" id="naLandmark" placeholder="e.g. Near City Mall">
+    </div>
+    <div class="field">
+      <label>Save as *</label>
+      <div class="save-as-pills">
+        <button type="button" class="save-as-pill" data-val="Home">🏠 Home</button>
+        <button type="button" class="save-as-pill" data-val="Work">💼 Work</button>
+        <button type="button" class="save-as-pill" data-val="Other">📍 Other</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="saveNewAddressBtn">Save Address</button>
+    <div class="form-msg" id="addAddressMsg"></div>
+  </div>
+</div>
+
+<!-- TRACK BOOKING MODAL — its own popup box (per explicit request), not a
+     permanent section left sitting open on the page. Opened from the
+     header account menu's "Track Booking"; closing it (✕, tapping
+     outside, or "Book Again") wipes its content too, so nothing is left
+     behind once it's dismissed. -->
+<div class="modal-backdrop" id="trackBookingModal">
+  <div class="modal" style="max-width:480px;">
+    <button type="button" class="modal-close" id="trackBookingModalClose" aria-label="Close">✕</button>
+    <h3>Track Booking</h3>
+    <div id="trackBookingModalBody">
+      <p class="spinner-text" style="color:var(--slate);"><span class="spinner-dot"></span>Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT GATE MODAL — the single shared entry point for BOTH "Booking"
+     and "My Account" (per the unified flow): Mobile Number → OTP verify
+     → (new customers only) Add Address. Saving the address here is what
+     actually creates the account. A customer who has already been
+     through this once (saved in localStorage, see getAccount() in
+     main.js) skips straight past this modal entirely — including for
+     Instant Booking (tapping an appliance card), which used to ask for
+     the mobile number a second time. -->
+<div class="modal-backdrop" id="accountGateModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="accountGateClose" aria-label="Close">✕</button>
+
+    <!-- SIMPLIFIED (per explicit request — modeled on how most simple
+         home-service booking apps work): one combined form instead of
+         a phone-first, address-after multi-step chain. Name, Phone, and
+         Address are all filled in together up front; OTP only happens
+         once, right when this single form is submitted, not as a
+         separate gate before the customer even sees the rest of the
+         form. -->
+    <div id="agPhoneStep">
+      <h3 id="agPhoneTitle">Book Your Service</h3>
+      <p class="modal-sub" id="agPhoneSub">Just a few details to confirm your booking</p>
+      <div class="field">
+        <label for="agName">Name *</label>
+        <input type="text" id="agName" placeholder="Your name">
+      </div>
+      <div class="field">
+        <label for="agPhone">Mobile Number *</label>
+        <input type="tel" id="agPhone" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>Address *</label>
+        <button type="button" class="address-select-btn" id="agAddressSelectBtn">
+          <span id="agAddressPreview">📍 Select Address</span>
+          <span class="address-select-arrow">›</span>
+        </button>
+        <textarea id="agAddress" rows="2" style="display:none;" aria-hidden="true"></textarea>
+      </div>
+      <button type="button" class="btn btn-primary btn-block" id="agSendBtn">Save</button>
+      <div class="form-msg" id="agPhoneMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Kept for the rare fallback path (editing an ALREADY-saved account's
+     details later, via "Edit Profile") — see agAddressStep usages in
+     main.js. Not part of the first-time booking flow above anymore. -->
+<div class="modal-backdrop" id="accountEditModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" onclick="document.getElementById('accountEditModal').classList.remove('open')" aria-label="Close">✕</button>
+    <div id="agAddressStep">
+      <h3 id="agAddressTitle">Edit Details</h3>
+      <p class="modal-sub">Update your saved name, city, or address.</p>
+      <div class="field">
+        <label for="agEditName">Name *</label>
+        <input type="text" id="agEditName" placeholder="Your name">
+      </div>
+      <div class="field">
+        <label for="agCity">City *</label>
+        <select id="agCity"></select>
+      </div>
+      <div class="field">
+        <label>Address *</label>
+        <button type="button" class="address-select-btn" id="agEditAddressSelectBtn">
+          <span id="agEditAddressPreview">📍 Select Address</span>
+          <span class="address-select-arrow">›</span>
+        </button>
+        <textarea id="agEditAddress" rows="2" style="display:none;" aria-hidden="true"></textarea>
+      </div>
+      <button type="button" class="btn btn-primary btn-block" id="agSaveBtn">Save</button>
+      <div class="form-msg" id="agAddressMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Our own OTP-entry box — replaced relying on MSG91's built-in popup UI,
+     which was reliably sending real SMS OTPs (confirmed) but never
+     rendering ANY visible popup on screen, on any device or environment
+     tested. Using MSG91's "exposeMethods" mode instead: it sends the OTP
+     the same way, but leaves showing the actual entry UI up to us — this
+     is that UI, guaranteed to render since it's just a normal part of
+     this page, not a third-party widget's own (mysteriously invisible)
+     overlay. -->
+<div class="modal-backdrop" id="otpEntryModal">
+  <div class="modal" style="max-width:360px;">
+    <button type="button" class="modal-close" id="otpEntryClose" aria-label="Close">✕</button>
+    <h3>Verify Your Number</h3>
+    <p class="modal-sub">We've sent a code by SMS to <strong id="otpEntryPhone"></strong>.</p>
+    <div class="field">
+      <label for="otpEntryCode">Enter OTP</label>
+      <input type="tel" id="otpEntryCode" inputmode="numeric" maxlength="6" placeholder="Enter the code" autocomplete="one-time-code" style="letter-spacing:0.3em;font-size:1.2rem;text-align:center;">
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="otpEntrySubmit">Verify</button>
+    <div class="form-msg" id="otpEntryMsg"></div>
+    <button type="button" class="btn btn-outline btn-block" id="otpEntryResend" style="margin-top:8px;">Resend Code</button>
+  </div>
+</div>
+
+<script src="/js/main.js?v=202609091zc"></script>
+<script src="/js/i18n.js?v=202609080a"></script>
+<script src="/js/chatbot.js?v=202609080a"></script>
+</body>
+</html>
