@@ -3071,11 +3071,25 @@ let qbModalHiddenByGate = false;
 function hideQuickBookModalForGate() {
   const qbModalEl = document.getElementById('quickBookModal');
   qbModalHiddenByGate = !!(qbModalEl && qbModalEl.classList.contains('open'));
-  if (qbModalHiddenByGate) qbModalEl.classList.remove('open');
+  if (qbModalHiddenByGate) {
+    qbModalEl.classList.remove('open');
+    // BELT AND SUSPENDERS: the stylesheet already ties visibility to the
+    // 'open' class (.modal-backdrop{display:none} / .open{display:flex}),
+    // so removing the class above should be enough on its own — but this
+    // bug kept reproducing live even after that was verified correct, so
+    // force the inline style directly too. An inline style always wins
+    // over a stylesheet rule regardless of any specificity/ordering
+    // question, so this can't lose to anything.
+    qbModalEl.style.display = 'none';
+  }
 }
 function restoreQuickBookModalAfterGate() {
   if (qbModalHiddenByGate) {
-    document.getElementById('quickBookModal')?.classList.add('open');
+    const qbModalEl = document.getElementById('quickBookModal');
+    if (qbModalEl) {
+      qbModalEl.classList.add('open');
+      qbModalEl.style.display = ''; // hand control back to the normal .open CSS rule
+    }
     qbModalHiddenByGate = false;
   }
 }
@@ -3095,18 +3109,31 @@ function restoreQuickBookModalAfterGate() {
   const qb = document.getElementById('quickBookModal');
   if (!gate || !qb || typeof MutationObserver === 'undefined') return;
   const reconcile = () => {
-    const gateOpen = gate.classList.contains('open');
-    const qbOpen = qb.classList.contains('open');
+    // Read visibility the same way the CSS actually decides it (both the
+    // class AND a possible inline style — belt and suspenders, matching
+    // hideQuickBookModalForGate()'s own inline style.display fallback),
+    // not just the class, so this can't be fooled by whichever mechanism
+    // actually ends up controlling the real live page.
+    const gateOpen = gate.classList.contains('open') && getComputedStyle(gate).display !== 'none';
+    const qbOpen = qb.classList.contains('open') && getComputedStyle(qb).display !== 'none';
     if (gateOpen && qbOpen) {
       qb.classList.remove('open');
+      qb.style.display = 'none';
       qb.dataset.hiddenByGateGuard = '1';
     } else if (!gateOpen && qb.dataset.hiddenByGateGuard && !qbOpen) {
       qb.classList.add('open');
+      qb.style.display = '';
       delete qb.dataset.hiddenByGateGuard;
     }
   };
   const observer = new MutationObserver(reconcile);
-  observer.observe(gate, { attributes: true, attributeFilter: ['class'] });
+  observer.observe(gate, { attributes: true, attributeFilter: ['class', 'style'] });
+  // Ultimate fallback in case something about this page's real, live
+  // environment stops the MutationObserver above from firing the way it
+  // does in every local test — costs nothing (two classList/style reads,
+  // ~3x/second) and guarantees this self-corrects within a third of a
+  // second even in the worst case.
+  setInterval(reconcile, 300);
   observer.observe(qb, { attributes: true, attributeFilter: ['class'] });
 })();
 let qbServiceType = 'service';
