@@ -185,13 +185,9 @@ function openBookingForm() {
   const msg = document.getElementById('formMsg');
   if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
   // Reset back to showing the actual form — a previous booking in this
-  // same session may have left #bookingSuccessView or #bookingDetailsView
-  // (the countdown stage before it) showing instead.
+  // same session may have left #bookingSuccessView showing instead.
   const successView = document.getElementById('bookingSuccessView');
   if (successView) successView.style.display = 'none';
-  const detailsView = document.getElementById('bookingDetailsView');
-  if (detailsView) detailsView.style.display = 'none';
-  bookingDetailsCountdownToken = null;
   const bookingFormEl = document.getElementById('bookingForm');
   if (bookingFormEl) bookingFormEl.style.display = '';
   // Reset to the full form by default — see hideRedundantBookingFields()
@@ -218,18 +214,7 @@ function openBookingForm() {
 function closeBookingForm() {
   const backdrop = document.getElementById('bookingModalBackdrop');
   if (backdrop) backdrop.classList.remove('open');
-  // Cancels the details->thank-you countdown (see the booking submit
-  // handler) if the modal is closed while it's still running, so it can't
-  // reach into a closed/reused modal later and flip screens or fire the
-  // chime for a booking the customer already dismissed.
-  bookingDetailsCountdownToken = null;
 }
-// Token object identifying the CURRENT details->thank-you countdown (see
-// the booking submit handler) — reassigned to a fresh object each time a
-// new countdown starts, and cleared to null by closeBookingForm(). The
-// countdown's own setTimeout chain checks this on every tick and stops
-// silently the moment it no longer matches.
-let bookingDetailsCountdownToken = null;
 
 // Short confirmation chime played alongside the checkmark when a booking
 // succeeds — same technique as the technician panel's own completion
@@ -260,16 +245,11 @@ function playSuccessChime() {
 // dark area closed it without the customer ever tapping OK, which
 // directly contradicted "screen ruke jab tak OK na dabaye". Skipped
 // specifically while that success view is visible; the OK button is
-// the only way to close it from there. Also skipped during the details
-// countdown screen (#bookingDetailsView) for the same reason — closeBookingForm()
-// still cancels the countdown either way (see there), this just stops a
-// stray tap from doing that silently mid-countdown.
+// the only way to close it from there.
 document.getElementById('bookingModalBackdrop')?.addEventListener('click', (e) => {
   if (e.target.id !== 'bookingModalBackdrop') return;
   const successView = document.getElementById('bookingSuccessView');
-  const detailsView = document.getElementById('bookingDetailsView');
   if (successView && successView.style.display !== 'none') return;
-  if (detailsView && detailsView.style.display !== 'none') return;
   closeBookingForm();
 });
 
@@ -2314,12 +2294,11 @@ function bindFormEvents() {
       const savedBits = [];
       if (data.booking.discountAmount) savedBits.push(`coupon: ₹${data.booking.discountAmount}`);
       if (data.booking.referralDiscount) savedBits.push(`referral: ₹${data.booking.referralDiscount}`);
-      // TWO-STAGE CONFIRMATION (per explicit request: show the actual
-      // booking details — service, date & time, charge — right away, and
-      // only after a short countdown swap to the plain checkmark
-      // "Thank you!" screen, with the confirmation sound timed to that
-      // tick appearing, not to the details screen. See
-      // #bookingDetailsView / #bookingSuccessView in index.template.html.
+      // BACK TO ONE SCREEN (per explicit request: the two-stage
+      // details-then-thank-you version is removed again) — everything
+      // (tick, booking number, service, date & time, charge) fills in and
+      // shows immediately on #bookingSuccessView, chime playing right
+      // away with the tick.
       const visitLabel = `${data.booking.timeSlot}, ${formatDateDisplay(data.booking.bookingDate)}`;
       document.getElementById('successBookingId').textContent = data.booking.id;
       document.getElementById('successVisit').textContent = visitLabel;
@@ -2327,36 +2306,10 @@ function bindFormEvents() {
         .map(it => `${it.qty}x ${it.applianceName} (${it.typeName}, ${it.serviceType === 'repair' ? 'Repair' : 'Service'})`)
         .join(', ');
       document.getElementById('detailsServiceList').textContent = serviceListText;
-      document.getElementById('detailsVisit').textContent = visitLabel;
       document.getElementById('detailsCharge').textContent = `₹${data.booking.totalPrice}`;
       document.getElementById('bookingForm').style.display = 'none';
-      document.getElementById('bookingSuccessView').style.display = 'none';
-      document.getElementById('bookingDetailsView').style.display = 'block';
-      // 3-second countdown shown on the details screen itself (matches the
-      // reference flow's "Redirecting automatically in N seconds..."),
-      // then swap to the tick screen and play the chime right at that
-      // moment. Guarded with a flag on the modal so if the customer closes
-      // the whole booking modal mid-countdown (✕ / tapping outside) this
-      // timer doesn't reach in afterwards and flip screens on a closed
-      // modal, or fire the chime for a booking they've already dismissed.
-      let detailsCountdown = 3;
-      const countdownEl = document.getElementById('detailsCountdown');
-      if (countdownEl) countdownEl.textContent = detailsCountdown;
-      bookingDetailsCountdownToken = {};
-      const myToken = bookingDetailsCountdownToken;
-      const tickCountdown = () => {
-        if (bookingDetailsCountdownToken !== myToken) return; // superseded/cancelled
-        detailsCountdown -= 1;
-        if (detailsCountdown <= 0) {
-          document.getElementById('bookingDetailsView').style.display = 'none';
-          document.getElementById('bookingSuccessView').style.display = 'block';
-          playSuccessChime();
-          return;
-        }
-        if (countdownEl) countdownEl.textContent = detailsCountdown;
-        setTimeout(tickCountdown, 1000);
-      };
-      setTimeout(tickCountdown, 1000);
+      document.getElementById('bookingSuccessView').style.display = 'block';
+      playSuccessChime();
       form.reset();
       // BUG FIX: form.reset() alone doesn't reliably clear the phone
       // field — many mobile browsers ignore autocomplete="off" for phone
