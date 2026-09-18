@@ -590,7 +590,12 @@ document.getElementById('saveNewAddressBtn')?.addEventListener('click', () => {
   applyChosenAddress(savedAddr);
 });
 
-document.getElementById('agAddressSelectBtn')?.addEventListener('click', () => openSelectAddressModal('agAddress', 'agAddressPreview'));
+// agAddressSelectBtn removed (see index.template.html's #agPhoneStep
+// comment) — the first-time booking gate's address is now a plain
+// textarea typed directly on the same card, not a button opening a
+// second popup. #agEditAddressSelectBtn (Edit Profile, for an
+// already-registered customer managing saved addresses) still uses the
+// picker — different, later use case.
 document.getElementById('agEditAddressSelectBtn')?.addEventListener('click', () => openSelectAddressModal('agEditAddress', 'agEditAddressPreview'));
 
 // My History (order tracking + referral) is hidden until the person taps
@@ -3458,8 +3463,10 @@ function openAccountGate(intent, applianceId) {
   document.getElementById('agPhoneMsg').textContent = '';
   document.getElementById('agName').value = '';
   document.getElementById('agPhone').value = '';
+  // Address is now a plain textarea typed directly on this same card (see
+  // index.template.html's #agPhoneStep) — no more separate select/preview
+  // popup to reset here.
   document.getElementById('agAddress').value = '';
-  if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
   resetAgOtpStep();
   hideQuickBookModalForGate();
   document.getElementById('accountGateModal').classList.add('open');
@@ -3809,8 +3816,9 @@ async function openEditProfile() {
     document.getElementById('agPhoneMsg').textContent = '';
     document.getElementById('agName').value = acc.name || '';
     document.getElementById('agPhone').value = acc.phone;
+    // Plain textarea now (see #agPhoneStep) — just prefill the value, no
+    // separate preview span to keep in sync anymore.
     document.getElementById('agAddress').value = acc.address || '';
-    if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
     const title = document.getElementById('agPhoneTitle');
     const sub = document.getElementById('agPhoneSub');
     if (title) title.textContent = 'Please verify again';
