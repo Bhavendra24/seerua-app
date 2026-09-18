@@ -2770,23 +2770,58 @@ function waitForOtpMethods(timeoutMs) {
 // MSG91's own popup entirely and hands us `window.sendOtp` /
 // `window.verifyOtp` / `window.retryOtp` to drive #otpEntryModal (our
 // own, always-visible modal) directly.
-function verifyPhoneWithOtp(phone) {
+// `opts.inline` (used by the Account Gate flow, see attemptAccountGateVerification)
+// keeps everything inside the SAME popup that's already open — instead of
+// opening the separate #otpEntryModal on top of / after it (the "ek popup
+// band hota hai dusra khulta hai" report, part 2: even after every OTP
+// caller correctly hid whatever modal was behind it, the customer still
+// SAW one popup disappear and a different one appear a beat later, because
+// it genuinely was two different modal-backdrops). Inline mode instead
+// swaps two sibling <div> "steps" inside the still-open #accountGateModal
+// (#agPhoneStep -> #agOtpStep), so nothing ever closes or reopens visually.
+function verifyPhoneWithOtp(phone, opts) {
+  opts = opts || {};
+  const inline = !!opts.inline;
   return new Promise(async (resolve, reject) => {
-    const modal = document.getElementById('otpEntryModal');
-    const phoneEl = document.getElementById('otpEntryPhone');
-    const codeEl = document.getElementById('otpEntryCode');
-    const msgEl = document.getElementById('otpEntryMsg');
-    const submitBtn = document.getElementById('otpEntrySubmit');
-    const resendBtn = document.getElementById('otpEntryResend');
-    const closeBtn = document.getElementById('otpEntryClose');
-    if (!modal || !phoneEl || !codeEl || !msgEl || !submitBtn || !resendBtn || !closeBtn) {
+    const ids = opts.ids || {
+      modal: 'otpEntryModal', phone: 'otpEntryPhone', code: 'otpEntryCode',
+      msg: 'otpEntryMsg', submit: 'otpEntrySubmit', resend: 'otpEntryResend', close: 'otpEntryClose'
+    };
+    const modal = inline ? null : document.getElementById(ids.modal);
+    const phoneEl = document.getElementById(ids.phone);
+    const codeEl = document.getElementById(ids.code);
+    const msgEl = document.getElementById(ids.msg);
+    const submitBtn = document.getElementById(ids.submit);
+    const resendBtn = document.getElementById(ids.resend);
+    const closeBtn = document.getElementById(ids.close);
+    if (!phoneEl || !codeEl || !msgEl || !submitBtn || !resendBtn || !closeBtn || (!inline && !modal)) {
       reject(new Error('OTP entry is not available on this page.'));
       return;
     }
 
+    // Inline mode: show/hide the two step-divs inside accountGateModal
+    // (which stays open throughout). Modal mode (unchanged): show/hide
+    // the standalone #otpEntryModal backdrop, same as before.
+    const showOtpUI = inline
+      ? () => {
+          const phoneStep = document.getElementById('agPhoneStep');
+          const otpStep = document.getElementById('agOtpStep');
+          if (phoneStep) phoneStep.style.display = 'none';
+          if (otpStep) otpStep.style.display = '';
+        }
+      : () => { modal.classList.add('open'); };
+    const hideOtpUI = inline
+      ? () => {
+          const phoneStep = document.getElementById('agPhoneStep');
+          const otpStep = document.getElementById('agOtpStep');
+          if (otpStep) otpStep.style.display = 'none';
+          if (phoneStep) phoneStep.style.display = '';
+        }
+      : () => { modal.classList.remove('open'); };
+
     let settled = false;
     const cleanup = () => {
-      modal.classList.remove('open');
+      hideOtpUI();
       codeEl.value = '';
       msgEl.className = 'form-msg';
       msgEl.textContent = '';
@@ -2817,6 +2852,9 @@ function verifyPhoneWithOtp(phone) {
     // function is covered the same way.
     let modalHiddenForOtp = null;
     const hideOpenModalForOtp = () => {
+      // Inline mode deliberately keeps accountGateModal open the whole
+      // time — there's nothing to hide behind it, that IS the fix.
+      if (inline) return;
       const openModal = Array.from(document.querySelectorAll('.modal-backdrop.open'))
         .find(el => el.id !== 'otpEntryModal');
       modalHiddenForOtp = openModal || null;
@@ -2940,7 +2978,7 @@ function verifyPhoneWithOtp(phone) {
       const identifier = '91' + phone; // MSG91 requires country code, no '+' or spaces
       phoneEl.textContent = phone;
       hideOpenModalForOtp();
-      modal.classList.add('open');
+      showOtpUI();
       msgEl.className = 'form-msg';
       msgEl.textContent = 'Sending code...';
       codeEl.focus();
@@ -3411,14 +3449,39 @@ function openAccountGate(intent, applianceId) {
   document.getElementById('agPhone').value = '';
   document.getElementById('agAddress').value = '';
   if (typeof updateAddressPreview === 'function') updateAddressPreview('agAddress', 'agAddressPreview');
+  resetAgOtpStep();
   hideQuickBookModalForGate();
   document.getElementById('accountGateModal').classList.add('open');
 }
 
+// Always start (and leave) accountGateModal on the Name/Phone/Address step,
+// never mid-OTP — in case it's opened fresh, or closed (via the ✕) while
+// the inline OTP step was showing.
+function resetAgOtpStep() {
+  const phoneStep = document.getElementById('agPhoneStep');
+  const otpStep = document.getElementById('agOtpStep');
+  const otpCode = document.getElementById('agOtpCode');
+  const otpMsg = document.getElementById('agOtpMsg');
+  if (otpStep) otpStep.style.display = 'none';
+  if (phoneStep) phoneStep.style.display = '';
+  if (otpCode) otpCode.value = '';
+  if (otpMsg) { otpMsg.className = 'form-msg'; otpMsg.textContent = ''; }
+}
+
 function closeAccountGate() {
+  // If the customer hits the top ✕ while mid-OTP (inline step showing),
+  // settle that pending verifyPhoneWithOtp() promise as cancelled first —
+  // same as tapping "← Back" — so its event listeners are cleaned up and
+  // attemptAccountGateVerification()'s agSending flag doesn't get stuck
+  // permanently true, blocking every future attempt.
+  const otpStep = document.getElementById('agOtpStep');
+  if (otpStep && otpStep.style.display !== 'none') {
+    document.getElementById('agOtpBack')?.click();
+  }
   document.getElementById('accountGateModal').classList.remove('open');
   qbPendingRetryAction = null;
   qbPendingServiceAction = null;
+  resetAgOtpStep();
   restoreQuickBookModalAfterGate();
 }
 
@@ -3603,7 +3666,17 @@ function bindAccountGateModal() {
 
       let accessToken = null;
       if (otpEnabled && !phoneAlreadyVerified) {
-        accessToken = await verifyPhoneWithOtp(phone);
+        // Inline mode: OTP entry swaps in as a second step INSIDE this
+        // same accountGateModal popup (agPhoneStep -> agOtpStep) instead
+        // of opening the separate #otpEntryModal — so there's only ever
+        // one visible popup for a new customer signing up.
+        accessToken = await verifyPhoneWithOtp(phone, {
+          inline: true,
+          ids: {
+            phone: 'agOtpPhone', code: 'agOtpCode', msg: 'agOtpMsg',
+            submit: 'agOtpSubmit', resend: 'agOtpResend', close: 'agOtpBack'
+          }
+        });
       }
       verifiedBookingPhone = phone;
       verifiedBookingAccessToken = accessToken;
