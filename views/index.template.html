@@ -989,12 +989,21 @@
         <input type="tel" id="agPhone" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
       </div>
       <div class="field">
-        <label>Address *</label>
-        <button type="button" class="address-select-btn" id="agAddressSelectBtn">
-          <span id="agAddressPreview">📍 Select Address</span>
-          <span class="address-select-arrow">›</span>
-        </button>
-        <textarea id="agAddress" rows="2" style="display:none;" aria-hidden="true"></textarea>
+        <!-- SIMPLIFIED (per explicit request: "ek hi popup ko save karte
+             OTP aa jaye, dusre popup ki koi zaroorat nahi h") — address is
+             typed directly into this same Book Your Service card now,
+             instead of a button that opened a separate Select
+             Address / Add New Address popup on top of this one. One
+             popup, one Save, straight to OTP — see
+             attemptAccountGateVerification() in main.js, which already
+             just reads this field's value directly and never depended on
+             the button/preview at all. The saved-addresses-list picker
+             (with Home/Work/Other tags) is kept only for the "Edit
+             Profile" flow for an already-registered customer — see
+             #agEditAddress — since that's a different, later use case
+             from this first-time booking gate. -->
+        <label for="agAddress">Address *</label>
+        <textarea id="agAddress" rows="2" placeholder="House/Flat No., Landmark, Area"></textarea>
       </div>
       <button type="button" class="btn btn-primary btn-block" id="agSendBtn">Save</button>
       <div class="form-msg" id="agPhoneMsg"></div>
