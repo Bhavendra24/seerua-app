@@ -2799,6 +2799,37 @@ function verifyPhoneWithOtp(phone) {
       closeBtn.removeEventListener('click', onClose);
       codeEl.removeEventListener('keydown', onKeydown);
     };
+    // BUG FIX ("ek popup band hota hai dusra khulta hai" — this is very
+    // likely THE actual remaining report behind the whole Account
+    // Gate/Quick Book overlap saga: every local test here disabled OTP to
+    // avoid real network calls, so this exact code path — the OTP entry
+    // modal opening WHILE Account Gate is still open behind it, same
+    // missed-hide bug as the Quick Book/Address ones already fixed —
+    // never actually ran in any of that testing). Account Gate is hidden
+    // here (mirroring hideQuickBookModalForGate()'s own belt-and-
+    // suspenders class+inline-style approach) and restored only if OTP
+    // is cancelled/fails — on success, proceedAfterAccountGate() closes
+    // Account Gate properly moments later anyway, so restoring it first
+    // would just be a pointless flash.
+    let gateHiddenForOtp = false;
+    const hideAccountGateForOtp = () => {
+      const gateEl = document.getElementById('accountGateModal');
+      gateHiddenForOtp = !!(gateEl && gateEl.classList.contains('open'));
+      if (gateHiddenForOtp) {
+        gateEl.classList.remove('open');
+        gateEl.style.display = 'none';
+      }
+    };
+    const restoreAccountGateAfterOtp = () => {
+      if (gateHiddenForOtp) {
+        const gateEl = document.getElementById('accountGateModal');
+        if (gateEl) {
+          gateEl.classList.add('open');
+          gateEl.style.display = '';
+        }
+        gateHiddenForOtp = false;
+      }
+    };
     const finishResolve = (token) => {
       if (settled) return;
       settled = true;
@@ -2809,6 +2840,7 @@ function verifyPhoneWithOtp(phone) {
       if (settled) return;
       settled = true;
       cleanup();
+      restoreAccountGateAfterOtp();
       reject(err);
     };
 
@@ -2905,6 +2937,7 @@ function verifyPhoneWithOtp(phone) {
       await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
       const identifier = '91' + phone; // MSG91 requires country code, no '+' or spaces
       phoneEl.textContent = phone;
+      hideAccountGateForOtp();
       modal.classList.add('open');
       msgEl.className = 'form-msg';
       msgEl.textContent = 'Sending code...';
@@ -3104,38 +3137,57 @@ function restoreQuickBookModalAfterGate() {
 // timing caused it. It only ever acts when both are actually open
 // together — the exact broken state — so it can't change behavior for any
 // normal single-modal flow.
-(function enforceAccountGateOverQuickBookExclusivity() {
-  const gate = document.getElementById('accountGateModal');
-  const qb = document.getElementById('quickBookModal');
-  if (!gate || !qb || typeof MutationObserver === 'undefined') return;
+// GENERIC VERSION of the safety net below: forces `winnerId`'s modal to
+// stay hidden while `loserId`'s modal is open (winner always wins),
+// self-correcting via MutationObserver + a 300ms poll fallback,
+// regardless of which code path or timing caused both to be open. Used
+// for every modal pair found so far where one opens from within the
+// other without properly hiding it first — each new one found (Address
+// over Account Gate, Account Gate over Quick Book, now OTP over Account
+// Gate) turned out to be the same underlying mistake repeated at a
+// different call site, so this net is applied pair-by-pair rather than
+// assumed to be exhaustive.
+function enforceModalExclusivity(winnerId, loserId) {
+  const winner = document.getElementById(winnerId);
+  const loser = document.getElementById(loserId);
+  if (!winner || !loser || typeof MutationObserver === 'undefined') return;
+  const guardAttr = `hiddenByGuard_${winnerId}`;
   const reconcile = () => {
     // Read visibility the same way the CSS actually decides it (both the
     // class AND a possible inline style — belt and suspenders, matching
-    // hideQuickBookModalForGate()'s own inline style.display fallback),
-    // not just the class, so this can't be fooled by whichever mechanism
-    // actually ends up controlling the real live page.
-    const gateOpen = gate.classList.contains('open') && getComputedStyle(gate).display !== 'none';
-    const qbOpen = qb.classList.contains('open') && getComputedStyle(qb).display !== 'none';
-    if (gateOpen && qbOpen) {
-      qb.classList.remove('open');
-      qb.style.display = 'none';
-      qb.dataset.hiddenByGateGuard = '1';
-    } else if (!gateOpen && qb.dataset.hiddenByGateGuard && !qbOpen) {
-      qb.classList.add('open');
-      qb.style.display = '';
-      delete qb.dataset.hiddenByGateGuard;
+    // the hide functions' own inline style.display fallback), not just
+    // the class, so this can't be fooled by whichever mechanism actually
+    // ends up controlling the real live page.
+    const winnerOpen = winner.classList.contains('open') && getComputedStyle(winner).display !== 'none';
+    const loserOpen = loser.classList.contains('open') && getComputedStyle(loser).display !== 'none';
+    if (winnerOpen && loserOpen) {
+      loser.classList.remove('open');
+      loser.style.display = 'none';
+      loser.dataset[guardAttr] = '1';
+    } else if (!winnerOpen && loser.dataset[guardAttr] && !loserOpen) {
+      loser.classList.add('open');
+      loser.style.display = '';
+      delete loser.dataset[guardAttr];
     }
   };
   const observer = new MutationObserver(reconcile);
-  observer.observe(gate, { attributes: true, attributeFilter: ['class', 'style'] });
+  observer.observe(winner, { attributes: true, attributeFilter: ['class', 'style'] });
+  observer.observe(loser, { attributes: true, attributeFilter: ['class', 'style'] });
   // Ultimate fallback in case something about this page's real, live
   // environment stops the MutationObserver above from firing the way it
   // does in every local test — costs nothing (two classList/style reads,
-  // ~3x/second) and guarantees this self-corrects within a third of a
-  // second even in the worst case.
+  // ~3x/second per pair) and guarantees this self-corrects within a
+  // third of a second even in the worst case.
   setInterval(reconcile, 300);
-  observer.observe(qb, { attributes: true, attributeFilter: ['class'] });
-})();
+}
+enforceModalExclusivity('accountGateModal', 'quickBookModal');
+// BUG FIX: the OTP entry step (verifyPhoneWithOtp()) opens its own modal
+// while Account Gate is still open behind it — found only after the
+// Quick Book fix above was confirmed correct AND deployed, yet the exact
+// same-shaped report ("one popup closes, another one opens right after")
+// kept recurring, because every local test here had OTP disabled to
+// avoid real network calls and so never actually exercised this path.
+enforceModalExclusivity('otpEntryModal', 'accountGateModal');
 let qbServiceType = 'service';
 let qbSkuOverride = null; // { price, skuName } — set when adding a specific service-list SKU
 // When set (to an index into cartItems), the cart display/submit only
