@@ -2974,7 +2974,18 @@ function verifyPhoneWithOtp(phone, opts) {
         finishReject(new Error('OTP is turned ON but the Widget ID / Token are not set in Admin Panel > OTP Settings. Add them there first.'));
         return;
       }
-      await loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js']);
+      // BUG FIX: one silent automatic retry before making the customer
+      // tap Save a second time themselves — the prewarm in
+      // openAccountGate() covers most of this already, but if that
+      // hadn't finished yet (very fast typer, or it also hit a hiccup),
+      // this gives the script one more chance to load before surfacing
+      // an error and reverting to the phone/address step.
+      const otpScriptUrls = ['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js'];
+      try {
+        await loadOtpScript(otpScriptUrls);
+      } catch (firstErr) {
+        await loadOtpScript(otpScriptUrls);
+      }
       const identifier = '91' + phone; // MSG91 requires country code, no '+' or spaces
       phoneEl.textContent = phone;
       hideOpenModalForOtp();
@@ -3452,6 +3463,25 @@ function openAccountGate(intent, applianceId) {
   resetAgOtpStep();
   hideQuickBookModalForGate();
   document.getElementById('accountGateModal').classList.add('open');
+  // BUG FIX ("Save davane se same form fir se bhara hua aa jata hai, fir
+  // Save davane se OTP aata hai" — first tap "does nothing" and shows the
+  // same filled-in form again, second tap works): NOT the popup-overlap
+  // bug — that was already fixed. This is verifyPhoneWithOtp() waiting on
+  // MSG91's OTP script to load fresh from their servers only once Save is
+  // tapped; on a slow/flaky mobile connection (or a Render cold start)
+  // that first load can time out, which correctly shows an error and
+  // re-enables the form for a retry — but reads exactly like "same form
+  // came back". Starting that script load right NOW, in the background,
+  // while the customer is still typing their name/phone/address, means
+  // it's very likely already cached by the time they tap Save, so the
+  // slow-first-attempt case becomes rare. Failure here is silently
+  // ignored — verifyPhoneWithOtp() still retries for real when Save is
+  // actually tapped.
+  ensureOtpConfig()
+    .then((cfg) => (cfg && cfg.enabled !== false)
+      ? loadOtpScript(['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js'])
+      : null)
+    .catch(() => {});
 }
 
 // Always start (and leave) accountGateModal on the Name/Phone/Address step,
