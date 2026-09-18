@@ -402,50 +402,28 @@
         <div class="form-msg" id="formMsg"></div>
       </form>
 
-      <!-- TWO-STAGE CONFIRMATION (per explicit request, modeled on the
-           reference booking flow shown): the moment the booking succeeds,
-           show the actual booking details first — service, date & time,
-           service charge — with a short "confirming/redirecting"
-           countdown; only once that countdown runs out does this swap
-           itself to the plain checkmark "Thank you!" screen below, with
-           the confirmation sound playing right as that tick appears (not
-           before). See the submit handler in main.js for the timing.
-           Stage 1 auto-advances on its own countdown; stage 2 still only
-           closes when the customer taps the button themselves (same as
-           before) — the earlier "popup band ho jata hai OK dabaye bina"
-           fix stays intact, this only changes what happens *before* that
-           final screen, not whether it can be dismissed early. -->
-      <div id="bookingDetailsView" style="display:none;text-align:center;padding:20px 0;">
-        <!-- Plain dot, not a checkmark yet — the tick only appears on the
-             final "Thank you!" screen below, once the countdown finishes,
-             so the two stages read as genuinely different moments. No new
-             CSS/keyframes needed (this file has no <style> of its own —
-             everything else comes from the site's separate stylesheet),
-             just the existing round green circle with a small dot inside. -->
-        <div class="success-check-circle" style="color:var(--green);font-size:1.4rem;">•</div>
-        <p style="margin-top:14px;font-weight:700;color:var(--green);">Thank you for booking!</p>
+      <!-- SIMPLIFIED BACK TO ONE SCREEN (per explicit request: the
+           separate "details first, thank-you second" two-stage version
+           is removed again — #bookingDetailsView is gone entirely). This
+           single screen now carries everything: the tick, the Service /
+           Date & Time / Service Charge details, AND the booking
+           number — all filled in the moment the booking succeeds, sound
+           playing right away with the tick. Stays open until the
+           customer taps the button themselves (unchanged from before). -->
+      <div id="bookingSuccessView" style="display:none;text-align:center;padding:20px 0;">
+        <!-- Explicit size here (not left to the site's own
+             .success-check-circle CSS, which we can't see/edit — it lives
+             in a separate stylesheet not included in this handoff) so
+             this tick is reliably big and clearly visible. -->
+        <div class="success-check-circle" style="width:96px;height:96px;border-radius:50%;background:var(--green);color:#fff;font-size:2.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;line-height:1;">✓</div>
+        <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
         <div class="success-detail-card" style="max-width:320px;margin:14px auto 0;text-align:left;">
+          <div class="success-detail-row"><span>Booking No.</span><strong id="successBookingId"></strong></div>
           <div class="success-detail-row"><span>Service</span><strong id="detailsServiceList" style="text-align:right;"></strong></div>
-          <div class="success-detail-row"><span>Date &amp; Time</span><strong id="detailsVisit"></strong></div>
+          <div class="success-detail-row"><span>Date &amp; Time</span><strong id="successVisit"></strong></div>
           <div class="success-detail-row"><span>Service Charge</span><strong id="detailsCharge" style="color:var(--green);"></strong></div>
         </div>
-        <p style="margin-top:14px;font-size:0.85rem;color:var(--slate);">Confirming your booking in <strong id="detailsCountdown">3</strong> seconds...</p>
-      </div>
-
-      <!-- Clean, celebratory confirmation shown once the countdown above
-           finishes — per request, simple like most home-service booking
-           apps: one big checkmark, a short "you're booked" statement,
-           then just the few details that actually matter (booking ID,
-           total, visit time), not a dense text paragraph. Stays until the
-           customer taps Done themselves (no auto-close). -->
-      <div id="bookingSuccessView" style="display:none;text-align:center;padding:20px 0;">
-        <div class="success-check-circle">✓</div>
-        <div class="success-detail-card" style="max-width:280px;margin:18px auto 0;">
-          <div class="success-detail-row"><span>Booking No.</span><strong id="successBookingId"></strong></div>
-          <div class="success-detail-row"><span>Slot</span><strong id="successVisit"></strong></div>
-        </div>
-        <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
-        <button type="button" class="btn btn-primary btn-block" style="margin-top:8px;max-width:280px;margin-left:auto;margin-right:auto;" onclick="closeBookingForm()">Visit Website</button>
+        <button type="button" class="btn btn-primary btn-block" style="margin-top:14px;max-width:320px;margin-left:auto;margin-right:auto;" onclick="closeBookingForm()">Visit Website</button>
       </div>
     </div>
   </div>
