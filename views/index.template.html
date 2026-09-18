@@ -414,8 +414,20 @@
         <!-- Explicit size here (not left to the site's own
              .success-check-circle CSS, which we can't see/edit — it lives
              in a separate stylesheet not included in this handoff) so
-             this tick is reliably big and clearly visible. -->
-        <div class="success-check-circle" style="width:96px;height:96px;border-radius:50%;background:var(--green);color:#fff;font-size:2.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;line-height:1;">✓</div>
+             this tick is reliably big and clearly visible.
+             BUG FIX ("tick ka nishan bahut patla hai"): a plain ✓ text
+             character is drawn by the device's own font, and on many
+             phones/browsers that glyph renders as a thin hairline no
+             matter how high font-weight is set — bumping font-weight
+             alone didn't fix it because the font simply doesn't have a
+             bolder version of that specific character. Drawn as an SVG
+             checkmark instead, with an explicit thick stroke-width, so
+             it's reliably bold everywhere. -->
+        <div class="success-check-circle" style="width:96px;height:96px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto;">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 13l4.5 4.5L19 7.5" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
         <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
         <div class="success-detail-card" style="max-width:320px;margin:14px auto 0;text-align:left;">
           <div class="success-detail-row"><span>Booking No.</span><strong id="successBookingId"></strong></div>
