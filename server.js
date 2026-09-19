@@ -5610,6 +5610,40 @@ function renderCareersPage(req, res, focusCitySlug) {
            </div>
          </div>`
       : '';
+    // VISIBLE SEO PHRASES (per explicit request: meta keywords are
+    // invisible to a person and Google ignores them for ranking anyway —
+    // what actually helps a page rank is TEXT AN ACTUAL VISITOR CAN READ.
+    // These chips put the exact common ways someone searches for this job
+    // ("AC Technician Jobs", "AC Mechanic Jobs", "Technician Vacancy in
+    // Moradabad", etc.) directly on the page as real, visible content —
+    // same data (careerAppliances/careerCities from Admin Panel) as the
+    // meta keywords tag, just rendered as something a person (and Google)
+    // actually reads. Plain (non-link) badges, not buttons — they're
+    // labels describing what this page covers, not another navigation
+    // path, so there's nothing confusing about them not going anywhere.
+    // Capped per appliance (2 phrases each) rather than a full
+    // appliance×city cross-product so this stays a short, genuinely
+    // readable list rather than a wall of repeated text that reads as
+    // keyword-stuffing to a human visitor (and, done to excess, can read
+    // that way to Google too).
+    const popularSearchesHtml = (!hiringPaused && careerAppliances.length)
+      ? (() => {
+          const cityForPhrase = focusCity ? ` in ${focusCity.name}` : '';
+          const phrases = [];
+          careerAppliances.forEach(a => {
+            phrases.push(`${a.name} Technician Jobs${cityForPhrase}`);
+            phrases.push(`${a.name} Mechanic Jobs${cityForPhrase}`);
+          });
+          phrases.push(`Technician Vacancy${cityForPhrase}`);
+          phrases.push(`Appliance Repair Technician Jobs${cityForPhrase}`);
+          return `<div class="reveal" style="max-width:720px;margin:0 auto 24px;text-align:center;">
+             <p style="font-size:0.85rem;color:var(--slate);margin-bottom:8px;">Popular searches:</p>
+             <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+               ${phrases.map(p => `<span class="city-chip" style="cursor:default;">${escapeHtml(p)}</span>`).join('')}
+             </div>
+           </div>`;
+        })()
+      : '';
 
     const template = fs.readFileSync(CAREERS_TEMPLATE_PATH, 'utf-8');
     const careersCanonicalUrl = focusCity ? `${SITE_URL}/careers/${slugify(focusCity.name)}` : `${SITE_URL}/careers`;
@@ -5621,6 +5655,7 @@ function renderCareersPage(req, res, focusCitySlug) {
       .replace('{{JOB_POSTING_SCHEMA_JSON}}', jobPostingSchemaHtml)
       .replace('{{CAREERS_INTRO_TEXT}}', escapeHtml(careersIntroText))
       .replace('{{CAREER_CITY_LINKS_HTML}}', careerCityLinksHtml)
+      .replace('{{POPULAR_SEARCHES_HTML}}', popularSearchesHtml)
       .replace('{{APPLY_EYEBROW}}', escapeHtml(applyEyebrow))
       .replace('{{APPLY_HEADING}}', escapeHtml(applyHeading))
       .replace('{{APPLY_SUBTEXT}}', escapeHtml(applySubtext))
