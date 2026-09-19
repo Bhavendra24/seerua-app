@@ -5636,6 +5636,20 @@ function renderCareersPage(req, res, focusCitySlug) {
           });
           phrases.push(`Technician Vacancy${cityForPhrase}`);
           phrases.push(`Appliance Repair Technician Jobs${cityForPhrase}`);
+          // CITY-WISE TOO (per explicit follow-up: "isme city wise nahi
+          // hai??" — the appliance-only phrases above don't name any city
+          // on the general /careers page, only on a specific city's own
+          // /careers/:city page). On the general page, also add one
+          // "Technician Jobs in {city}" phrase per hiring city, so every
+          // city Admin Panel has set up shows up here by name too — not
+          // a full appliance×city cross-product (that would be 50+ chips
+          // and read as spam), just the direct city-named phrase someone
+          // would actually type.
+          if (!focusCity) {
+            allCareerCities.forEach(c => {
+              phrases.push(`Technician Jobs in ${c.name}`);
+            });
+          }
           return `<div class="reveal" style="max-width:720px;margin:0 auto 24px;text-align:center;">
              <p style="font-size:0.85rem;color:var(--slate);margin-bottom:8px;">Popular searches:</p>
              <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
