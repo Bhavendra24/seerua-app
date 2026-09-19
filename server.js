@@ -5492,25 +5492,78 @@ function renderCareersPage(req, res, focusCitySlug) {
     // is emitted at all, so this listing stops being eligible for
     // Google's Jobs search results rather than continuing to pull in
     // applicants for a role that isn't actually open right now.
+    // SEO KEYWORDS EXPANSION (per explicit request): a job-seeker doesn't
+    // only search "technician job" — some search "mechanic", some search
+    // "vacancy"/"vacancies", some search the brand name directly
+    // ("seerua careers", "seerua job vacancies"). Title stays close to its
+    // previous, already-tested wording (still within Google's ~60-char
+    // title / ~160-char description truncation limits — see the comment
+    // above on cityPhraseForDescription/appliancePhraseForTitle for why
+    // that budget matters) but now also says "Vacancies" and, for a
+    // single/short appliance list, "Mechanic" alongside "Technician" so
+    // both phrasings of the same search intent are covered without
+    // reading as keyword-stuffed nonsense.
     const title = hiringPaused
-      ? `Careers | Seerua Appliance Care`
+      ? `Careers & Job Vacancies | Seerua Appliance Care`
       : focusCity
-        ? `${appliancePhraseForTitle} Technician Jobs in ${focusCity.name} | Seerua`
+        ? `${appliancePhraseForTitle} Technician & Mechanic Jobs in ${focusCity.name} | Seerua`
         : (careerCities.length
-          ? `${appliancePhraseForTitle} Technician Jobs | Seerua`
-          : `Join as a Technician Partner | Seerua Appliance Care`);
+          ? `${appliancePhraseForTitle} Technician Jobs & Vacancies | Seerua`
+          : `Careers & Job Vacancies | Seerua Appliance Care`);
     const metaDescription = hiringPaused
       ? `We're not accepting new technician applications right now — check back soon, or follow us for updates on when hiring reopens.`
       : focusCity
-        ? `Now hiring ${appliancePhraseForDescription} technicians in ${focusCity.name}. Steady doorstep jobs, transparent pay, apply free.`
+        ? `Seerua is now hiring ${appliancePhraseForDescription} technicians (AC mechanic & repair jobs) in ${focusCity.name}. Steady doorstep jobs, transparent pay — apply free for this technician vacancy.`
         : (careerCities.length
-          ? `Now hiring ${appliancePhraseForDescription} technicians in ${cityPhraseForDescription}. Steady doorstep jobs, transparent pay, apply free.`
-          : `Join Seerua Appliance Care as a technician partner. Experienced technicians can apply for work in their city.`);
-    const keywords = [
-      'technician job', 'appliance repair job', 'join as technician', 'service partner job',
-      ...careerAppliances.map(a => `${a.name.toLowerCase()} technician job`),
-      ...careerCities.map(c => `technician job in ${c.name.toLowerCase()}`)
-    ].join(', ');
+          ? `Seerua job vacancies: now hiring ${appliancePhraseForDescription} technicians and AC mechanics in ${cityPhraseForDescription}. Steady doorstep jobs, transparent pay, apply free.`
+          : `Seerua Appliance Care careers — explore current job vacancies and apply as a technician partner. Experienced technicians and mechanics can apply for work in their city.`);
+    // FURTHER EXPANDED (per explicit request: "ac technician in Moradabad",
+    // "ac job", "technician vacancy in Moradabad" jaise samany search bhi
+    // jude hon) — a real job-seeker rarely types the full, grammatically
+    // complete phrase. They drop "job"/"jobs" entirely ("ac technician in
+    // Moradabad"), use singular "vacancy" not just "vacancies", or type
+    // just the short appliance name plus "job" with no city or role word
+    // at all ("ac job", "ac jobs"). Every appliance × city combination
+    // below is generated automatically from whatever's set in Admin Panel
+    // > Career Cities/Appliances, so adding a new hiring city or appliance
+    // there automatically extends this list too — nothing here is
+    // hardcoded to Moradabad specifically, that's just today's example.
+    const keywordList = [
+      'seerua careers', 'seerua com careers', 'seerua job vacancies', 'seerua appliance care jobs',
+      'seerua technician recruitment', 'technician job', 'technician jobs', 'technician vacancy',
+      'technician vacancies', 'appliance repair job', 'appliance repair technician vacancy',
+      'appliance mechanic job', 'ac job', 'ac jobs', 'ac mechanic jobs', 'ac mechanic job',
+      'ac technician jobs', 'ac technician job', 'ac repair job', 'ac repair technician job',
+      'washing machine repair technician jobs', 'washing machine technician job',
+      'join as technician', 'service partner job', 'job vacancy near me', 'technician job near me',
+      ...careerAppliances.flatMap(a => {
+        const name = a.name.toLowerCase();
+        return [
+          `${name} technician job`, `${name} mechanic job`, `${name} job`, `${name} jobs`,
+          `${name} repair job`, `${name} repair technician vacancy`
+        ];
+      }),
+      ...careerCities.flatMap(c => {
+        const city = c.name.toLowerCase();
+        return [
+          `technician job in ${city}`, `technician jobs in ${city}`, `technician vacancy in ${city}`,
+          `technician vacancies in ${city}`, `ac technician in ${city}`, `ac technician job in ${city}`,
+          `ac mechanic jobs in ${city}`, `ac mechanic in ${city}`,
+          ...careerAppliances.flatMap(a => {
+            const name = a.name.toLowerCase();
+            return [
+              `${name} technician in ${city}`, `${name} technician job in ${city}`,
+              `${name} mechanic in ${city}`, `${name} vacancy in ${city}`
+            ];
+          })
+        ];
+      })
+    ];
+    // Dedupe (the generic "ac ..." entries above and the per-appliance
+    // loop both produce "ac technician job" etc. when AC happens to be one
+    // of the configured career appliances) so the tag doesn't repeat the
+    // same phrase multiple times.
+    const keywords = [...new Set(keywordList)].join(', ');
     // One JobPosting per city — each shows up as its own eligible listing
     // in Google for Jobs, so someone searching "AC technician job Noida"
     // and someone searching "AC technician job Jaipur" can each find this
