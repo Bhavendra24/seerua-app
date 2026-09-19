@@ -388,6 +388,16 @@
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
     <h3>Menu</h3>
+    <!-- BUG FIX ("menu mein sabse upar Careers tha, wo nahi dikh raha"):
+         this appliance-city page's own copy of the Menu sheet was missing
+         the Careers entry entirely — present on the homepage's version of
+         this same sheet (see index.template.html) but never added here
+         when this page's Menu was built. Added back, same position (top)
+         and same markup as the homepage's. -->
+    <a href="/careers" class="bottom-sheet-option">
+      <span class="bottom-sheet-icon" style="background:#fff4e6;color:#d97706;">👷</span>
+      <span><strong>Careers</strong><br><small>Join as a technician partner</small></span>
+    </a>
     <a href="/#services" class="bottom-sheet-option">
       <span class="bottom-sheet-icon" style="background:#e8f4ff;color:#0d6efd;">🔧</span>
       <span><strong>Our Services</strong><br><small>AC, Washing Machine, RO, Fridge</small></span>
