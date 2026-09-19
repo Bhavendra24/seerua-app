@@ -5613,48 +5613,65 @@ function renderCareersPage(req, res, focusCitySlug) {
     // VISIBLE SEO PHRASES (per explicit request: meta keywords are
     // invisible to a person and Google ignores them for ranking anyway —
     // what actually helps a page rank is TEXT AN ACTUAL VISITOR CAN READ.
-    // These chips put the exact common ways someone searches for this job
-    // ("AC Technician Jobs", "AC Mechanic Jobs", "Technician Vacancy in
-    // Moradabad", etc.) directly on the page as real, visible content —
-    // same data (careerAppliances/careerCities from Admin Panel) as the
-    // meta keywords tag, just rendered as something a person (and Google)
-    // actually reads. Plain (non-link) badges, not buttons — they're
-    // labels describing what this page covers, not another navigation
-    // path, so there's nothing confusing about them not going anywhere.
-    // Capped per appliance (2 phrases each) rather than a full
-    // appliance×city cross-product so this stays a short, genuinely
-    // readable list rather than a wall of repeated text that reads as
-    // keyword-stuffing to a human visitor (and, done to excess, can read
-    // that way to Google too).
+    // These put the exact common ways someone searches for this job
+    // ("AC Technician Job in Moradabad", "Washing Machine Mechanic Job in
+    // Jalesar", etc.) directly on the page as real, visible content — same
+    // data (careerAppliances/careerCities from Admin Panel) as the meta
+    // keywords tag, just rendered as something a person (and Google)
+    // actually reads.
     const popularSearchesHtml = (!hiringPaused && careerAppliances.length)
       ? (() => {
-          const cityForPhrase = focusCity ? ` in ${focusCity.name}` : '';
-          const phrases = [];
-          careerAppliances.forEach(a => {
-            phrases.push(`${a.name} Technician Jobs${cityForPhrase}`);
-            phrases.push(`${a.name} Mechanic Jobs${cityForPhrase}`);
-          });
-          phrases.push(`Technician Vacancy${cityForPhrase}`);
-          phrases.push(`Appliance Repair Technician Jobs${cityForPhrase}`);
-          // CITY-WISE TOO (per explicit follow-up: "isme city wise nahi
-          // hai??" — the appliance-only phrases above don't name any city
-          // on the general /careers page, only on a specific city's own
-          // /careers/:city page). On the general page, also add one
-          // "Technician Jobs in {city}" phrase per hiring city, so every
-          // city Admin Panel has set up shows up here by name too — not
-          // a full appliance×city cross-product (that would be 50+ chips
-          // and read as spam), just the direct city-named phrase someone
-          // would actually type.
-          if (!focusCity) {
-            allCareerCities.forEach(c => {
-              phrases.push(`Technician Jobs in ${c.name}`);
+          if (focusCity) {
+            // Single-city page: every appliance already reads naturally
+            // against this one city, so a flat chip list (no separate
+            // grouping needed — there's only one city here).
+            const cityForPhrase = ` in ${focusCity.name}`;
+            const phrases = [];
+            careerAppliances.forEach(a => {
+              phrases.push(`${a.name} Technician Job${cityForPhrase}`);
+              phrases.push(`${a.name} Mechanic Job${cityForPhrase}`);
             });
+            phrases.push(`Technician Vacancy${cityForPhrase}`);
+            phrases.push(`Appliance Repair Technician Job${cityForPhrase}`);
+            return `<div class="reveal" style="max-width:720px;margin:0 auto 24px;text-align:center;">
+               <p style="font-size:0.85rem;color:var(--slate);margin-bottom:8px;">Popular searches:</p>
+               <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+                 ${phrases.map(p => `<span class="city-chip" style="cursor:default;">${escapeHtml(p)}</span>`).join('')}
+               </div>
+             </div>`;
           }
-          return `<div class="reveal" style="max-width:720px;margin:0 auto 24px;text-align:center;">
-             <p style="font-size:0.85rem;color:var(--slate);margin-bottom:8px;">Popular searches:</p>
-             <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
-               ${phrases.map(p => `<span class="city-chip" style="cursor:default;">${escapeHtml(p)}</span>`).join('')}
-             </div>
+          // GENERAL PAGE — FULL city × appliance coverage (per explicit
+          // follow-up: "abhi bhi har city appliances ke liye nahi hai" —
+          // every appliance for every hiring city, not just a generic
+          // "Technician Jobs in {city}" line). With N cities × M
+          // appliances this is a genuinely long list (e.g. 9 cities × 7
+          // appliances = 126 exact phrases), so instead of a flat wall of
+          // chips — which stops being readable and starts looking like
+          // keyword-stuffing well before that count — it's grouped one
+          // <details> block per city (native HTML disclosure widget, no
+          // JS needed): the city name is always visible, and tapping it
+          // reveals that city's full appliance list. Google indexes text
+          // inside a closed <details> the same as visible text (it isn't
+          // hidden via CSS/JS, just collapsed by the browser's own native
+          // widget), so every exact phrase — "AC Technician Job in
+          // Moradabad" included — is genuinely present in the page for
+          // Google to read, while a human visitor sees a tidy, scannable
+          // list of cities rather than hundreds of repeated words at once.
+          const cityBlocks = allCareerCities.map(c => {
+            const phrases = [];
+            careerAppliances.forEach(a => {
+              phrases.push(`${a.name} Technician Job in ${c.name}`);
+              phrases.push(`${a.name} Mechanic Job in ${c.name}`);
+            });
+            phrases.push(`Technician Vacancy in ${c.name}`);
+            return `<details class="career-city-jobs" style="max-width:640px;margin:0 auto 8px;text-align:left;border:1px solid var(--mist);border-radius:var(--radius-sm);padding:10px 14px;">
+                 <summary style="cursor:pointer;font-weight:700;color:var(--blue-900);">${escapeHtml(c.name)} — Technician Jobs</summary>
+                 <p style="margin-top:8px;font-size:0.85rem;color:var(--slate);line-height:1.6;">${phrases.map(escapeHtml).join(', ')}</p>
+               </details>`;
+          }).join('');
+          return `<div class="reveal" style="max-width:720px;margin:0 auto 24px;">
+             <p style="font-size:0.85rem;color:var(--slate);margin-bottom:8px;text-align:center;">Popular searches by city:</p>
+             ${cityBlocks}
            </div>`;
         })()
       : '';
