@@ -2175,13 +2175,36 @@ app.post('/api/admin/cities', requireAdmin, (req, res) => {
       const existing = pricing.filter(p => p.applianceId === appl.id && p.typeId === t.id);
       const avgService = existing.length ? Math.round(existing.reduce((s, p) => s + p.servicePrice, 0) / existing.length / 10) * 10 : 299;
       const avgRepair = existing.length ? Math.round(existing.reduce((s, p) => s + p.repairPrice, 0) / existing.length / 10) * 10 : 499;
+      // BUG FIX: this used to only seed the 2 legacy fields
+      // (servicePrice/repairPrice) for a new city, leaving every other
+      // real SKU (Installation, Uninstallation, Gas Filling, ...)
+      // completely unpriced until Admin manually opened the Pricing tab
+      // and filled each one in by hand — and until then, those SKUs
+      // silently disappeared from the appliance-city page's "other
+      // services" list (no price = not shown) for that city only. Now
+      // every SKU this type actually has gets the same
+      // average-of-existing-cities treatment as Service/Repair, so a
+      // brand new city is immediately fully priced everywhere, same as
+      // any existing one — Admin can still fine-tune any of them
+      // afterward, this is just a sane starting point instead of a gap.
+      const servicePrices = { 'svc-service': avgService, 'svc-repair': avgRepair };
+      (Array.isArray(t.services) ? t.services : []).forEach(s => {
+        if (s.id === 'svc-service' || s.id === 'svc-repair') return;
+        const existingSkuPrices = existing
+          .map(p => p.servicePrices && typeof p.servicePrices[s.id] === 'number' ? p.servicePrices[s.id] : null)
+          .filter(p => p !== null);
+        servicePrices[s.id] = existingSkuPrices.length
+          ? Math.round(existingSkuPrices.reduce((sum, p) => sum + p, 0) / existingSkuPrices.length / 10) * 10
+          : avgService;
+      });
       pricing.push({
         id: genId('p'),
         cityId: city.id,
         applianceId: appl.id,
         typeId: t.id,
         servicePrice: avgService,
-        repairPrice: avgRepair
+        repairPrice: avgRepair,
+        servicePrices
       });
     });
   });
@@ -5081,7 +5104,15 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
       if (!row) return [];
       const services = Array.isArray(t.services) ? t.services : [];
-      return services.map(s => {
+      // Skip whichever SKU the pricing table above already shows as
+      // "Service / AMC" (this type's first service) and "Repair"
+      // ('svc-repair') — repeating those exact same two lines again here
+      // would just be visible duplicate content for no benefit. Only the
+      // SKUs NOT already on the table (Installation, Uninstallation, Gas
+      // Filling, etc.) are genuinely new information worth adding.
+      const primarySkuId = services[0] ? services[0].id : null;
+      const alreadyShown = new Set([primarySkuId, 'svc-repair']);
+      return services.filter(s => !alreadyShown.has(s.id)).map(s => {
         const price = (row.servicePrices && typeof row.servicePrices[s.id] === 'number') ? row.servicePrices[s.id] : null;
         if (price === null) return '';
         const typePrefix = focusType ? '' : `${t.name} `;
@@ -5181,7 +5212,9 @@ ${JSON.stringify({
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{TYPE_QUERY}}').join(typeQuery)
       .split('{{PRICING_ROWS_HTML}}').join(pricingRowsHtml || `<tr><td colspan="3">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
-      .split('{{ALL_SERVICES_LIST_HTML}}').join(allServicesListHtml)
+      .split('{{ALL_SERVICES_LIST_HTML}}').join(allServicesListHtml
+        ? `<div class="reveal" style="max-width:820px;margin:14px auto 0;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">\n      ${allServicesListHtml}\n    </div>`
+        : '')
       .split('{{SERVICE_PROCESS_HTML}}').join(formatServiceProcessHtml(appliance.serviceProcess) || `<p>Our technician inspects your ${appliance.name} in front of you, explains the issue clearly, and only proceeds once you approve the price.</p>`)
       .split('{{ABOUT_TEXT}}').join(
         escapeHtml(appliance.aboutText || '').replace(/Foam Jet Service/g, '<strong style="text-decoration:underline;">Foam Jet Service</strong>')
