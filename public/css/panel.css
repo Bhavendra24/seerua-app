@@ -106,7 +106,16 @@ img { max-width: 100%; }
    very slightly so it's clear they're a nested sub-group, not more
    top-level items at the same weight as Dashboard/Orders/etc. */
 #moreSettingsToggle { margin-top: 8px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.12); justify-content: space-between; color: #a8c0d6; }
-#moreSettingsGroup { display: flex; flex-direction: column; gap: 4px; padding-left: 6px; }
+/* BUG FIX: this used to be shown/hidden purely via an inline
+   style="display:none" set from admin.html's own script, toggled between
+   'none' and 'block' by JS. An inline style always wins over ANY
+   stylesheet rule (regardless of selector specificity), which made it
+   impossible for the mobile media query below to switch this into a
+   horizontal row when open — the inline "block" always overrode it. Now
+   hidden/shown purely by the .open class instead, so the mobile rule can
+   actually take effect. */
+#moreSettingsGroup { display: none; flex-direction: column; gap: 4px; padding-left: 6px; }
+#moreSettingsGroup.open { display: flex; }
 .sidebar-foot { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 16px; margin-top: 16px; }
 .sidebar-foot .who { font-size: 0.82rem; color: #a9c1d6; margin-bottom: 10px; }
 
@@ -357,12 +366,38 @@ body.compact .btn { padding: 7px 12px; }
   }
   .sidebar .brand-row span { white-space: nowrap; }
   .side-nav {
+    position: relative; /* anchors #moreSettingsGroup's dropdown below, see BUG FIX below */
     flex-direction: row; flex: none; gap: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch;
     padding: 8px 10px; scrollbar-width: none;
   }
   .side-nav::-webkit-scrollbar { display: none; }
   .side-nav button { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; border-left: none; border-bottom: 3px solid transparent; }
   .side-nav button.active { border-left: none; border-bottom-color: var(--accent-500); }
+  /* BUG FIX: "More Settings" used to just flip its group to display:block,
+     which (on this row-based mobile nav) stacked all 12 buttons in one
+     vertical column — shoving the sticky header's height way up and
+     pushing the whole main page down every time it was opened. Rather
+     than fighting the row-flex nav's layout to squeeze in a second
+     horizontal row (which would need flex-wrap on .side-nav, and that
+     would also let the everyday top-level buttons wrap instead of
+     scrolling, undoing the earlier "never wrap" fix above), this now
+     opens as its own floating dropdown row positioned right below the
+     nav bar — horizontally scrollable, same as .side-nav itself, but
+     positioned absolutely so it overlays the page instead of pushing it
+     down at all. Desktop is untouched (see the plain
+     #moreSettingsGroup.open rule near .side-nav above) since stacking
+     vertically in a fixed-width sidebar is exactly right there. Uses the
+     same #id.class selector (not a lower-specificity
+     .side-nav .more-settings-group.open) so this genuinely overrides the
+     desktop rule via normal cascade order, instead of losing to it. */
+  #moreSettingsGroup.open {
+    display: flex; flex-direction: row; position: absolute; top: 100%; left: 0; right: 0; z-index: 25;
+    background: var(--sidebar-grad); box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    padding: 8px 10px; gap: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  #moreSettingsGroup.open::-webkit-scrollbar { display: none; }
+  #moreSettingsGroup.open button { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; border-left: none; border-bottom: 3px solid transparent; }
+  #moreSettingsGroup.open button.active { border-left: none; border-bottom-color: var(--accent-500); }
   /* BUG FIX: this used to be display:none on mobile — which meant the
      Logout button (along with Enable Alerts and the "who am I" line)
      was completely unreachable on a phone, not just visually
