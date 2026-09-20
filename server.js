@@ -5064,6 +5064,31 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       ? `₹${Math.min(...applianceServicePrices)}-₹${Math.max(...applianceServicePrices)}`
       : '';
 
+    // SEO FIX: the pricing table above only ever showed 2 fixed columns
+    // ("Service / AMC" and "Repair"), so a real, priced SKU like
+    // "Gas Filling" or "Installation" never actually appeared anywhere in
+    // this page's visible, crawlable text — even though it's a genuine
+    // service customers search for by name ("AC gas filling in
+    // Moradabad", "AC installation in Noida"). A search engine can often
+    // infer these are related to "AC service", but an exact phrase match
+    // in real content is a much stronger, more direct signal, and it also
+    // answers the customer immediately instead of making them open the
+    // booking modal to discover we do it. Rendered as a flat, visible
+    // chip list (not a separate page per SKU — that would just be
+    // thin/duplicate content multiplied by every type x SKU combination)
+    // right under the pricing table.
+    const allServicesListHtml = relevantTypes.flatMap(t => {
+      const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
+      if (!row) return [];
+      const services = Array.isArray(t.services) ? t.services : [];
+      return services.map(s => {
+        const price = (row.servicePrices && typeof row.servicePrices[s.id] === 'number') ? row.servicePrices[s.id] : null;
+        if (price === null) return '';
+        const typePrefix = focusType ? '' : `${t.name} `;
+        return `<span class="city-chip" style="cursor:default;">${escapeHtml(typePrefix)}${escapeHtml(s.name)} in ${escapeHtml(city.name)} — ₹${price} onwards</span>`;
+      }).filter(Boolean);
+    }).join('\n        ');
+
     const otherAppliancesHtml = allAppliances.filter(a => a.id !== appliance.id)
       .map(a => `<a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="city-chip">${a.name} Service in ${city.name}</a>`)
       .join('\n      ');
@@ -5156,6 +5181,7 @@ ${JSON.stringify({
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{TYPE_QUERY}}').join(typeQuery)
       .split('{{PRICING_ROWS_HTML}}').join(pricingRowsHtml || `<tr><td colspan="3">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
+      .split('{{ALL_SERVICES_LIST_HTML}}').join(allServicesListHtml)
       .split('{{SERVICE_PROCESS_HTML}}').join(formatServiceProcessHtml(appliance.serviceProcess) || `<p>Our technician inspects your ${appliance.name} in front of you, explains the issue clearly, and only proceeds once you approve the price.</p>`)
       .split('{{ABOUT_TEXT}}').join(
         escapeHtml(appliance.aboutText || '').replace(/Foam Jet Service/g, '<strong style="text-decoration:underline;">Foam Jet Service</strong>')
