@@ -5061,14 +5061,23 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       // customers who want to jump straight to it, and so Google can
       // discover these pages by simply crawling this one, not just via
       // the sitemap.
-      const typeCell = focusType
-        ? t.name
-        : `<a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}" style="color:inherit;text-decoration:underline;">${t.name}</a>`;
+      const typeLink = focusType
+        ? null
+        : `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
+      const typeCell = typeLink
+        ? `<a href="${typeLink}" style="color:inherit;text-decoration:underline;">${t.name}</a>`
+        : t.name;
       const services = Array.isArray(t.services) ? t.services : [];
       const primarySkuId = services[0] ? services[0].id : null;
       const svcPrice = resolvedPrice(row, primarySkuId, 'servicePrice');
       const repPrice = resolvedPrice(row, 'svc-repair', 'repairPrice');
-      return `<tr><td>${typeCell}</td><td>₹${svcPrice} onwards</td><td>₹${repPrice} onwards</td></tr>`;
+      // NEW: a per-row "Book" button — this type's own id is threaded
+      // through as the &type= query param, so clicking "Book" on the
+      // "Split AC" row opens the Quick Book modal with Split AC already
+      // selected, instead of leaving the customer to pick the type
+      // themselves after a single generic hero button.
+      const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
+      return `<tr><td>${typeCell}</td><td>₹${svcPrice}</td><td>₹${repPrice}</td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
     }).join('\n          ');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
@@ -5112,14 +5121,29 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       // Filling, etc.) are genuinely new information worth adding.
       const primarySkuId = services[0] ? services[0].id : null;
       const alreadyShown = new Set([primarySkuId, 'svc-repair']);
+      // Same type-page link as the main rows above (when there's a real
+      // dedicated page to link to), so "Window AC Installation" links
+      // through exactly like "Window AC" does right above it — not left
+      // as plain unlinked text while everything else in the table links.
+      const typeLink = focusType
+        ? null
+        : `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
+      const typeLabel = typeLink
+        ? `<a href="${typeLink}" style="color:inherit;text-decoration:underline;">${escapeHtml(t.name)}</a> `
+        : '';
+      const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
       return services.filter(s => !alreadyShown.has(s.id)).map(s => {
         const price = (row.servicePrices && typeof row.servicePrices[s.id] === 'number') ? row.servicePrices[s.id] : null;
         if (price === null) return '';
-        const typePrefix = focusType ? '' : `${t.name} `;
-        // Rendered as a <tr> (not a chip/pill) so it visually continues
-        // the SAME table as the Service/Repair rows above it, instead of
-        // looking like a different, unrelated design on the same page.
-        return `<tr><td>${escapeHtml(typePrefix)}${escapeHtml(s.name)}</td><td colspan="2">₹${price} onwards</td></tr>`;
+        // Real 4 <td>s (not a colspan) so this row's columns line up
+        // exactly with the rows above it — mixing colspan rows into an
+        // auto-layout table made browsers compute each row's column
+        // widths slightly differently, which is why this text was
+        // shifting out of the normal left-aligned position and wrapping
+        // oddly instead of matching "Window AC" etc. above it. Same
+        // per-type Book link as the main row above, so "Gas Filling" is
+        // just as bookable directly as "Service"/"Repair" are.
+        return `<tr><td>${typeLabel}${escapeHtml(s.name)}</td><td>₹${price}</td><td></td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
       }).filter(Boolean);
     }).join('\n          ');
 
@@ -5221,7 +5245,7 @@ ${JSON.stringify({
       // as one consistent price list instead of two differently-styled
       // ones stacked on top of each other.
       .split('{{PRICING_ROWS_HTML}}').join(
-        (pricingRowsHtml || `<tr><td colspan="3">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
+        (pricingRowsHtml || `<tr><td colspan="4">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
         + (allServicesListHtml ? '\n          ' + allServicesListHtml : '')
       )
       .split('{{ALL_SERVICES_LIST_HTML}}').join('')
