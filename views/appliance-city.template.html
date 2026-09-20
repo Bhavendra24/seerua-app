@@ -169,7 +169,7 @@
       <h2>Book {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</h2>
       <p>Fill this in — a verified {{CITY_NAME}} technician will confirm your slot.</p>
     </div>
-    <div class="reveal" style="max-width:520px;margin:0 auto;background:var(--white);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);padding:24px 20px;">
+    <div class="reveal" style="max-width:420px;margin:0 auto;background:var(--white);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);padding:18px 16px;">
       <div id="sbFormStep">
         <form id="sbForm">
           <div class="field" id="sbTypeField" style="display:none;">
@@ -200,10 +200,6 @@
           <div class="field">
             <label for="sbAddress">Full Address *</label>
             <textarea id="sbAddress" rows="2" required placeholder="House no., street, landmark"></textarea>
-          </div>
-          <div class="field">
-            <label for="sbProblem">Problem / Notes (optional)</label>
-            <textarea id="sbProblem" rows="2" placeholder="e.g. Not cooling properly"></textarea>
           </div>
           <div class="field">
             <label for="sbDate">Preferred Date *</label>
@@ -238,15 +234,26 @@
         </div>
       </div>
 
-      <div id="sbSuccess" style="display:none;text-align:center;padding:10px 0;">
-        <div style="width:52px;height:52px;border-radius:50%;background:var(--green,#16a34a);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
-          <svg width="28" height="28" viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7.5" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <!-- Same success-screen style as the homepage's booking form
+           (#bookingSuccessView in index.template.html) — big SVG
+           checkmark (not a plain ✓ character, which renders as a thin
+           hairline on many phones), "Thank you!", then Booking No. /
+           Service / Date & Time / Service Charge in the same
+           .success-detail-card rows, so this page's booking flow ends
+           looking exactly like the one everywhere else on the site. -->
+      <div id="sbSuccess" style="display:none;text-align:center;padding:20px 0;">
+        <div class="success-check-circle" style="width:96px;height:96px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto;">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 13l4.5 4.5L19 7.5" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
-        <h3>Booking Confirmed!</h3>
-        <p>Booking No: <b id="sbSuccessId"></b></p>
-        <p id="sbSuccessVisit"></p>
-        <p>Service Charge: <b id="sbSuccessCharge"></b></p>
-        <p style="color:var(--slate);font-size:0.85rem;">We'll call to confirm before the visit.</p>
+        <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
+        <div class="success-detail-card" style="max-width:320px;margin:14px auto 0;text-align:left;">
+          <div class="success-detail-row"><span>Booking No.</span><strong id="sbSuccessId"></strong></div>
+          <div class="success-detail-row"><span>Service</span><strong id="sbSuccessService" style="text-align:right;"></strong></div>
+          <div class="success-detail-row"><span>Date &amp; Time</span><strong id="sbSuccessVisit"></strong></div>
+          <div class="success-detail-row"><span>Service Charge</span><strong id="sbSuccessCharge" style="color:var(--green);"></strong></div>
+        </div>
       </div>
     </div>
   </div>
