@@ -366,32 +366,37 @@ body.compact .btn { padding: 7px 12px; }
   }
   .sidebar .brand-row span { white-space: nowrap; }
   .side-nav {
-    position: relative; /* anchors #moreSettingsGroup's dropdown below, see BUG FIX below */
     flex-direction: row; flex: none; gap: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch;
     padding: 8px 10px; scrollbar-width: none;
   }
   .side-nav::-webkit-scrollbar { display: none; }
   .side-nav button { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; border-left: none; border-bottom: 3px solid transparent; }
   .side-nav button.active { border-left: none; border-bottom-color: var(--accent-500); }
-  /* BUG FIX: "More Settings" used to just flip its group to display:block,
-     which (on this row-based mobile nav) stacked all 12 buttons in one
-     vertical column — shoving the sticky header's height way up and
-     pushing the whole main page down every time it was opened. Rather
-     than fighting the row-flex nav's layout to squeeze in a second
-     horizontal row (which would need flex-wrap on .side-nav, and that
-     would also let the everyday top-level buttons wrap instead of
-     scrolling, undoing the earlier "never wrap" fix above), this now
-     opens as its own floating dropdown row positioned right below the
-     nav bar — horizontally scrollable, same as .side-nav itself, but
-     positioned absolutely so it overlays the page instead of pushing it
-     down at all. Desktop is untouched (see the plain
-     #moreSettingsGroup.open rule near .side-nav above) since stacking
-     vertically in a fixed-width sidebar is exactly right there. Uses the
-     same #id.class selector (not a lower-specificity
-     .side-nav .more-settings-group.open) so this genuinely overrides the
-     desktop rule via normal cascade order, instead of losing to it. */
+  /* BUG FIX (round 1): "More Settings" used to just flip its group to
+     display:block, which (on this row-based mobile nav) stacked all 12
+     buttons in one vertical column — shoving the sticky header's height
+     way up and pushing the whole main page down every time it was
+     opened.
+     BUG FIX (round 2): making it a horizontally-scrollable dropdown with
+     position:absolute against #sideNav did NOT actually work — #sideNav
+     needs overflow-x:auto for its own row of buttons, and per the CSS
+     spec that silently forces overflow-y into the same clipping
+     behavior, so ANY child extending past the box (including this
+     dropdown) got clipped invisible, even though the toggle itself kept
+     working (arrow flipped, nothing visible). Fixed by leaving `top`,
+     `left`, `right` and `position` OUT of this rule entirely — the inline
+     script in admin.html now sets those via JS using the toggle button's
+     real getBoundingClientRect() position and position:fixed, which is
+     anchored to the viewport and can never be clipped by any ancestor's
+     overflow. This rule only supplies the dropdown's visual styling.
+     Desktop is untouched (see the plain #moreSettingsGroup.open rule near
+     .side-nav above) since stacking vertically in a fixed-width sidebar
+     is exactly right there. Uses the same #id.class selector (not a
+     lower-specificity .side-nav .more-settings-group.open) so this
+     genuinely overrides the desktop rule via normal cascade order,
+     instead of losing to it. */
   #moreSettingsGroup.open {
-    display: flex; flex-direction: row; position: absolute; top: 100%; left: 0; right: 0; z-index: 25;
+    display: flex; flex-direction: row; z-index: 25;
     background: var(--sidebar-grad); box-shadow: 0 6px 16px rgba(0,0,0,0.25);
     padding: 8px 10px; gap: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
