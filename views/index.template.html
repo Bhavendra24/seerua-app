@@ -42,7 +42,7 @@
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   "name": "Seerua Appliance Care",
-  "image": "/images/logo.png",
+  "image": "https://seerua.com/images/logo.png",
   "description": "Doorstep repair and service for AC, washing machine, RO and fridge - verified technicians, transparent city-wise pricing.",
   "telephone": "+91-9389585479",
   "email": "b4india@gmail.com",
@@ -240,6 +240,13 @@
       <h2 data-i18n="cities.title">We currently serve these cities</h2>
     </div>
     <div class="city-chip-row reveal" id="cityChipRow"></div>
+    <!-- Full appliance x city list, one collapsed <details> per city, kept
+         out of the way visually but present and crawlable in the HTML —
+         same pattern already used on /careers ("Popular searches"). Lets
+         a search like "fridge repair in Noida" find a direct homepage
+         link instead of relying only on the appliance-city pages' own
+         cross-links. -->
+    <div class="reveal" id="allServicesByCity" style="max-width:900px;margin:18px auto 0;"></div>
   </div>
 </section>
 
