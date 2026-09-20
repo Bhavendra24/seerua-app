@@ -5181,8 +5181,17 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     // pricing table. Optional: appliances without a photoUrl yet (e.g.
     // Fridge) simply get the original single-column hero instead of a
     // broken image.
+    // BUG FIX: on mobile the hero-grid collapses to a single column, so
+    // whichever element comes first in the HTML (the text block, with
+    // the "Book" button) rendered visually ABOVE the photo — reading as
+    // "button, then picture" instead of the picture leading with the
+    // Book button right under it. Wrapped in its own class (only when a
+    // photo actually exists — appliances with no photoUrl yet, like
+    // Fridge, keep the original single-column, full-width hero) so a
+    // mobile-only CSS rule can flip the visual order without touching
+    // desktop's two-column layout or the source order screen readers see.
     const appliancePhotoHtml = appliance.photoUrl
-      ? buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"`)
+      ? `<div class="hero-photo">${buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"`)}</div>`
       : '';
 
     // NEW: FAQ section, per-appliance-per-city — competitor research
