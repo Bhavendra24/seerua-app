@@ -176,19 +176,26 @@
             <label for="sbType">Type</label>
             <select id="sbType"></select>
           </div>
-          <div class="form-row">
-            <div class="field">
-              <label for="sbServiceType">What do you need?</label>
-              <select id="sbServiceType">
-                <option value="service">Service / AMC</option>
-                <option value="repair">Repair</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>&nbsp;</label>
-              <p id="sbPriceDisplay" style="margin:0;padding:10px 0 0;font-weight:700;color:var(--blue-900);"></p>
+          <!-- Same price-card + Service/Repair pill-toggle look as the
+               homepage's own Quick Book box (.qb-price-card /
+               .qb-service-type-btn in style.css) — per explicit request
+               that this form look like the same one used everywhere else
+               on the site, not a plain generic dropdown form. -->
+          <div class="qb-price-card qb-price-card-nophoto">
+            <div style="width:100%;">
+              <div class="qb-price-title" id="sbPriceTitle">{{APPLIANCE_NAME}} Service</div>
+              <div class="qb-price-row">
+                <span class="qb-price-tag">🏷️</span>
+                <span class="qb-price-strike" id="sbPriceStrike"></span>
+                <span class="qb-price-now" id="sbPriceDisplay"></span>
+              </div>
             </div>
           </div>
+          <div class="qb-service-type-row" id="sbServiceTypeRow" style="margin-bottom:14px;">
+            <button type="button" class="qb-service-type-btn active" data-service-type="service">Service / AMC</button>
+            <button type="button" class="qb-service-type-btn" data-service-type="repair">Repair</button>
+          </div>
+          <input type="hidden" id="sbServiceType" value="service">
           <div class="field">
             <label for="sbName">Full Name *</label>
             <input type="text" id="sbName" required placeholder="Your name">
