@@ -916,6 +916,34 @@ async function init() {
   const firstApplianceSlug = APPLIANCES.length ? `/${applianceSlug(APPLIANCES[0].name)}` : '';
   chipRow.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}${firstApplianceSlug}" class="city-chip">${c.name}</a>`).join('');
 
+  // SEO FIX: the chip above only linked each city's FIRST appliance page,
+  // so a search like "fridge repair in Noida" had no direct homepage link
+  // even though that exact page exists. Every appliance-city page already
+  // cross-links to its sibling appliances in the same city (see
+  // otherAppliancesHtml in server.js), so the pages were always reachable
+  // by Google in one extra hop — but a direct link from the homepage is a
+  // stronger, faster signal. This adds one real <a href> per
+  // city+appliance combination, collapsed behind a <details> per city (as
+  // used already on /careers) so it stays out of the way visually while
+  // remaining fully present and crawlable in the page's HTML.
+  const allServicesBox = document.getElementById('allServicesByCity');
+  if (allServicesBox) {
+    if (CITIES.length && APPLIANCES.length) {
+      allServicesBox.innerHTML = CITIES.map(c => {
+        const cityApplianceLinks = APPLIANCES
+          .filter(a => !(a.disabledCities || []).includes(c.id))
+          .map(a => `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}" class="city-chip">${a.name} Service in ${c.name}</a>`)
+          .join(' ');
+        return `<details style="max-width:640px;margin:0 auto 8px;text-align:left;border:1px solid var(--mist);border-radius:var(--radius-sm);padding:10px 14px;">
+          <summary style="cursor:pointer;font-weight:700;color:var(--blue-900);">${c.name} — all services</summary>
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;">${cityApplianceLinks}</div>
+        </details>`;
+      }).join('');
+    } else {
+      allServicesBox.innerHTML = '';
+    }
+  }
+
   loadPublicStats();
   loadPublicReviews();
   bindCareersModal();
@@ -1439,25 +1467,41 @@ function refreshFormTypes() {
   populateSelect(document.getElementById('fType'), appliance ? appliance.types : [], 'Select type');
 }
 
+// Picks a real, bookable /appliance-repair/:city/:appliance URL for an
+// appliance card on the general "what we offer" grid, which isn't tied to
+// any one city. Uses the first city (in CITIES order) that hasn't
+// disabled this appliance, so the link always lands on a live page
+// instead of a 404 — falls back to CITIES[0] in the unlikely case every
+// city has it disabled, and to '#' only if there are no cities at all.
+function firstCityUrlForAppliance(a) {
+  if (!Array.isArray(CITIES) || !CITIES.length) return null;
+  const disabled = a.disabledCities || [];
+  const city = CITIES.find(c => !disabled.includes(c.id)) || CITIES[0];
+  return `/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}`;
+}
+
 function renderServicesGrid() {
   const grid = document.getElementById('servicesGrid');
-  grid.innerHTML = ALL_APPLIANCES.map(a => `
+  // SEO FIX: each card's photo/title now sits inside a real <a href> to
+  // that appliance's own SEO landing page (in addition to the "Book Now"
+  // button, which keeps opening the quick-book modal) — previously the
+  // whole card was just a JS onclick with no crawlable link at all, so
+  // Google had no way to discover these pages by following links from the
+  // homepage.
+  grid.innerHTML = ALL_APPLIANCES.map(a => {
+    const href = firstCityUrlForAppliance(a) || '#';
+    return `
     <div class="service-card" data-appliance="${a.id}">
-      ${a.photoUrl
-        ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${a.name} service technician at work" loading="lazy"`)
-        : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
-      <h3>${a.name}</h3>
+      <a href="${href}" class="service-card-link" aria-label="${a.name} repair and service details" style="display:block;color:inherit;text-decoration:none;">
+        ${a.photoUrl
+          ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${a.name} service technician at work" loading="lazy"`)
+          : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
+        <h3>${a.name}</h3>
+      </a>
       <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
     </div>
-  `).join('');
-
-  grid.querySelectorAll('.service-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      e.preventDefault();
-      const applianceId = card.getAttribute('data-appliance');
-      openQuickBookModal(applianceId);
-    });
-  });
+  `;
+  }).join('');
 }
 
 const CART_STORAGE_KEY = 'seerua_cart_v1';
