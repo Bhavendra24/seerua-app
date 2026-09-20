@@ -4025,10 +4025,23 @@ async function qbShowDetails() {
     || null;
   const initialTypeId = initialType ? initialType.id : null;
 
+  // SIMPLIFY (per explicit request — booking felt "jatil"/complex):
+  // appliances with only one type (Fridge, RO, Chimney, ...) were still
+  // showing a type-tabs row with a single, un-skippable button — an
+  // extra "step" that decided nothing, since qbSelectedTypeId is set to
+  // that one type either way. Hidden entirely when there's nothing to
+  // actually choose between; still rendered (and still functional) for
+  // real multi-type appliances like AC (Window/Split/Cassette).
   const tabsEl = document.getElementById('qbTypeTabs');
-  tabsEl.innerHTML = appliance.types.map((t) =>
-    `<button type="button" data-type="${t.id}" class="${t.id === initialTypeId ? 'active' : ''}">${t.name}</button>`
-  ).join('');
+  if (appliance.types.length > 1) {
+    tabsEl.style.display = '';
+    tabsEl.innerHTML = appliance.types.map((t) =>
+      `<button type="button" data-type="${t.id}" class="${t.id === initialTypeId ? 'active' : ''}">${t.name}</button>`
+    ).join('');
+  } else {
+    tabsEl.style.display = 'none';
+    tabsEl.innerHTML = '';
+  }
   qbSelectedTypeId = initialTypeId;
 
   tabsEl.querySelectorAll('button').forEach(btn => {
@@ -4112,7 +4125,18 @@ async function qbRenderServicesList(type) {
             <div class="qb-price-trust">✔ Most Trusted Service</div>
           </div>
         </div>
-        <ul class="qb-checklist">${svc.checklist.map(item => `<li>${item}</li>`).join('')}</ul>
+        <!-- SIMPLIFY (per explicit request): the full checklist used to
+             always be expanded on every service card, which for an
+             appliance with several services (AC: Service/Repair/
+             Installation/Uninstallation/Gas Filling) made the modal a
+             long, cluttered scroll. Collapsed behind a "What's included"
+             toggle by default — same information, one tap away, but the
+             card itself now reads as just a price and two buttons at a
+             glance (closer to Urban Company's clean per-service cards). -->
+        <details class="qb-checklist-details">
+          <summary>What's included</summary>
+          <ul class="qb-checklist">${svc.checklist.map(item => `<li>${item}</li>`).join('')}</ul>
+        </details>
         <div class="qb-actions">
           <button type="button" class="qb-btn qb-btn-add" data-action="add" data-service-id="${svc.id}">🛒 Add</button>
           <button type="button" class="qb-btn qb-btn-book" data-action="book" data-service-id="${svc.id}">Book</button>
