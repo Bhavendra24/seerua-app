@@ -122,6 +122,11 @@
       <span class="eyebrow">{{CITY_NAME}} pricing</span>
       <h2>{{APPLIANCE_NAME}} Service &amp; Repair Prices in {{CITY_NAME}}</h2>
       <p>Exact visit charges for {{APPLIANCE_NAME}} in {{CITY_NAME}} — no surprises, no hidden fees.</p>
+      <!-- Book button placed right above the price list too (not just up
+           in the hero) — a customer who scrolls straight to pricing
+           without reading the hero first shouldn't have to scroll back up
+           just to find the booking button. -->
+      <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-primary" style="margin-top:6px;">Book {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</a>
     </div>
     <div class="table-wrap reveal" style="max-width:820px;margin:0 auto;background:var(--white);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);padding:8px 20px;">
       <table>
@@ -132,12 +137,11 @@
       </table>
     </div>
     <!-- Any priced SKU beyond Service/Repair (Installation, Uninstallation,
-         Gas Filling, etc.), each as its own visible line — real customer
-         searches like "AC gas filling in Moradabad" now find an exact
-         phrase match here instead of only the generic Service/Repair
-         columns above. Server-rendered as a whole (including this
-         wrapper) so it's simply absent, not an empty box, when an
-         appliance/type has no such extra SKUs. -->
+         Gas Filling, etc.) is appended as extra rows of the table above
+         (server-side, in the {{PRICING_ROWS_HTML}} replacement) — same
+         table, same design, not a separate box. {{ALL_SERVICES_LIST_HTML}}
+         itself always resolves to nothing; it's kept only so a stray
+         reference to it elsewhere doesn't break. -->
     {{ALL_SERVICES_LIST_HTML}}
   </div>
 </section>
