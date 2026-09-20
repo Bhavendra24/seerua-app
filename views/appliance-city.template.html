@@ -122,15 +122,23 @@
       <span class="eyebrow">{{CITY_NAME}} pricing</span>
       <h2>{{APPLIANCE_NAME}} Service &amp; Repair Prices in {{CITY_NAME}}</h2>
       <p>Exact visit charges for {{APPLIANCE_NAME}} in {{CITY_NAME}} — no surprises, no hidden fees.</p>
-      <!-- Book button placed right above the price list too (not just up
-           in the hero) — a customer who scrolls straight to pricing
-           without reading the hero first shouldn't have to scroll back up
-           just to find the booking button. -->
-      <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-primary" style="margin-top:6px;">Book {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</a>
+      <!-- BUG FIX: a second "Book {{APPLIANCE_NAME}} Service in
+           {{CITY_NAME}}" button was added here, right on top of the
+           identical one already in the hero section a short scroll
+           above — same text, same link, right next to each other once
+           the page's short, so it just read as a mistake rather than a
+           helpful shortcut. Removed; the hero's button is the only one
+           now. -->
     </div>
     <div class="table-wrap reveal" style="max-width:820px;margin:0 auto;background:var(--white);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);padding:8px 20px;">
       <table>
-        <thead><tr><th>Type</th><th>Service / AMC</th><th>Repair</th></tr></thead>
+        <!-- 4th "Book" column: lets a customer book a SPECIFIC type
+             (Window AC, Split AC, Cassette AC, ...) directly from the
+             price row itself, with that exact type pre-selected in the
+             booking modal — instead of one generic hero button that
+             leaves the customer to pick the type themselves after the
+             modal opens. -->
+        <thead><tr><th>Type</th><th>Service / AMC</th><th>Repair</th><th>Book</th></tr></thead>
         <tbody>
           {{PRICING_ROWS_HTML}}
         </tbody>
