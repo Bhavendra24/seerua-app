@@ -5351,6 +5351,7 @@ ${JSON.stringify({
     const sbContext = {
       cityId: city.id,
       applianceId: appliance.id,
+      applianceName: appliance.name,
       focusTypeId: focusType ? focusType.id : null,
       types: sbTypes
     };
