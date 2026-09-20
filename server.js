@@ -5116,9 +5116,12 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
         const price = (row.servicePrices && typeof row.servicePrices[s.id] === 'number') ? row.servicePrices[s.id] : null;
         if (price === null) return '';
         const typePrefix = focusType ? '' : `${t.name} `;
-        return `<span class="city-chip" style="cursor:default;">${escapeHtml(typePrefix)}${escapeHtml(s.name)} in ${escapeHtml(city.name)} — ₹${price} onwards</span>`;
+        // Rendered as a <tr> (not a chip/pill) so it visually continues
+        // the SAME table as the Service/Repair rows above it, instead of
+        // looking like a different, unrelated design on the same page.
+        return `<tr><td>${escapeHtml(typePrefix)}${escapeHtml(s.name)}</td><td colspan="2">₹${price} onwards</td></tr>`;
       }).filter(Boolean);
-    }).join('\n        ');
+    }).join('\n          ');
 
     const otherAppliancesHtml = allAppliances.filter(a => a.id !== appliance.id)
       .map(a => `<a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="city-chip">${a.name} Service in ${city.name}</a>`)
@@ -5211,10 +5214,17 @@ ${JSON.stringify({
       .split('{{APPLIANCE_FAQ_SCHEMA}}').join(applianceFaqSchemaHtml)
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{TYPE_QUERY}}').join(typeQuery)
-      .split('{{PRICING_ROWS_HTML}}').join(pricingRowsHtml || `<tr><td colspan="3">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
-      .split('{{ALL_SERVICES_LIST_HTML}}').join(allServicesListHtml
-        ? `<div class="reveal" style="max-width:820px;margin:14px auto 0;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">\n      ${allServicesListHtml}\n    </div>`
-        : '')
+      // Both merged into ONE table's rows (not a separate box below it in
+      // a different pill/chip style) — Service/Repair rows first, then
+      // any other priced SKU (Installation, Uninstallation, Gas Filling)
+      // as its own row of the exact same table, so the whole page reads
+      // as one consistent price list instead of two differently-styled
+      // ones stacked on top of each other.
+      .split('{{PRICING_ROWS_HTML}}').join(
+        (pricingRowsHtml || `<tr><td colspan="3">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
+        + (allServicesListHtml ? '\n          ' + allServicesListHtml : '')
+      )
+      .split('{{ALL_SERVICES_LIST_HTML}}').join('')
       .split('{{SERVICE_PROCESS_HTML}}').join(formatServiceProcessHtml(appliance.serviceProcess) || `<p>Our technician inspects your ${appliance.name} in front of you, explains the issue clearly, and only proceeds once you approve the price.</p>`)
       .split('{{ABOUT_TEXT}}').join(
         escapeHtml(appliance.aboutText || '').replace(/Foam Jet Service/g, '<strong style="text-decoration:underline;">Foam Jet Service</strong>')
