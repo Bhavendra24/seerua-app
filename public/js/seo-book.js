@@ -84,18 +84,34 @@
     return TYPES.find(t => t.id === (sel && sel.value)) || TYPES[0];
   }
 
+  // Same "was ₹X / now ₹Y" discount-badge look as the homepage's Quick
+  // Book price card (see qbUpdatePrice() in main2.js) — the strike-
+  // through price is purely a visual badge (20% above the real price,
+  // rounded to the nearest 10), never what's actually charged.
   function updatePriceDisplay() {
     const priceEl = el('sbPriceDisplay');
+    const strikeEl = el('sbPriceStrike');
+    const titleEl = el('sbPriceTitle');
     if (!priceEl) return;
     if (forcedSku) {
-      priceEl.textContent = (typeof forcedSku.price === 'number') ? `${forcedSku.label}: ₹${forcedSku.price} onwards` : (forcedSku.label || '');
+      if (strikeEl) strikeEl.textContent = '';
+      if (titleEl) titleEl.textContent = forcedSku.label || '';
+      priceEl.textContent = (typeof forcedSku.price === 'number') ? `₹${forcedSku.price}` : '';
       return;
     }
     const t = currentType();
-    if (!t) { priceEl.textContent = ''; return; }
+    if (!t) { priceEl.textContent = ''; if (strikeEl) strikeEl.textContent = ''; return; }
+    if (titleEl) titleEl.textContent = `${ctx.applianceName || ''} ${t.name}`.trim();
     const serviceType = el('sbServiceType') ? el('sbServiceType').value : 'service';
     const price = serviceType === 'repair' ? t.repairPrice : t.servicePrice;
-    priceEl.textContent = (typeof price === 'number') ? `Visit charge: ₹${price} onwards` : '';
+    if (typeof price === 'number') {
+      const shownMrp = Math.round((price * 1.2) / 10) * 10;
+      if (strikeEl) strikeEl.textContent = `₹${shownMrp}`;
+      priceEl.textContent = `₹${price}`;
+    } else {
+      if (strikeEl) strikeEl.textContent = '';
+      priceEl.textContent = '';
+    }
   }
 
   function populateTypeSelect() {
@@ -113,10 +129,28 @@
     sel.addEventListener('change', () => { forcedSku = null; updateServiceTypeVisibility(); updatePriceDisplay(); });
   }
 
+  // Same pill-toggle behavior as the homepage's Quick Book
+  // (.qb-service-type-btn / .active in style.css) — clicking one marks
+  // it active, updates the hidden #sbServiceType value, and refreshes
+  // the shown price for that choice.
+  function bindServiceTypeToggle() {
+    const row = el('sbServiceTypeRow');
+    const hidden = el('sbServiceType');
+    if (!row || !hidden) return;
+    row.querySelectorAll('.qb-service-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        row.querySelectorAll('.qb-service-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        hidden.value = btn.dataset.serviceType;
+        updatePriceDisplay();
+      });
+    });
+  }
+
   function updateServiceTypeVisibility() {
-    const sel = el('sbServiceType');
-    if (!sel) return;
-    sel.parentElement.style.display = forcedSku ? 'none' : '';
+    const row = el('sbServiceTypeRow');
+    if (!row) return;
+    row.style.display = forcedSku ? 'none' : '';
   }
 
   // Called from a pricing-table "Book" button's onclick (see
@@ -422,8 +456,8 @@
     const form = el('sbForm');
     if (!form) return; // widget markup not present on this page for some reason — do nothing
     populateTypeSelect();
+    bindServiceTypeToggle();
     updatePriceDisplay();
-    if (el('sbServiceType')) el('sbServiceType').addEventListener('change', updatePriceDisplay);
     const dateEl = el('sbDate');
     if (dateEl) {
       const today = new Date();
