@@ -4887,6 +4887,12 @@ function buildApplianceBreadcrumbSchemaHtml(cityName, cityUrl, applianceName, ca
 // Google generally expects for a single-service landing page, and lets
 // each appliance+city combination carry its own priceRange/areaServed.
 function buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRange) {
+  // Real, live-computed rating for THIS city (same computeSiteRating()
+  // used by the homepage), so search results for these long-tail
+  // appliance+city pages can also show star rich-snippets — but only once
+  // this city actually has at least one real "Rate this service" entry,
+  // same no-fake-data rule as everywhere else.
+  const cityRating = computeSiteRating(city.id);
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Service',
@@ -4901,7 +4907,17 @@ function buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRan
     },
     areaServed: { '@type': 'City', name: city.name },
     url: canonicalUrl,
-    ...(priceRange ? { offers: { '@type': 'Offer', priceCurrency: 'INR', priceRange } } : {})
+    ...(appliance.photoUrl ? { image: `${SITE_URL}${appliance.photoUrl}` } : {}),
+    ...(priceRange ? { offers: { '@type': 'Offer', priceCurrency: 'INR', priceRange } } : {}),
+    ...(cityRating.ratingCount && cityRating.avgRating ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: String(cityRating.avgRating),
+        reviewCount: String(cityRating.ratingCount),
+        bestRating: '5',
+        worstRating: '1'
+      }
+    } : {})
   };
   return JSON.stringify(schema, null, 2);
 }
@@ -5215,7 +5231,7 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
     }
     const articles = readData('blog-articles');
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
-    const footerServicesHtml = appliances.map(a => `<li><a href="/?city=${city.id}&amp;appliance=${a.id}#quickbook">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
+    const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
     const articleCardsHtml = articles.map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}/blog`;
 
@@ -5262,7 +5278,7 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
       return res.status(404).send(`<h1>Article not found</h1><p><a href="/appliance-repair/${req.params.citySlug}/blog">Back to ${city.name} appliance care tips</a>.</p>`);
     }
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
-    const footerServicesHtml = appliances.map(a => `<li><a href="/?city=${city.id}&amp;appliance=${a.id}#quickbook">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
+    const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
     const blogIndexUrl = `/appliance-repair/${slugify(city.name)}/blog`;
     const relatedArticlesHtml = articles.filter(a => a.slug !== article.slug).slice(0, 3).map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}${blogIndexUrl}/${article.slug}`;
