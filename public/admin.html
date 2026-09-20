@@ -65,7 +65,7 @@
            directly to one of these views (e.g. a dashboard shortcut)
            still works exactly as before. -->
       <button type="button" id="moreSettingsToggle" class="side-nav-more-toggle">⚙️ More Settings <span id="moreSettingsArrow">▾</span></button>
-      <div id="moreSettingsGroup" style="display:none;">
+      <div id="moreSettingsGroup">
         <button data-view="reports">📊 Daily Report</button>
         <button data-view="applications">📋 Career Applications</button>
         <button data-view="subadmins">🧑‍💼 Admins</button>
@@ -88,12 +88,18 @@
       // saved/shared link) happens to be one of the collapsed ones, so
       // that view's own button is visible rather than needing an extra
       // click to even see it's already selected.
+      // BUG FIX: switched from setting group.style.display directly to
+      // toggling a plain .open class — an inline style always overrides
+      // stylesheet rules, which was blocking panel.css's mobile media
+      // query from ever turning this into a horizontal row (it was stuck
+      // stacking all 12 buttons vertically and pushing the whole page
+      // down every time it opened on a phone). See panel.css for the
+      // actual open/closed and mobile-row styling.
       document.getElementById('moreSettingsToggle').addEventListener('click', () => {
         const group = document.getElementById('moreSettingsGroup');
         const arrow = document.getElementById('moreSettingsArrow');
-        const isOpen = group.style.display !== 'none';
-        group.style.display = isOpen ? 'none' : 'block';
-        arrow.textContent = isOpen ? '▾' : '▴';
+        const isOpen = group.classList.toggle('open');
+        arrow.textContent = isOpen ? '▴' : '▾';
       });
     </script>
     <div class="sidebar-foot">
