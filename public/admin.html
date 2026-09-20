@@ -13,7 +13,7 @@
 <link rel="icon" href="/images/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/panel.css?v=202609080a">
+<link rel="stylesheet" href="/css/panel.css?v=202609202">
 </head>
 <body class="compact">
 
@@ -88,18 +88,45 @@
       // saved/shared link) happens to be one of the collapsed ones, so
       // that view's own button is visible rather than needing an extra
       // click to even see it's already selected.
-      // BUG FIX: switched from setting group.style.display directly to
-      // toggling a plain .open class — an inline style always overrides
-      // stylesheet rules, which was blocking panel.css's mobile media
-      // query from ever turning this into a horizontal row (it was stuck
-      // stacking all 12 buttons vertically and pushing the whole page
-      // down every time it opened on a phone). See panel.css for the
-      // actual open/closed and mobile-row styling.
+      // BUG FIX (round 1): switched from setting group.style.display
+      // directly to toggling a plain .open class — an inline style always
+      // overrides stylesheet rules, which was blocking panel.css's mobile
+      // media query from ever turning this into a horizontal row.
+      //
+      // BUG FIX (round 2): that horizontal dropdown was positioned with
+      // CSS position:absolute against #sideNav — but #sideNav itself needs
+      // overflow-x:auto (so its own row of buttons scrolls sideways), and
+      // per the CSS spec, once overflow-x is anything but 'visible' the
+      // browser forces overflow-y to behave the same way. That silently
+      // clips ANY child that extends past the box, including an
+      // absolutely-positioned dropdown — so it was toggling open (arrow
+      // flipped, "active" style applied) but was invisible every time,
+      // clipped by its own parent. Fixed by positioning it with
+      // position:fixed instead, using the toggle button's real on-screen
+      // coordinates (getBoundingClientRect) — position:fixed is anchored
+      // to the viewport, so no ancestor's overflow can ever clip it.
       document.getElementById('moreSettingsToggle').addEventListener('click', () => {
+        const toggle = document.getElementById('moreSettingsToggle');
         const group = document.getElementById('moreSettingsGroup');
         const arrow = document.getElementById('moreSettingsArrow');
         const isOpen = group.classList.toggle('open');
         arrow.textContent = isOpen ? '▴' : '▾';
+        const isMobileNav = window.matchMedia('(max-width: 900px)').matches;
+        if (isOpen && isMobileNav) {
+          const rect = toggle.getBoundingClientRect();
+          group.style.position = 'fixed';
+          group.style.top = rect.bottom + 'px';
+          group.style.left = '0px';
+          group.style.right = '0px';
+        } else {
+          // Desktop's sidebar layout expects this to sit inline in normal
+          // document flow, not floating — clear any leftover mobile
+          // positioning so it never breaks the desktop view.
+          group.style.position = '';
+          group.style.top = '';
+          group.style.left = '';
+          group.style.right = '';
+        }
       });
     </script>
     <div class="sidebar-foot">
