@@ -59,6 +59,16 @@
 
   function el(id) { return document.getElementById(id); }
 
+  // Same "DD Mon YYYY" convention used everywhere else on the site
+  // (see formatDateDisplay() in main2.js) — kept as its own tiny copy
+  // here rather than depending on main2.js, which this page doesn't load.
+  function formatDateDisplay(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
   // Set only when a pricing-table "Book" button for an extra SKU
   // (Installation, Gas Filling, Uninstallation, ...) was clicked — see
   // window.sbApplyPreset below. Overrides the Service/Repair dropdown's
@@ -333,7 +343,6 @@
     const name = el('sbName').value.trim();
     const phone = el('sbPhone').value.trim();
     const address = el('sbAddress').value.trim();
-    const problem = el('sbProblem') ? el('sbProblem').value.trim() : '';
     const serviceType = el('sbServiceType') ? el('sbServiceType').value : 'service';
     const date = el('sbDate').value;
 
@@ -379,7 +388,7 @@
       phone,
       address,
       cityId: CITY_ID,
-      items: [{ applianceId: APPLIANCE_ID, typeId: type.id, serviceType, qty: 1, problem, photoUrl: '', skuId: forcedSku ? forcedSku.skuId : null }],
+      items: [{ applianceId: APPLIANCE_ID, typeId: type.id, serviceType, qty: 1, problem: '', photoUrl: '', skuId: forcedSku ? forcedSku.skuId : null }],
       bookingDate: date,
       timeSlotId: selectedSlotId
     };
@@ -394,8 +403,12 @@
       el('sbFormStep').style.display = 'none';
       el('sbOtpStep').style.display = 'none';
       el('sbSuccess').style.display = '';
+      const serviceLabel = forcedSku
+        ? `${ctx.applianceName || ''} (${type.name}, ${forcedSku.label})`
+        : `${ctx.applianceName || ''} (${type.name}, ${serviceType === 'repair' ? 'Repair' : 'Service'})`;
       el('sbSuccessId').textContent = data.booking.id;
-      el('sbSuccessVisit').textContent = `${selectedSlotLabel}, ${date}`;
+      el('sbSuccessService').textContent = serviceLabel.trim();
+      el('sbSuccessVisit').textContent = `${selectedSlotLabel}, ${formatDateDisplay(date)}`;
       el('sbSuccessCharge').textContent = `₹${data.booking.totalPrice}`;
     } catch (err) {
       submitBtn.disabled = false;
