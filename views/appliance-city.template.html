@@ -131,14 +131,14 @@
         </tbody>
       </table>
     </div>
-    <!-- Every priced SKU (Service, Repair, Installation, Uninstallation,
-         Gas Filling, etc.) spelled out as its own visible line — real
-         customer searches like "AC gas filling in Moradabad" or "AC
-         installation in Noida" now find an exact phrase match on this
-         page instead of only the generic Service/Repair columns above. -->
-    <div class="reveal" style="max-width:820px;margin:14px auto 0;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
-      {{ALL_SERVICES_LIST_HTML}}
-    </div>
+    <!-- Any priced SKU beyond Service/Repair (Installation, Uninstallation,
+         Gas Filling, etc.), each as its own visible line — real customer
+         searches like "AC gas filling in Moradabad" now find an exact
+         phrase match here instead of only the generic Service/Repair
+         columns above. Server-rendered as a whole (including this
+         wrapper) so it's simply absent, not an empty box, when an
+         appliance/type has no such extra SKUs. -->
+    {{ALL_SERVICES_LIST_HTML}}
   </div>
 </section>
 
