@@ -1191,8 +1191,16 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .qb-services-list { max-height: 55vh; overflow-y: auto; display: grid; gap: 14px; padding: 2px; margin-bottom: 6px; }
 .qb-service-card { border: 1px solid #94a3b8; border-radius: var(--radius-md); padding: 14px; }
 .qb-service-card .qb-price-card { border: none; padding: 0; margin-bottom: 10px; }
-.qb-service-card .qb-checklist { margin-bottom: 12px; }
+.qb-service-card .qb-checklist { margin-bottom: 0; margin-top: 8px; }
 .qb-service-card .qb-actions { display: flex; gap: 8px; }
+/* SIMPLIFY: "What's included" is collapsed by default (see main2.js) so
+   a service card reads as just a price + two buttons at a glance —
+   the checklist is still there, one tap away, for anyone who wants it. */
+.qb-checklist-details { margin-bottom: 12px; }
+.qb-checklist-details summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--blue-900); list-style: none; }
+.qb-checklist-details summary::-webkit-details-marker { display: none; }
+.qb-checklist-details summary::after { content: ' \25be'; }
+.qb-checklist-details[open] summary::after { content: ' \25b4'; }
 .qb-service-card .qb-btn { padding: 10px 8px; font-size: 0.85rem; }
 .modal-close { float: right; background: none; border: none; font-size: 1.3rem; line-height: 1; cursor: pointer; color: var(--slate); width: 32px; height: 32px; border-radius: 50%; transition: background 0.15s ease, color 0.15s ease; }
 .modal-close:hover { background: var(--mist); color: var(--ink); }
@@ -1997,6 +2005,16 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 /* ---------- Responsive ---------- */
 @media (max-width: 980px) {
   .hero-grid { grid-template-columns: 1fr; }
+  /* BUG FIX: on the appliance+city SEO pages, the single-column mobile
+     hero was showing the headline/CTA text block first (source order)
+     and the technician photo below it — so the "Book" button sat above
+     an empty gap rather than right under the picture it belongs with.
+     Flipping the visual order here (source order stays the same, so
+     screen readers still hit the heading first) puts the photo on top
+     and the Book button directly beneath it. Desktop's two-column grid
+     above this breakpoint is untouched. */
+  .hero-copy { order: 2; }
+  .hero-photo { order: 1; }
   .services-grid { grid-template-columns: repeat(2, 1fr); }
   .steps { grid-template-columns: 1fr; }
   .why-grid { grid-template-columns: repeat(2, 1fr); }
