@@ -4803,6 +4803,16 @@ app.get('/', (req, res) => {
     const applianceListText = joinWithAnd(appliances.map(a => a.name));
     const servicesGridHtml = buildServicesGridHtml(appliances);
     const siteContent = readData('site-content');
+    // Footer "Services" / "All Cities" columns (see FOOTER_SERVICES_HTML
+    // used on the appliance-city/blog pages) — the homepage isn't scoped
+    // to one city, so each appliance link here points at the first
+    // active city; a customer anywhere can still switch city on that
+    // page. Same pattern as the per-city pages, just not city-specific.
+    const primaryCity = cities[0];
+    const footerServicesHtml = primaryCity
+      ? appliances.map(a => `<li><a href="/appliance-repair/${slugify(primaryCity.name)}/${applianceSlug(a.name)}">${escapeHtml(a.name)} Repair &amp; Service</a></li>`).join('\n          ')
+      : '';
+    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
     const template = fs.readFileSync(INDEX_TEMPLATE_PATH, 'utf-8');
     const html = template
       .replace('{{AREA_SERVED_JSON}}', JSON.stringify(cityNames))
@@ -4814,6 +4824,8 @@ app.get('/', (req, res) => {
       .replace('{{AGGREGATE_RATING_JSON}}', aggregateRatingJsonFragment(computeSiteRating()))
       .replace('{{FOOTER_SLOGAN}}', escapeHtml(siteContent.footerSlogan || ''))
       .replace('{{FOOTER_DESCRIPTION}}', escapeHtml(fillContentPlaceholders(siteContent.footerDescription || '', cityListText, applianceListText)))
+      .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
+      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .replace('{{FAQ_LIST_HTML}}', buildFaqListHtml(siteContent.faqs || [], cityListText, applianceListText))
       .replace('{{FAQ_SCHEMA_JSON}}', buildFaqSchemaHtml(siteContent.faqs || [], cityListText, applianceListText))
       .replace('{{SERVICES_GRID_HTML}}', servicesGridHtml);
@@ -5162,6 +5174,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       .join('\n      ');
 
     const footerServicesHtml = allAppliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
+    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
 
     const cityUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}`;
     const canonicalUrl = `${cityUrl}/${applianceSlug(appliance.name)}${focusType ? '/' + slugify(focusType.name) : ''}`;
@@ -5335,6 +5348,7 @@ ${JSON.stringify({
       .split('{{OTHER_APPLIANCES_HTML}}').join(otherAppliancesHtml || '<span class="city-chip">More services coming soon</span>')
       .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
+      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
       .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
@@ -5404,6 +5418,7 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
     const articles = readData('blog-articles');
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
     const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
+    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
     const articleCardsHtml = articles.map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}/blog`;
 
@@ -5415,6 +5430,7 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{ARTICLE_CARDS_HTML}}').join(articleCardsHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
+      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
       .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
@@ -5451,6 +5467,7 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
     }
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
     const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
+    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
     const blogIndexUrl = `/appliance-repair/${slugify(city.name)}/blog`;
     const relatedArticlesHtml = articles.filter(a => a.slug !== article.slug).slice(0, 3).map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}${blogIndexUrl}/${article.slug}`;
@@ -5475,6 +5492,7 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
       .split('{{ARTICLE_BODY_HTML}}').join(personalize(article.bodyHtml, city.name))
       .split('{{RELATED_ARTICLES_HTML}}').join(relatedArticlesHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
+      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
       .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
