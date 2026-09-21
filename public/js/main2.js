@@ -1549,15 +1549,117 @@ function currentSiteCityId() {
   try { return localStorage.getItem('seerua_last_city') || ''; } catch (e) { return ''; }
 }
 
+// DAINIK-CARE-STYLE REDESIGN (per explicit request, with reference
+// screenshots): a horizontal row of appliance icons at the top — tapping
+// one re-opens this same panel for that appliance, so the customer can
+// switch appliance without closing the panel and scrolling back up to
+// the homepage grid. Highlights whichever appliance is currently open.
+function buildApplianceIconRowHtml(activeApplianceId) {
+  const list = ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES;
+  return `<div class="appliance-icon-row" id="applianceIconRow">${list.map(a => `
+    <button type="button" class="appliance-icon-item${a.id === activeApplianceId ? ' active' : ''}" data-appliance-id="${a.id}">
+      ${a.photoUrl ? `<img src="${toWebpUrl(a.photoUrl)}" alt="${escapeHtml(a.name)}">` : `<div class="service-icon-wrap" style="width:52px;height:52px;"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
+      <span>${escapeHtml(a.name)}</span>
+    </button>
+  `).join('')}</div>`;
+}
+
+function bindApplianceIconRow(panel) {
+  const row = panel.querySelector('#applianceIconRow');
+  if (!row) return;
+  row.querySelectorAll('.appliance-icon-item').forEach(btn => {
+    btn.addEventListener('click', () => openApplianceBoxesPanel(btn.getAttribute('data-appliance-id')));
+  });
+}
+
+function bindApplianceBoxesPanelClose(panel) {
+  const closeBtn = panel.querySelector('.appliance-boxes-panel-close');
+  if (closeBtn) closeBtn.addEventListener('click', () => { panel.style.display = 'none'; });
+}
+
+// Builds one Dainik-Care-style card: appliance photo with a price badge
+// overlaid on its top-left corner, title + location pin + strike-through
+// MRP/price, the FULL checklist always visible (not collapsed — per
+// explicit request to match the reference screenshots), and three
+// distinct actions: Add (cart, blue), Book (green), Review (amber).
+function buildDainikStyleCardHtml(appliance, type, svc, price, cityLabel) {
+  const mrp = Math.round((price * 1.2) / 10) * 10;
+  const checklistHtml = (svc.checklist || []).map(item => `<li>${item}</li>`).join('');
+  const photoHtml = appliance.photoUrl
+    ? `<img src="${toWebpUrl(appliance.photoUrl)}" alt="${escapeHtml(type.name)} ${escapeHtml(svc.name)}" class="qb-price-img">`
+    : `<div class="service-icon-wrap qb-price-img" style="display:flex;align-items:center;justify-content:center;"><div class="service-icon">${ICONS[appliance.icon] || ICONS.wrench}</div></div>`;
+  return `
+    <div class="qb-service-card" data-type-id="${type.id}" data-sku-id="${svc.id}">
+      <div class="qb-price-card">
+        <div class="qb-price-photo-wrap">
+          ${photoHtml}
+          <span class="qb-price-badge">₹${price}/-</span>
+        </div>
+        <div>
+          <div class="qb-price-title">${escapeHtml(type.name)} ${escapeHtml(svc.name)} In ${escapeHtml(cityLabel)}</div>
+          <div class="qb-price-row"><span class="qb-price-tag">📍</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
+        </div>
+      </div>
+      ${checklistHtml ? `<ul class="qb-checklist">${checklistHtml}</ul>` : ''}
+      <div class="qb-actions qb-actions-3">
+        <button type="button" class="qb-btn qb-btn-add" data-action="add">🛒 Add</button>
+        <button type="button" class="qb-btn qb-btn-book" data-action="book">Book</button>
+        <button type="button" class="qb-btn qb-btn-review" data-action="review">Review</button>
+      </div>
+    </div>`;
+}
+
+// Scrolls to the homepage's real testimonials (only ever real, verified
+// bookings — see loadPublicReviews() — never sample/placeholder
+// reviews). That section stays hidden until there are at least 3 real
+// reviews, so this politely says so instead of scrolling to nothing.
+function qbGoToReviews() {
+  const section = document.getElementById('testimonialsSection');
+  if (section && section.style.display !== 'none' && section.offsetParent !== null) {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else if (typeof showToast === 'function') {
+    showToast('Real customer reviews will show here once a few bookings are completed.');
+  }
+}
+window.qbGoToReviews = qbGoToReviews;
+
+// Wires a rendered grid of buildDainikStyleCardHtml() cards' Add/Book/
+// Review buttons. `svcLookup(typeId, skuId)` returns { appliance, type,
+// svc, price } for a card — kept as a callback rather than a closure
+// over one fixed dataset, since the same wiring is reused both for the
+// single active type-tab's cards and (defensively) after a re-render.
+function bindApplianceBoxesGridActions(grid, applianceId, svcLookup) {
+  grid.querySelectorAll('.qb-service-card[data-sku-id]').forEach(card => {
+    const typeId = card.getAttribute('data-type-id');
+    const skuId = card.getAttribute('data-sku-id');
+    card.querySelectorAll('button[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.getAttribute('data-action');
+        if (action === 'review') { qbGoToReviews(); return; }
+        const found = svcLookup(typeId, skuId);
+        if (!found) return;
+        if (action === 'book') {
+          openCompactBookModal(applianceId, typeId, skuId);
+        } else {
+          // "Add" — reuses the exact same account-gate + cart logic the
+          // classic Quick Book modal's Add button uses (qbAddService),
+          // just pointed at this panel's appliance/type instead of
+          // whatever qbShowDetails() last opened.
+          qbApplianceId = applianceId;
+          qbSelectedTypeId = typeId;
+          qbAddService(found.svc, found.price, false);
+        }
+      });
+    });
+  });
+}
+
 // QUICK-BOOK PRICE-BOXES PANEL (per explicit request: "popup me ye
 // kuchh nahi karna hai, pahle jaise quick booking ke box banao, jis box
-// ko click karo tab popup khule") — tapping an appliance card opens
-// THIS panel on the page itself (not the booking popup), listing every
-// Type + sub-type (Service, Repair, Installation, Uninstallation, Gas
-// Filling, ...) as its own price card, same look as the old Quick Book
-// modal's cards. Only tapping one specific card's "Book" button opens
-// the actual popup (#hbModal), already preset to that exact service —
-// see hbApplyPresetSelection() below.
+// ko click karo tab popup khule"; later restyled per Dainik Care
+// reference screenshots: appliance-icon row on top, type-tabs, and a
+// photo+badge card with Add/Book/Review) — tapping an appliance card
+// opens THIS panel on the page itself (not the booking popup).
 async function openApplianceBoxesPanel(applianceId) {
   const panel = document.getElementById('applianceBoxesPanel');
   if (!panel) { openCompactBookModal(applianceId); return; } // very old cached page without the panel markup — fall back rather than do nothing
@@ -1565,26 +1667,31 @@ async function openApplianceBoxesPanel(applianceId) {
   if (!appliance) return;
 
   const cityId = currentSiteCityId();
+  const iconRowHtml = buildApplianceIconRowHtml(applianceId);
   panel.style.display = '';
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   if (!cityId) {
     panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${appliance.name} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      ${iconRowHtml}
       <p class="form-msg">Please choose your city first, then tap this appliance again.</p>
       <button type="button" class="btn btn-primary btn-sm" id="applianceBoxesChooseCity">Choose City</button>
     `;
-    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    bindApplianceBoxesPanelClose(panel);
+    bindApplianceIconRow(panel);
     const chooseCityBtn = document.getElementById('applianceBoxesChooseCity');
     if (chooseCityBtn) chooseCityBtn.addEventListener('click', () => (document.getElementById('navCityBtn') || document.getElementById('bottomNavCityBtn'))?.click());
     return;
   }
 
   panel.innerHTML = `
-    <div class="appliance-boxes-panel-head"><h3>${appliance.name} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+    <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+    ${iconRowHtml}
     <p class="form-msg">Loading prices...</p>
   `;
-  panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+  bindApplianceBoxesPanelClose(panel);
+  bindApplianceIconRow(panel);
 
   try {
     const rows = await Promise.all((appliance.types || []).map(async (t) => {
@@ -1595,58 +1702,87 @@ async function openApplianceBoxesPanel(applianceId) {
         return { type: t, row: null };
       }
     }));
-    const cardsHtml = rows.flatMap(({ type, row }) => {
-      if (!row) return [];
+
+    const cityLabel = (CITIES.find(c => c.id === cityId) || {}).name || 'Your City';
+    // Group into one { type, cardsHtml, svcMap } entry per type that
+    // actually has at least one priced service — this is what powers the
+    // type-tabs (Window AC / Split AC / ... exactly like the reference
+    // screenshots), instead of the old flat list of every type stacked
+    // one after another.
+    const typesWithCards = rows.map(({ type, row }) => {
+      if (!row) return null;
       const services = (type.services && type.services.length) ? type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
-      return services.map(svc => {
+      const svcMap = {};
+      const cardsHtml = services.map(svc => {
         const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
           ? row.servicePrices[svc.id]
           : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
         if (typeof price !== 'number') return '';
-        const mrp = Math.round((price * 1.2) / 10) * 10;
-        const checklistHtml = (svc.checklist || []).map(item => `<li>${item}</li>`).join('');
-        return `
-        <div class="qb-service-card">
-          <div class="qb-price-card qb-price-card-nophoto">
-            <div>
-              <div class="qb-price-title">${type.name} ${svc.name}</div>
-              <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
-              <div class="qb-price-trust">✔ Most Trusted Service</div>
-            </div>
-          </div>
-          ${checklistHtml ? `<details class="qb-checklist-details"><summary>What's included</summary><ul class="qb-checklist">${checklistHtml}</ul></details>` : ''}
-          <div class="qb-actions">
-            <button type="button" class="qb-btn qb-btn-book" data-type-id="${type.id}" data-sku-id="${svc.id}">Book — ₹${price}</button>
-          </div>
-        </div>`;
-      });
-    }).join('');
+        svcMap[svc.id] = { svc, price };
+        return buildDainikStyleCardHtml(appliance, type, svc, price, cityLabel);
+      }).join('');
+      return cardsHtml ? { type, cardsHtml, svcMap } : null;
+    }).filter(Boolean);
 
-    if (!cardsHtml) {
+    if (!typesWithCards.length) {
       panel.innerHTML = `
-        <div class="appliance-boxes-panel-head"><h3>${appliance.name}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+        <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+        ${iconRowHtml}
         <p class="form-msg">This appliance is not available in your city right now.</p>
       `;
-      panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+      bindApplianceBoxesPanelClose(panel);
+      bindApplianceIconRow(panel);
       return;
     }
 
+    const lookup = (typeId, skuId) => {
+      const t = typesWithCards.find(x => x.type.id === typeId);
+      return t && t.svcMap[skuId] ? { appliance, type: t.type, svc: t.svcMap[skuId].svc, price: t.svcMap[skuId].price } : null;
+    };
+
+    const renderGridForType = (typeId) => {
+      const gridEl = document.getElementById('applianceBoxesGrid');
+      if (!gridEl) return;
+      const t = typesWithCards.find(x => x.type.id === typeId) || typesWithCards[0];
+      gridEl.innerHTML = t.cardsHtml;
+      bindApplianceBoxesGridActions(gridEl, applianceId, lookup);
+    };
+
+    const initialTypeId = typesWithCards[0].type.id;
+    const tabsHtml = typesWithCards.length > 1
+      ? `<div class="qb-type-tabs" id="applianceBoxesTypeTabs">${typesWithCards.map(t =>
+          `<button type="button" data-type-id="${t.type.id}" class="${t.type.id === initialTypeId ? 'active' : ''}">${escapeHtml(t.type.name)}</button>`
+        ).join('')}</div>`
+      : '';
+
     panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${appliance.name} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
-      <div class="appliance-boxes-grid">${cardsHtml}</div>
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      ${iconRowHtml}
+      ${tabsHtml}
+      <div class="appliance-boxes-grid" id="applianceBoxesGrid">${typesWithCards[0].cardsHtml}</div>
     `;
-    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
-    panel.querySelectorAll('.qb-btn-book[data-sku-id]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        openCompactBookModal(applianceId, btn.dataset.typeId, btn.dataset.skuId);
+    bindApplianceBoxesPanelClose(panel);
+    bindApplianceIconRow(panel);
+    bindApplianceBoxesGridActions(document.getElementById('applianceBoxesGrid'), applianceId, lookup);
+
+    const tabsEl = document.getElementById('applianceBoxesTypeTabs');
+    if (tabsEl) {
+      tabsEl.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabsEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderGridForType(btn.getAttribute('data-type-id'));
+        });
       });
-    });
+    }
   } catch (e) {
     panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${appliance.name}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      ${iconRowHtml}
       <p class="form-msg error">Could not load prices. Please try again.</p>
     `;
-    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    bindApplianceBoxesPanelClose(panel);
+    bindApplianceIconRow(panel);
   }
 }
 window.openApplianceBoxesPanel = openApplianceBoxesPanel;
