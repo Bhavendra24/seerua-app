@@ -829,14 +829,9 @@
         <label for="hbCity">City *</label>
         <select id="hbCity" required></select>
       </div>
-      <div class="field" id="hbTypeField" style="display:none;">
-        <label for="hbType">Type</label>
-        <select id="hbType"></select>
-      </div>
-
-      <!-- Shown instead of the price card/form below when this
-           appliance/type has no pricing set up for the selected city —
-           same friendly notice Quick Book already uses (#qbNotAvailable
+      <!-- Shown instead of the price table/form below when this appliance
+           has no pricing set up at all for the selected city — same
+           friendly notice Quick Book already uses (#qbNotAvailable
            above), not a confusing blank/broken-looking form. -->
       <div id="hbNotAvailable" class="qb-not-available" style="display:none;">
         <div class="qb-not-available-icon">🚧</div>
@@ -844,20 +839,32 @@
       </div>
 
       <div id="hbBookableWrap">
-        <div class="qb-price-card qb-price-card-nophoto">
-          <div style="width:100%;">
-            <div class="qb-price-title" id="hbPriceTitle">Service in your city</div>
-            <div class="qb-price-row">
-              <span class="qb-price-tag">🏷️</span>
-              <span class="qb-price-strike" id="hbPriceStrike"></span>
-              <span class="qb-price-now" id="hbPriceNow"></span>
-            </div>
-          </div>
+        <!-- COMPARE-AND-BOOK PRICE TABLE (per explicit request: "main
+             page par appliance ke price check karna bahut aasan tha...
+             sabhi appliance ke price hi khatam kar diye" — tapping a
+             card used to open that appliance's full SEO page, where
+             every Type's Service/AMC and Repair price sat side by side
+             in one table, easy to compare before booking. The 1-click
+             popup's single Type-dropdown + one price at a time lost
+             that comparison entirely.) Shows every Type's Service and
+             Repair price at once, right in this same popup — tapping a
+             price cell selects that Type + Service/Repair for booking
+             (replacing a separate Type dropdown and Service/Repair
+             toggle with one interactive table that does both jobs), so
+             the one-click flow keeps the compare-before-you-book
+             experience instead of trading it away for speed. -->
+        <div class="qb-price-title" id="hbPriceTitle" style="margin-bottom:8px;">Service in your city</div>
+        <div class="hb-price-table-wrap">
+          <table class="hb-price-table">
+            <thead><tr><th>Type / Service</th><th>Price</th></tr></thead>
+            <tbody id="hbPriceTableBody"></tbody>
+          </table>
         </div>
-        <div class="qb-service-type-row" id="hbServiceTypeRow" style="margin-bottom:14px;">
-          <button type="button" class="qb-service-type-btn active" data-service-type="service">Service / AMC</button>
-          <button type="button" class="qb-service-type-btn" data-service-type="repair">Repair</button>
-        </div>
+        <p class="hb-selected-line" id="hbSelectedLine"></p>
+        <!-- Hidden internal state only — no longer a visible dropdown or
+             pill toggle; both are now set by tapping a cell in the price
+             table above (see hbSelectPriceCell() in main2.js). -->
+        <select id="hbType" style="display:none;"></select>
         <input type="hidden" id="hbServiceType" value="service">
         <form id="hbForm">
           <div class="field">
