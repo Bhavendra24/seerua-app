@@ -1508,7 +1508,7 @@ function bindServiceCardClicks(grid) {
     const applianceId = card && card.getAttribute('data-appliance');
     if (!applianceId) return;
     e.preventDefault();
-    openCompactBookModal(applianceId);
+    openApplianceBoxesPanel(applianceId);
   });
 }
 
@@ -1531,12 +1531,125 @@ function renderServicesGrid() {
           : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
         <h3>${a.name}</h3>
       </a>
-      <button type="button" class="btn btn-outline btn-sm" onclick="openCompactBookModal('${a.id}')">Book Now</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="openApplianceBoxesPanel('${a.id}')">Book Now</button>
     </div>
   `;
   }).join('');
   bindServiceCardClicks(grid);
 }
+
+// Reads the site's currently-chosen city — the header/bottom-nav "City"
+// button's underlying #fCity value, falling back to the last city
+// remembered in localStorage (see populateCitySheetGrid()/the
+// bottomSheetCityGrid click handler above) — same city context the
+// price-boxes panel below (and the compact Book popup) already use.
+function currentSiteCityId() {
+  const el = document.getElementById('fCity');
+  if (el && el.value) return el.value;
+  try { return localStorage.getItem('seerua_last_city') || ''; } catch (e) { return ''; }
+}
+
+// QUICK-BOOK PRICE-BOXES PANEL (per explicit request: "popup me ye
+// kuchh nahi karna hai, pahle jaise quick booking ke box banao, jis box
+// ko click karo tab popup khule") — tapping an appliance card opens
+// THIS panel on the page itself (not the booking popup), listing every
+// Type + sub-type (Service, Repair, Installation, Uninstallation, Gas
+// Filling, ...) as its own price card, same look as the old Quick Book
+// modal's cards. Only tapping one specific card's "Book" button opens
+// the actual popup (#hbModal), already preset to that exact service —
+// see hbApplyPresetSelection() below.
+async function openApplianceBoxesPanel(applianceId) {
+  const panel = document.getElementById('applianceBoxesPanel');
+  if (!panel) { openCompactBookModal(applianceId); return; } // very old cached page without the panel markup — fall back rather than do nothing
+  const appliance = (ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES).find(a => a.id === applianceId);
+  if (!appliance) return;
+
+  const cityId = currentSiteCityId();
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  if (!cityId) {
+    panel.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${appliance.name} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <p class="form-msg">Please choose your city first, then tap this appliance again.</p>
+      <button type="button" class="btn btn-primary btn-sm" id="applianceBoxesChooseCity">Choose City</button>
+    `;
+    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    const chooseCityBtn = document.getElementById('applianceBoxesChooseCity');
+    if (chooseCityBtn) chooseCityBtn.addEventListener('click', () => (document.getElementById('navCityBtn') || document.getElementById('bottomNavCityBtn'))?.click());
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="appliance-boxes-panel-head"><h3>${appliance.name} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+    <p class="form-msg">Loading prices...</p>
+  `;
+  panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+
+  try {
+    const rows = await Promise.all((appliance.types || []).map(async (t) => {
+      try {
+        const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${t.id}`);
+        return { type: t, row };
+      } catch (e) {
+        return { type: t, row: null };
+      }
+    }));
+    const cardsHtml = rows.flatMap(({ type, row }) => {
+      if (!row) return [];
+      const services = (type.services && type.services.length) ? type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
+      return services.map(svc => {
+        const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
+          ? row.servicePrices[svc.id]
+          : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
+        if (typeof price !== 'number') return '';
+        const mrp = Math.round((price * 1.2) / 10) * 10;
+        const checklistHtml = (svc.checklist || []).map(item => `<li>${item}</li>`).join('');
+        return `
+        <div class="qb-service-card">
+          <div class="qb-price-card qb-price-card-nophoto">
+            <div>
+              <div class="qb-price-title">${type.name} ${svc.name}</div>
+              <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
+              <div class="qb-price-trust">✔ Most Trusted Service</div>
+            </div>
+          </div>
+          ${checklistHtml ? `<details class="qb-checklist-details"><summary>What's included</summary><ul class="qb-checklist">${checklistHtml}</ul></details>` : ''}
+          <div class="qb-actions">
+            <button type="button" class="qb-btn qb-btn-book" data-type-id="${type.id}" data-sku-id="${svc.id}">Book — ₹${price}</button>
+          </div>
+        </div>`;
+      });
+    }).join('');
+
+    if (!cardsHtml) {
+      panel.innerHTML = `
+        <div class="appliance-boxes-panel-head"><h3>${appliance.name}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+        <p class="form-msg">This appliance is not available in your city right now.</p>
+      `;
+      panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+      return;
+    }
+
+    panel.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${appliance.name} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <div class="appliance-boxes-grid">${cardsHtml}</div>
+    `;
+    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    panel.querySelectorAll('.qb-btn-book[data-sku-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openCompactBookModal(applianceId, btn.dataset.typeId, btn.dataset.skuId);
+      });
+    });
+  } catch (e) {
+    panel.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${appliance.name}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <p class="form-msg error">Could not load prices. Please try again.</p>
+    `;
+    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+  }
+}
+window.openApplianceBoxesPanel = openApplianceBoxesPanel;
 
 const CART_STORAGE_KEY = 'seerua_cart_v1';
 
@@ -4507,6 +4620,14 @@ let hbSelectedSkuId = null;
 // any Type other than the appliance's first (e.g. "Split AC" when
 // "Window AC" is first) always booked the first Type anyway.
 let hbSelectedTypeId = null;
+// Set (to the raw skuId the caller asked for, e.g. "svc-gasfill" or
+// plain "svc-service"/"svc-repair") whenever this popup was opened
+// already knowing the exact service — the homepage's price-boxes panel
+// always does this now. In that mode the in-popup picker
+// (#hbPriceCardsWrap) stays hidden entirely; only the "Selected: ..."
+// line and the booking form show. null means the old fallback picker
+// mode (used only by entry points that don't yet know the choice).
+let hbPresetSkuId = null;
 
 function hbCurrentAppliance() {
   const list = ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES;
@@ -4542,6 +4663,8 @@ async function hbPopulatePriceTable(appliance, initialTypeId) {
   const grid = document.getElementById('hbPriceTableBody');
   const titleEl = document.getElementById('hbPriceTitle');
   if (!grid || !titleEl) return;
+  const wrap = document.getElementById('hbPriceCardsWrap');
+  if (wrap) wrap.style.display = '';
   titleEl.textContent = `${appliance.name} — choose a service`;
   if (!cityId) { hbSetNotAvailable(true); return; }
   grid.innerHTML = '<p style="text-align:center;color:var(--slate);grid-column:1/-1;">Loading prices...</p>';
@@ -4621,6 +4744,43 @@ function hbSelectPriceCell(typeId, skuId, svcName, appliance) {
   hbRefreshSlots();
 }
 
+// PRESET SELECTION (per explicit request: "popup me ye kuchh nahi karna
+// hai, pahle jaise quick booking ke box banao, jis box ko click karo
+// tab popup khule") — used when this popup is opened from the
+// homepage's own price-boxes panel, where the exact Type + sub-type was
+// already picked BEFORE the popup ever appeared. Skips the in-popup
+// picker (#hbPriceCardsWrap stays hidden) entirely and goes straight to
+// showing that one selection + the booking form, fetching only that
+// single price instead of every Type's full breakdown.
+async function hbApplyPresetSelection(appliance, typeId, skuId) {
+  const wrap = document.getElementById('hbPriceCardsWrap');
+  if (wrap) wrap.style.display = 'none';
+  const cityId = document.getElementById('hbCity').value;
+  if (!cityId) { hbSetNotAvailable(true); return; }
+  const type = (appliance.types || []).find(t => t.id === typeId) || (appliance.types || [])[0];
+  if (!type) { hbSetNotAvailable(true); return; }
+  const line = document.getElementById('hbSelectedLine');
+  if (line) line.textContent = 'Loading price...';
+  try {
+    const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${type.id}`);
+    const price = (row.servicePrices && typeof row.servicePrices[skuId] === 'number')
+      ? row.servicePrices[skuId]
+      : (skuId === 'svc-repair' ? row.repairPrice : row.servicePrice);
+    if (typeof price !== 'number') { hbSetNotAvailable(true); return; }
+    hbSetNotAvailable(false);
+    hbSelectedTypeId = type.id;
+    hbSelectedSkuId = (skuId === 'svc-service' || skuId === 'svc-repair') ? null : skuId;
+    const serviceTypeEl = document.getElementById('hbServiceType');
+    if (serviceTypeEl) serviceTypeEl.value = (skuId === 'svc-repair') ? 'repair' : 'service';
+    const svc = (type.services || []).find(s => s.id === skuId);
+    const svcName = svc ? svc.name : (skuId === 'svc-repair' ? 'Repair' : 'Service / AMC');
+    if (line) line.innerHTML = `Selected: <strong>${type.name} — ${svcName} — ₹${price}</strong>`;
+    hbRefreshSlots();
+  } catch (e) {
+    hbSetNotAvailable(true);
+  }
+}
+
 function hbRenderSlots(slots) {
   const box = document.getElementById('hbSlots');
   if (!box) return;
@@ -4664,7 +4824,7 @@ async function hbRefreshSlots() {
 // ?appliance=...&type=... link from elsewhere) — see the call sites in
 // renderServicesGrid(), bindFooterApplianceLinks(),
 // bindUrlTriggeredSections() and autoOpenBookingFromUrlParams() above.
-function openCompactBookModal(applianceId, typeId) {
+function openCompactBookModal(applianceId, typeId, skuId) {
   if (BOOKING_PAUSED_STATUS && BOOKING_PAUSED_STATUS.bookingPaused) {
     if (typeof openBookingForm === 'function') openBookingForm();
     return;
@@ -4672,6 +4832,10 @@ function openCompactBookModal(applianceId, typeId) {
   hbApplianceId = applianceId;
   const appliance = hbCurrentAppliance();
   if (!appliance) return;
+  // Remembers whether this exact open already knows the service (see
+  // hbApplyPresetSelection() above) — used again below AND by the city
+  // dropdown's own change handler if someone switches city mid-popup.
+  hbPresetSkuId = skuId || null;
 
   document.getElementById('hbFormStep').style.display = '';
   document.getElementById('hbOtpStep').style.display = 'none';
@@ -4710,7 +4874,11 @@ function openCompactBookModal(applianceId, typeId) {
   document.getElementById('hbSlots').innerHTML = '';
 
   if (citySelect.value) {
-    hbPopulatePriceTable(appliance, typeId);
+    if (skuId) {
+      hbApplyPresetSelection(appliance, typeId || (appliance.types[0] && appliance.types[0].id), skuId);
+    } else {
+      hbPopulatePriceTable(appliance, typeId);
+    }
   } else {
     hbSetNotAvailable(true);
   }
@@ -4847,7 +5015,9 @@ function bindCompactBookModal() {
     const cityId = document.getElementById('hbCity').value;
     try { localStorage.setItem('seerua_last_city', cityId); } catch (e) { /* private browsing etc */ }
     const appliance = hbCurrentAppliance();
-    if (appliance) hbPopulatePriceTable(appliance, hbSelectedTypeId);
+    if (!appliance) return;
+    if (hbPresetSkuId) hbApplyPresetSelection(appliance, hbSelectedTypeId, hbPresetSkuId);
+    else hbPopulatePriceTable(appliance, hbSelectedTypeId);
   });
   document.getElementById('hbDate').addEventListener('change', hbRefreshSlots);
   document.getElementById('hbForm').addEventListener('submit', hbHandleSubmit);
