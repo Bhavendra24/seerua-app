@@ -1191,6 +1191,33 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .qb-btn-add:hover { background: var(--accent-600); }
 .qb-btn-book { background: #1aa251; color: #fff; }
 .qb-btn-book:hover { background: #158a44; }
+/* Third "Review" action (per Dainik Care reference screenshots) — amber
+   so all three buttons read as visually distinct at a glance. */
+.qb-btn-review { background: #f59e0b; color: #fff; }
+.qb-btn-review:hover { background: #d97706; }
+/* Three-button row (Add / Book / Review) needs tighter padding than the
+   original two-button row to fit on one line on a phone screen. */
+.qb-actions-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.qb-actions-3 .qb-btn { padding: 10px 4px; font-size: 0.78rem; }
+
+/* Horizontal appliance-icon strip (Dainik Care reference screenshots) at
+   the top of the price-boxes panel — tapping an icon re-opens the panel
+   for that appliance, so switching appliance never needs a scroll back
+   up to the homepage grid. */
+.appliance-icon-row { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 14px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.appliance-icon-row::-webkit-scrollbar { display: none; }
+.appliance-icon-item { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; background: none; border: none; cursor: pointer; padding: 4px; border-radius: 10px; }
+.appliance-icon-item img { width: 52px; height: 52px; object-fit: cover; border-radius: 50%; border: 2px solid var(--line); }
+.appliance-icon-item span { font-size: 0.7rem; font-weight: 600; color: var(--slate); text-align: center; line-height: 1.15; }
+.appliance-icon-item.active img { border-color: var(--accent-500); }
+.appliance-icon-item.active span { color: var(--accent-600); }
+
+/* Price badge overlaid on a service card's photo (Dainik Care reference
+   screenshots show a small "₹250/-" tag pinned to the photo itself). */
+.qb-price-photo-wrap { position: relative; flex-shrink: 0; }
+.qb-price-photo-wrap .qb-price-img { margin: 0; }
+.qb-price-badge { position: absolute; top: 4px; left: 4px; background: rgba(15,42,67,0.88); color: #fff; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 6px; line-height: 1.3; white-space: nowrap; }
+.qb-btn-book:hover { background: #158a44; }
 
 /* One-card-per-sub-type picker inside the homepage's one-click Book
    popup (#hbModal) — per explicit request ("pahle jaise sabhi type ke
@@ -1223,7 +1250,9 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .appliance-boxes-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .appliance-boxes-panel-head h3 { margin: 0; font-family: var(--font-display); color: var(--blue-900); }
 .appliance-boxes-panel-close { background: none; border: none; font-size: 1.4rem; line-height: 1; cursor: pointer; color: var(--slate); padding: 4px 8px; }
-.appliance-boxes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+/* Widened from 220px: cards now include a photo (see .qb-price-img)
+   alongside the title/price, so they need a bit more room per column. */
+.appliance-boxes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .hb-selected-line strong { color: var(--ink); }
 
 /* Scrollable list of individual service cards (Service/Repair/
