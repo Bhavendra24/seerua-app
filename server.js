@@ -5007,17 +5007,35 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
     // to row.servicePrices) — the type's first defined service for the
     // Service/AMC column, and the 'svc-repair' SKU for Repair — falling
     // back to the legacy field only for older rows that predate it.
-    const pricingRowsHtml = appliances.flatMap(a =>
-      a.types.map(t => {
+    //
+    // GROUPED BY APPLIANCE (per explicit request: "customer ko price
+    // dhundhna mushkil hoga, sabhi appliance ki bahut row hai") — this
+    // page lists every appliance's every type in ONE flat table, which
+    // for a city with several appliances (each with several types) adds
+    // up to a long, hard-to-scan list with the appliance name repeated
+    // on every single row. Grouping under one bold appliance-name header
+    // row, with just the type underneath it, cuts that repetition and
+    // reads as clearly separated sections instead of one long list.
+    // Each row also gets its own "Book" link straight to that
+    // appliance's own dedicated page with ?book=1, which auto-opens its
+    // one-click booking popup there (see seo-book.js) — this page itself
+    // doesn't load that popup script since it covers many appliances
+    // at once, not one fixed appliance/city like that page does.
+    const pricingRowsHtml = appliances.map(a => {
+      const applianceUrl = `/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}`;
+      const typeRows = a.types.map(t => {
         const row = pricing.find(p => p.cityId === city.id && p.applianceId === a.id && p.typeId === t.id);
         if (!row) return '';
         const services = Array.isArray(t.services) ? t.services : [];
         const primarySkuId = services[0] ? services[0].id : null;
         const svcPrice = (primarySkuId && row.servicePrices && typeof row.servicePrices[primarySkuId] === 'number') ? row.servicePrices[primarySkuId] : row.servicePrice;
         const repPrice = (row.servicePrices && typeof row.servicePrices['svc-repair'] === 'number') ? row.servicePrices['svc-repair'] : row.repairPrice;
-        return `<tr><td>${a.name}</td><td>${t.name}</td><td>₹${svcPrice} onwards</td><td>₹${repPrice} onwards</td></tr>`;
-      })
-    ).join('\n          ');
+        const typeUrl = `${applianceUrl}/${slugify(t.name)}`;
+        return `<tr><td><a href="${typeUrl}" style="color:inherit;text-decoration:underline;">${t.name}</a></td><td>₹${svcPrice} onwards</td><td>₹${repPrice} onwards</td><td><a href="${typeUrl}?book=1" class="btn btn-outline btn-sm">Book</a></td></tr>`;
+      }).filter(Boolean);
+      if (!typeRows.length) return '';
+      return `<tr class="pricing-appliance-header"><td colspan="4"><strong>${a.name}</strong></td></tr>\n          ${typeRows.join('\n          ')}`;
+    }).filter(Boolean).join('\n          ');
 
     const servicesGridHtml = appliances.map(a => `
       <div class="service-card">
@@ -5026,7 +5044,7 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
         <p>Repair and regular service available in ${city.name}.</p>
         <div class="service-types">${a.types.map(t => `<span>${t.name}</span>`).join('')}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="/?city=${city.id}&amp;appliance=${a.id}#quickbook" class="btn btn-outline btn-sm">Book Now</a>
+          <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}?book=1" class="btn btn-outline btn-sm">Book Now</a>
           <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="btn btn-sm" style="color:var(--blue-600);">Details →</a>
         </div>
       </div>
