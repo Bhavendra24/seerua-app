@@ -1200,18 +1200,6 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .qb-actions-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .qb-actions-3 .qb-btn { padding: 10px 4px; font-size: 0.78rem; }
 
-/* Horizontal appliance-icon strip (Dainik Care reference screenshots) at
-   the top of the price-boxes panel — tapping an icon re-opens the panel
-   for that appliance, so switching appliance never needs a scroll back
-   up to the homepage grid. */
-.appliance-icon-row { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 14px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-.appliance-icon-row::-webkit-scrollbar { display: none; }
-.appliance-icon-item { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; background: none; border: none; cursor: pointer; padding: 4px; border-radius: 10px; }
-.appliance-icon-item img { width: 52px; height: 52px; object-fit: cover; border-radius: 50%; border: 2px solid var(--line); }
-.appliance-icon-item span { font-size: 0.7rem; font-weight: 600; color: var(--slate); text-align: center; line-height: 1.15; }
-.appliance-icon-item.active img { border-color: var(--accent-500); }
-.appliance-icon-item.active span { color: var(--accent-600); }
-
 /* Price badge overlaid on a service card's photo (Dainik Care reference
    screenshots show a small "₹250/-" tag pinned to the photo itself). */
 .qb-price-photo-wrap { position: relative; flex-shrink: 0; }
@@ -1539,6 +1527,13 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 
 /* Footer */
 .site-footer { background: var(--blue-900); color: #cfe1f0; padding: 40px 0 20px; }
+/* 4-column footer (Brand / Quick Links / Services / All Cities) — the
+   site only has 3 cities and 7 appliances today, so these lists stay
+   short and genuinely useful rather than the huge link-dumps a bigger
+   directory site would need. Brand column gets more width since it also
+   carries the description + contact icons. Falls back to 2-then-1
+   columns on narrower screens so nothing feels cramped on a phone. */
+.footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 28px; margin-bottom: 24px; }
 .footer-col-brand { margin-bottom: 20px; }
 .footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .footer-brand img { height: 36px; width: 36px; background: var(--white); border-radius: 8px; padding: 3px; }
@@ -1567,6 +1562,13 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .footer-bottom { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.85rem; color: #8ba9c2; }
 .footer-bottom a { color: #8ba9c2; }
 .footer-bottom a:hover { color: var(--accent-500); }
+@media (max-width: 860px) {
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-col-brand { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+  .footer-grid { grid-template-columns: 1fr; }
+}
 
 /* WhatsApp floating button */
 .wa-float {
