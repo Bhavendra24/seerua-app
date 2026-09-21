@@ -4902,7 +4902,13 @@ function buildSbBookOnclick(typeId, skuId, skuLabel, skuPrice) {
   if (skuId !== undefined) {
     args.push(JSON.stringify(skuId), JSON.stringify(skuLabel || ''), JSON.stringify(typeof skuPrice === 'number' ? skuPrice : null));
   }
-  const call = `if(window.sbApplyPreset){window.sbApplyPreset(${args.join(',')});}`;
+  // FLOW CHANGE (per explicit request — the embedded widget below this
+  // table became a small popup, matching the homepage's own one-click
+  // Book popup): pre-selects this row's type/SKU exactly as before, but
+  // now also opens that popup itself, instead of relying on the old
+  // href="#sbSection" anchor to scroll to an always-visible section
+  // that no longer exists on the page.
+  const call = `if(window.sbApplyPreset){window.sbApplyPreset(${args.join(',')});}if(window.openSbModal){window.openSbModal();}`;
   return escapeHtml(call);
 }
 
@@ -5172,7 +5178,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       // type there, instead of navigating to the homepage's Quick Book
       // modal — the widget already lives on this same page now.
       const bookHref = buildSbBookOnclick(t.id);
-      return `<tr><td>${typeCell}</td><td>₹${svcPrice}</td><td>₹${repPrice}</td><td><a href="#sbSection" onclick="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
+      return `<tr><td>${typeCell}</td><td>₹${svcPrice}</td><td>₹${repPrice}</td><td><a href="javascript:void(0)" onclick="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
     }).join('\n          ');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
@@ -5238,7 +5244,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
         // the embedded widget below with this exact type + SKU (e.g.
         // "Gas Filling") pre-selected there, same as the main rows above.
         const skuBookOnclick = buildSbBookOnclick(t.id, s.id, s.name, price);
-        return `<tr><td>${typeLabel}${escapeHtml(s.name)}</td><td>₹${price}</td><td></td><td><a href="#sbSection" onclick="${skuBookOnclick}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
+        return `<tr><td>${typeLabel}${escapeHtml(s.name)}</td><td>₹${price}</td><td></td><td><a href="javascript:void(0)" onclick="${skuBookOnclick}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
       }).filter(Boolean);
     }).join('\n          ');
 
