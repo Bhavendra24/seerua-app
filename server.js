@@ -4889,29 +4889,6 @@ function applianceSlug(name) {
   return `${slugify(name)}-service`;
 }
 
-// Builds the onclick for a pricing-table "Book" button on an
-// appliance-city page — pre-selects that exact row (type, and SKU for
-// the extra-SKU rows like Installation/Gas Filling) in the embedded
-// booking widget further down THIS SAME page (see seo-book.js's
-// window.sbApplyPreset), instead of navigating anywhere. `skuId`/
-// `skuLabel`/`skuPrice` are only passed for an extra-SKU row; omitted
-// (undefined) for a plain Service/Repair row, where the widget's own
-// Service/Repair dropdown already covers it.
-function buildSbBookOnclick(typeId, skuId, skuLabel, skuPrice) {
-  const args = [JSON.stringify(typeId)];
-  if (skuId !== undefined) {
-    args.push(JSON.stringify(skuId), JSON.stringify(skuLabel || ''), JSON.stringify(typeof skuPrice === 'number' ? skuPrice : null));
-  }
-  // FLOW CHANGE (per explicit request — the embedded widget below this
-  // table became a small popup, matching the homepage's own one-click
-  // Book popup): pre-selects this row's type/SKU exactly as before, but
-  // now also opens that popup itself, instead of relying on the old
-  // href="#sbSection" anchor to scroll to an always-visible section
-  // that no longer exists on the page.
-  const call = `if(window.sbApplyPreset){window.sbApplyPreset(${args.join(',')});}if(window.openSbModal){window.openSbModal();}`;
-  return escapeHtml(call);
-}
-
 // Home > City > Appliance breadcrumb (3 levels) — one level deeper than
 // the city page's breadcrumb, matching this page's actual position in
 // the site's structure.
@@ -4969,129 +4946,32 @@ function buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRan
 }
 
 app.get('/appliance-repair/:citySlug', (req, res) => {
-  // RESTORED (fixes: a general search like "fridge service in <city>"
-  // landing on this bare city URL was force-redirecting to the city's
-  // FIRST appliance's page every time — i.e. always AC, never fridge or
-  // anything else, no matter what the visitor actually searched for.
-  // This used to render its own page listing every appliance available
-  // in the city, each linking to its own dedicated Appliance-City page,
-  // so a visitor lands somewhere they can actually pick the right
-  // service — that page was removed in favor of a blind redirect to the
-  // first appliance, which is what caused this bug. Bringing it back.
-  try {
-    const maintenance = maintenancePageIfEnabled();
-    if (maintenance) {
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Retry-After', String(maintenance.retryAfterSeconds));
-      return res.status(503).send(maintenance.html);
-    }
-    const cities = readData('cities').filter(c => c.active);
-    const city = cities.find(c => slugify(c.name) === req.params.citySlug);
-    const siteContent = readData('site-content');
-    if (!city) {
-      return res.status(404).send(
-        `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
-      );
-    }
-
-    // Appliances disabled for this specific city are left out of everything
-    // on this page entirely — pricing table, service cards, and the footer
-    // links — so this city's page reads as if that service doesn't exist.
-    const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
-    const pricing = readData('pricing');
-    const cityApplianceListText = appliances.length
-      ? joinWithAnd(appliances.map(a => a.name))
-      : 'Appliance';
-
-    // Prefer the SKU-based price (Admin's per-service Pricing tab writes
-    // to row.servicePrices) — the type's first defined service for the
-    // Service/AMC column, and the 'svc-repair' SKU for Repair — falling
-    // back to the legacy field only for older rows that predate it.
-    //
-    // GROUPED BY APPLIANCE (per explicit request: "customer ko price
-    // dhundhna mushkil hoga, sabhi appliance ki bahut row hai") — this
-    // page lists every appliance's every type in ONE flat table, which
-    // for a city with several appliances (each with several types) adds
-    // up to a long, hard-to-scan list with the appliance name repeated
-    // on every single row. Grouping under one bold appliance-name header
-    // row, with just the type underneath it, cuts that repetition and
-    // reads as clearly separated sections instead of one long list.
-    // Each row also gets its own "Book" link straight to that
-    // appliance's own dedicated page with ?book=1, which auto-opens its
-    // one-click booking popup there (see seo-book.js) — this page itself
-    // doesn't load that popup script since it covers many appliances
-    // at once, not one fixed appliance/city like that page does.
-    const pricingRowsHtml = appliances.map(a => {
-      const applianceUrl = `/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}`;
-      const typeRows = a.types.map(t => {
-        const row = pricing.find(p => p.cityId === city.id && p.applianceId === a.id && p.typeId === t.id);
-        if (!row) return '';
-        const services = Array.isArray(t.services) ? t.services : [];
-        const primarySkuId = services[0] ? services[0].id : null;
-        const svcPrice = (primarySkuId && row.servicePrices && typeof row.servicePrices[primarySkuId] === 'number') ? row.servicePrices[primarySkuId] : row.servicePrice;
-        const repPrice = (row.servicePrices && typeof row.servicePrices['svc-repair'] === 'number') ? row.servicePrices['svc-repair'] : row.repairPrice;
-        const typeUrl = `${applianceUrl}/${slugify(t.name)}`;
-        return `<tr><td><a href="${typeUrl}" style="color:inherit;text-decoration:underline;">${t.name}</a></td><td>₹${svcPrice} onwards</td><td>₹${repPrice} onwards</td><td><a href="${typeUrl}?book=1" class="btn btn-outline btn-sm">Book</a></td></tr>`;
-      }).filter(Boolean);
-      if (!typeRows.length) return '';
-      return `<tr class="pricing-appliance-header"><td colspan="4"><strong>${a.name}</strong></td></tr>\n          ${typeRows.join('\n          ')}`;
-    }).filter(Boolean).join('\n          ');
-
-    const servicesGridHtml = appliances.map(a => `
-      <div class="service-card">
-        <div class="service-icon">${ICON_LABELS[a.icon] || '🔧'}</div>
-        <h3><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" style="color:inherit;text-decoration:none;">${a.name} Service in ${city.name}</a></h3>
-        <p>Repair and regular service available in ${city.name}.</p>
-        <div class="service-types">${a.types.map(t => `<span>${t.name}</span>`).join('')}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}?book=1" class="btn btn-outline btn-sm">Book Now</a>
-          <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="btn btn-sm" style="color:var(--blue-600);">Details →</a>
-        </div>
-      </div>
-    `).join('');
-
-    // Links straight to that appliance's own dedicated page in this city
-    // (not the homepage booking form) — the real, crawlable destination.
-    const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
-
-    const otherCitiesHtml = cities.filter(c => c.id !== city.id)
-      .map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="city-chip">${c.name}</a>`)
-      .join('\n      ');
-    // Server-rendered directly (rather than fetched/built by client JS,
-    // which this standalone page doesn't have the CITIES data for) so
-    // the City picker sheet actually has something in it to tap.
-    const allCitiesGridHtml = cities
-      .map(c => `<a href="/appliance-repair/${slugify(c.name)}" class="bottom-sheet-city-btn">${c.name}</a>`)
-      .join('\n      ');
-
-    const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}`;
-
-    const template = fs.readFileSync(CITY_TEMPLATE_PATH, 'utf-8');
-    const html = template
-      .split('{{CITY_NAME}}').join(city.name)
-      .split('{{CITY_APPLIANCE_LIST}}').join(cityApplianceListText)
-      .split('{{CITY_ID}}').join(city.id)
-      .split('{{CITY_SLUG}}').join(slugify(city.name))
-      .split('{{CANONICAL_URL}}').join(canonicalUrl)
-      .split('{{PRICING_ROWS_HTML}}').join(pricingRowsHtml || '<tr><td colspan="4">Pricing coming soon for this city.</td></tr>')
-      .split('{{SERVICES_GRID_HTML}}').join(servicesGridHtml)
-      .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
-      .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
-      .split('{{ALL_CITIES_GRID_HTML}}').join(allCitiesGridHtml)
-      .split('{{YEAR}}').join(String(new Date().getFullYear()))
-      .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
-      .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
-      .split('{{SAME_AS_JSON}}').join(buildSameAsJson())
-      .split('{{AGGREGATE_RATING_JSON}}').join(aggregateRatingJsonFragment(computeSiteRating(city.id)))
-      .split('{{OFFER_CATALOG_JSON}}').join(buildOfferCatalogJson(city, appliances))
-      .split('{{BREADCRUMB_SCHEMA_JSON}}').join(buildBreadcrumbSchemaHtml(city.name, canonicalUrl));
-
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
-  } catch (e) {
-    console.error('Error rendering city page:', e);
-    res.status(500).send('Something went wrong loading this page.');
+  // SEO SIMPLIFICATION (per explicit request): the combined "every
+  // appliance in this city" page is removed in favor of going straight
+  // to individual Appliance-City pages (each specific appliance's own
+  // dedicated page already covers everything this page used to, per
+  // appliance) — matching how Vijay Home Services structures theirs.
+  // 301 (permanent) redirect rather than just deleting the route
+  // outright: Google has very likely already indexed this exact URL for
+  // "appliance repair in <city>"-style searches, and a 301 correctly
+  // transfers that existing ranking signal to the new target instead of
+  // just 404ing it away. Redirects to this city's FIRST available
+  // appliance's own page — not a perfect substitute for every possible
+  // search intent, but a reasonable, always-valid default landing spot.
+  const cities = readData('cities').filter(c => c.active);
+  const city = cities.find(c => slugify(c.name) === req.params.citySlug);
+  if (!city) {
+    return res.status(404).send(
+      `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
+    );
   }
+  const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
+  if (!appliances.length) {
+    // No appliances configured for this city at all — nothing sensible
+    // to redirect to, so just send them home instead of a broken link.
+    return res.redirect(301, '/');
+  }
+  res.redirect(301, `/appliance-repair/${req.params.citySlug}/${applianceSlug(appliances[0].name)}`);
 });
 
 // The long-tail landing page a search like "AC service in Noida" actually
@@ -5191,12 +5071,13 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       const primarySkuId = services[0] ? services[0].id : null;
       const svcPrice = resolvedPrice(row, primarySkuId, 'servicePrice');
       const repPrice = resolvedPrice(row, 'svc-repair', 'repairPrice');
-      // Scrolls to the embedded booking widget further down THIS page
-      // (see {{SB_CONTEXT_JSON}}/seo-book.js) and pre-selects this row's
-      // type there, instead of navigating to the homepage's Quick Book
-      // modal — the widget already lives on this same page now.
-      const bookHref = buildSbBookOnclick(t.id);
-      return `<tr><td>${typeCell}</td><td>₹${svcPrice}</td><td>₹${repPrice}</td><td><a href="javascript:void(0)" onclick="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
+      // NEW: a per-row "Book" button — this type's own id is threaded
+      // through as the &type= query param, so clicking "Book" on the
+      // "Split AC" row opens the Quick Book modal with Split AC already
+      // selected, instead of leaving the customer to pick the type
+      // themselves after a single generic hero button.
+      const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
+      return `<tr><td>${typeCell}</td><td>₹${svcPrice}</td><td>₹${repPrice}</td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
     }).join('\n          ');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
@@ -5250,6 +5131,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       const typeLabel = typeLink
         ? `<a href="${typeLink}" style="color:inherit;text-decoration:underline;">${escapeHtml(t.name)}</a> `
         : '';
+      const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
       return services.filter(s => !alreadyShown.has(s.id)).map(s => {
         const price = (row.servicePrices && typeof row.servicePrices[s.id] === 'number') ? row.servicePrices[s.id] : null;
         if (price === null) return '';
@@ -5258,11 +5140,10 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
         // auto-layout table made browsers compute each row's column
         // widths slightly differently, which is why this text was
         // shifting out of the normal left-aligned position and wrapping
-        // oddly instead of matching "Window AC" etc. above it. Scrolls to
-        // the embedded widget below with this exact type + SKU (e.g.
-        // "Gas Filling") pre-selected there, same as the main rows above.
-        const skuBookOnclick = buildSbBookOnclick(t.id, s.id, s.name, price);
-        return `<tr><td>${typeLabel}${escapeHtml(s.name)}</td><td>₹${price}</td><td></td><td><a href="javascript:void(0)" onclick="${skuBookOnclick}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
+        // oddly instead of matching "Window AC" etc. above it. Same
+        // per-type Book link as the main row above, so "Gas Filling" is
+        // just as bookable directly as "Service"/"Repair" are.
+        return `<tr><td>${typeLabel}${escapeHtml(s.name)}</td><td>₹${price}</td><td></td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
       }).filter(Boolean);
     }).join('\n          ');
 
@@ -5313,6 +5194,75 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       ? `<div class="hero-photo">${buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"`)}</div>`
       : '';
 
+    // SEO CONTENT (per explicit request, referencing Dainik Care's
+    // appliance+city pages): a "why it matters" paragraph + two real
+    // bullet lists (common problems we fix, why choose Seerua) between
+    // the short About blurb and the FAQ — same structure competitor
+    // pages use, but rendered with the site's own green-checkmark
+    // .qb-checklist style instead of their plain, marker-less lists.
+    // Content is per-APPLIANCE (the actual problems don't change by
+    // city), with the city name and this page's own real price range
+    // woven in dynamically — so it stays genuinely relevant to this
+    // exact page rather than one generic paragraph copy-pasted with
+    // just the city name swapped.
+    const APPLIANCE_SEO_CONTENT = {
+      AC: {
+        whyMatters: 'Summers push an AC hard for months at a stretch, and dust, dirty filters, or a slow refrigerant leak can quietly cut its cooling by half long before it stops working altogether. Regular service catches this early — before a full breakdown means AC-less days right in peak heat.',
+        problems: ['Weak or no cooling despite the compressor running', 'Water leaking from the indoor unit', 'Unusual noise or vibration from the outdoor unit', 'Bad odour when the AC is switched on', 'AC turning off on its own or not starting at all']
+      },
+      'Washing Machine': {
+        whyMatters: "A washing machine that drains slowly, spins unevenly, or leaks water is usually a small, fixable issue — but left alone, the same fault can damage the motor or drum and turn into a much bigger repair.",
+        problems: ['Machine not draining water properly', 'Excessive vibration or noise during the spin cycle', 'Drum not spinning, or spinning unevenly', 'Water leaking from the machine', 'Machine not powering on at all']
+      },
+      RO: {
+        whyMatters: "An RO purifier's filters and membrane wear out silently — the water still looks and tastes fine even after purification has dropped — which is exactly why a fixed service schedule matters more than waiting for a visible problem.",
+        problems: ['Slow water flow from the purifier', 'Unusual taste or odour in the purified water', 'Water leaking from the unit', 'A continuous humming or buzzing sound from the motor', "RO not turning on, or the filter-change light staying on"]
+      },
+      Fridge: {
+        whyMatters: "A fridge that's cooling a little less than before is easy to ignore — until food inside stops staying fresh as long, or the compressor is put under enough strain to fail completely.",
+        problems: ['Fridge not cooling enough, or not cooling at all', 'Ice building up excessively in the freezer', 'Water leaking inside or underneath the fridge', 'Unusual noise from the compressor', "Door not sealing properly"]
+      },
+      Chimney: {
+        whyMatters: 'A kitchen chimney clogged with grease loses suction power gradually, so most people only notice once cooking smoke and odour are already lingering in the kitchen far longer than they should.',
+        problems: ['Reduced suction power', 'Unpleasant odour lingering in the kitchen', 'Increased noise from the motor', 'Grease buildup on filters and the body', 'Chimney light not working']
+      },
+      Geyser: {
+        whyMatters: "A geyser's heating element and thermostat wear out with regular use, especially with hard water — regular servicing keeps hot water reliable and catches a developing leak before it damages the wall or bathroom fittings.",
+        problems: ['Water not heating, or heating too slowly', 'Water leaking from the geyser', 'Unusual noise while heating', 'Geyser tripping the electrical connection', 'Pilot light issues (gas geysers)']
+      },
+      Microwave: {
+        whyMatters: "A microwave that's heating unevenly, sparking inside, or making unusual noises is a sign a component needs attention — using it in that state for too long risks damaging it further, or becoming unsafe.",
+        problems: ['No heating, or uneven heating', 'Turntable/plate not spinning', 'Sparking inside the microwave', 'Display or buttons not responding', 'Unusual noise during operation']
+      }
+    };
+    function buildApplianceSeoArticleHtml(appliance, city, priceRange) {
+      const content = APPLIANCE_SEO_CONTENT[appliance.name] || {
+        whyMatters: `Regular ${appliance.name.toLowerCase()} service catches small issues before they turn into a full breakdown or a much bigger repair bill.`,
+        problems: ['Not working as expected', 'Unusual noise during operation', 'Reduced performance over time', 'Visible wear or damage', 'Needs a professional inspection']
+      };
+      const problemsHtml = content.problems.map(p => `<li>${escapeHtml(p)}</li>`).join('');
+      const priceLine = priceRange ? ` In ${escapeHtml(city.name)}, pricing for this starts at ${escapeHtml(priceRange)}.` : '';
+      return `
+<section>
+  <div class="container">
+    <div class="reveal" style="max-width:820px;margin:0 auto;">
+      <h2>Why ${escapeHtml(appliance.name)} Service Matters in ${escapeHtml(city.name)}</h2>
+      <p>${escapeHtml(content.whyMatters)}${priceLine}</p>
+      <h3>Common ${escapeHtml(appliance.name)} Problems We Fix in ${escapeHtml(city.name)}</h3>
+      <ul class="qb-checklist">${problemsHtml}</ul>
+      <h3>Why Choose Seerua for ${escapeHtml(appliance.name)} Service in ${escapeHtml(city.name)}</h3>
+      <ul class="qb-checklist">
+        <li>Verified, background-checked ${escapeHtml(city.name)} technicians</li>
+        <li>Transparent pricing shown upfront — no hidden charges</li>
+        <li>Same-day doorstep visits available</li>
+        <li>Genuine spare parts and a 30-day repair warranty</li>
+        <li>Support available even after the visit is done</li>
+      </ul>
+    </div>
+  </div>
+</section>`;
+    }
+
     // NEW: FAQ section, per-appliance-per-city — competitor research
     // (Vijay Home Services) showed FAQ blocks with FAQPage schema on
     // their equivalent pages, useful both for actually answering common
@@ -5354,36 +5304,6 @@ ${JSON.stringify({
     }, null, 2)}
 </script>`;
 
-    // Fed straight into the embedded booking widget (see {{SB_CONTEXT_JSON}}
-    // below / seo-book.js) so it never needs its own /api/appliances or
-    // /api/price round trip just to know this page's own city/appliance/
-    // type — same resolved SKU-aware prices as the pricing table above,
-    // built the exact same way (resolvedPrice()) so the two can never
-    // silently disagree on what a type actually costs.
-    const sbTypes = relevantTypes.map(t => {
-      const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
-      if (!row) return null;
-      const services = Array.isArray(t.services) ? t.services : [];
-      const primarySkuId = services[0] ? services[0].id : null;
-      return {
-        id: t.id,
-        name: t.name,
-        servicePrice: resolvedPrice(row, primarySkuId, 'servicePrice'),
-        repairPrice: resolvedPrice(row, 'svc-repair', 'repairPrice')
-      };
-    }).filter(Boolean);
-    const sbContext = {
-      cityId: city.id,
-      applianceId: appliance.id,
-      applianceName: appliance.name,
-      focusTypeId: focusType ? focusType.id : null,
-      types: sbTypes
-    };
-    // Guards against a `</script>` sequence inside any admin-edited name
-    // (city/appliance/type) breaking out of the inline <script> tag this
-    // gets embedded in.
-    const sbContextJson = JSON.stringify(sbContext).replace(/</g, '\\u003c');
-
     const template = fs.readFileSync(APPLIANCE_CITY_TEMPLATE_PATH, 'utf-8');
     const html = template
       .split('{{CITY_NAME}}').join(city.name)
@@ -5396,7 +5316,6 @@ ${JSON.stringify({
       .split('{{APPLIANCE_FAQ_SCHEMA}}').join(applianceFaqSchemaHtml)
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{TYPE_QUERY}}').join(typeQuery)
-      .split('{{SB_CONTEXT_JSON}}').join(sbContextJson)
       // Both merged into ONE table's rows (not a separate box below it in
       // a different pill/chip style) — Service/Repair rows first, then
       // any other priced SKU (Installation, Uninstallation, Gas Filling)
@@ -5412,6 +5331,7 @@ ${JSON.stringify({
       .split('{{ABOUT_TEXT}}').join(
         escapeHtml(appliance.aboutText || '').replace(/Foam Jet Service/g, '<strong style="text-decoration:underline;">Foam Jet Service</strong>')
       )
+      .split('{{SEO_ARTICLE_HTML}}').join(buildApplianceSeoArticleHtml(appliance, city, priceRange))
       .split('{{OTHER_APPLIANCES_HTML}}').join(otherAppliancesHtml || '<span class="city-chip">More services coming soon</span>')
       .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
@@ -5590,17 +5510,12 @@ app.get('/sitemap.xml', (req, res) => {
       priority: '0.5',
       lastmod: today
     })),
-    // The combined "every appliance in this city" page is back to
-    // serving its own real content (see the route above — it used to
-    // redirect straight to the first appliance, which broke general
-    // "<appliance> service in <city>" searches for every appliance
-    // except the first one), so it belongs in the sitemap again too.
-    ...cities.map(c => ({
-      loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}`,
-      changefreq: 'weekly',
-      priority: '0.9',
-      lastmod: today
-    })),
+    // NOTE: the combined "every appliance in this city" page
+    // (/appliance-repair/:city with no appliance segment) is
+    // intentionally NOT listed here anymore — it now 301-redirects to
+    // that city's first appliance page rather than serving its own
+    // content, and a sitemap should only ever list final, canonical
+    // destination URLs, never a redirecting one.
     // The specific appliance+city pages (e.g. "AC service in Noida") —
     // these are the long-tail pages most likely to actually rank for a
     // "<appliance> service in <city>" search, so they're listed here too
