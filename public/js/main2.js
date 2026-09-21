@@ -4499,6 +4499,14 @@ let hbBound = false;
 // (see server.js's servicePrices[skuId] lookup), same as the SEO page's
 // per-service pricing table already does via sbApplyPreset().
 let hbSelectedSkuId = null;
+// Which Type card is currently selected — tracked here directly rather
+// than read back from the hidden #hbType <select>, since that select
+// has no <option> elements (it's a plain state holder, not a real
+// dropdown), so assigning .value = typeId to it silently no-ops and a
+// read of .value always comes back empty. Real bug this hid: picking
+// any Type other than the appliance's first (e.g. "Split AC" when
+// "Window AC" is first) always booked the first Type anyway.
+let hbSelectedTypeId = null;
 
 function hbCurrentAppliance() {
   const list = ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES;
@@ -4508,9 +4516,7 @@ function hbCurrentAppliance() {
 function hbCurrentType() {
   const appliance = hbCurrentAppliance();
   if (!appliance) return null;
-  const sel = document.getElementById('hbType');
-  const typeId = sel && sel.value;
-  return appliance.types.find(t => t.id === typeId) || appliance.types[0] || null;
+  return appliance.types.find(t => t.id === hbSelectedTypeId) || appliance.types[0] || null;
 }
 
 // Toggles between the price table/form and the "not available in your
@@ -4522,24 +4528,23 @@ function hbSetNotAvailable(isUnavailable) {
   if (wrap) wrap.style.display = isUnavailable ? 'none' : '';
 }
 
-// COMPARE-AND-BOOK PRICE TABLE (per explicit request: "main page par
-// appliance ke price check karna bahut aasan tha... sabhi appliance ke
-// price hi khatam kar diye", then further clarified: "jis type tatha sub
-// type par click karte hi popup me usi appliance ke price aa jaye") —
-// fetches EVERY Type's full service breakdown for the selected city (in
-// parallel) and lists every Type + sub-type/service row (Service, Repair,
-// and for appliances like AC also Installation, Uninstallation, Gas
-// Filling — same rows the SEO page's own pricing table shows), grouped
-// under a header row per Type. Tapping any row's price both picks that
-// exact Type + sub-type for booking and highlights it as selected.
+// ONE-CARD-PER-SUB-TYPE PICKER (per explicit request: "pahle jaise sabhi
+// type ke appliance the jis par click karo usi ka naam aur price jude" —
+// back to the old Quick Book look: every Type + sub-type (Service,
+// Repair, and for appliances like AC also Installation, Uninstallation,
+// Gas Filling) is its own separate small card with its own name and
+// price, instead of a dense table listing everything together at once.
+// Fetches every Type's full service breakdown for the selected city (in
+// parallel), lays each Type+sub-type out as its own card, and tapping a
+// card both picks that exact combination for booking and highlights it.
 async function hbPopulatePriceTable(appliance, initialTypeId) {
   const cityId = document.getElementById('hbCity').value;
-  const tbody = document.getElementById('hbPriceTableBody');
+  const grid = document.getElementById('hbPriceTableBody');
   const titleEl = document.getElementById('hbPriceTitle');
-  if (!tbody || !titleEl) return;
-  titleEl.textContent = `${appliance.name} — compare & book`;
+  if (!grid || !titleEl) return;
+  titleEl.textContent = `${appliance.name} — choose a service`;
   if (!cityId) { hbSetNotAvailable(true); return; }
-  tbody.innerHTML = '<tr><td colspan="2">Loading prices...</td></tr>';
+  grid.innerHTML = '<p style="text-align:center;color:var(--slate);grid-column:1/-1;">Loading prices...</p>';
   try {
     const rows = await Promise.all((appliance.types || []).map(async (t) => {
       try {
@@ -4552,61 +4557,60 @@ async function hbPopulatePriceTable(appliance, initialTypeId) {
     const available = rows.filter(r => Object.values(r.servicePrices).some(p => typeof p === 'number') || typeof r.servicePrice === 'number' || typeof r.repairPrice === 'number');
     if (!available.length) { hbSetNotAvailable(true); return; }
     hbSetNotAvailable(false);
-    tbody.innerHTML = available.map(r => {
+    grid.innerHTML = available.map(r => {
       const services = (r.type.services && r.type.services.length) ? r.type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
-      const rowsHtml = services.map(svc => {
+      return services.map(svc => {
         const price = typeof r.servicePrices[svc.id] === 'number'
           ? r.servicePrices[svc.id]
           : (svc.id === 'svc-service' ? r.servicePrice : (svc.id === 'svc-repair' ? r.repairPrice : null));
+        const hasPrice = typeof price === 'number';
         return `
-        <tr>
-          <td class="hb-sub-label">${svc.name}</td>
-          <td class="hb-price-cell" data-type-id="${r.type.id}" data-sku-id="${svc.id}" data-svc-name="${svc.name}">${typeof price === 'number' ? '₹' + price : '—'}</td>
-        </tr>`;
+        <div class="hb-price-card${hasPrice ? '' : ' hb-card-unavailable'}" data-type-id="${r.type.id}" data-sku-id="${svc.id}" data-svc-name="${svc.name}">
+          <span class="hb-card-type">${r.type.name}</span>
+          <span class="hb-card-service">${svc.name}</span>
+          <span class="hb-card-price">${hasPrice ? '₹' + price : '—'}</span>
+        </div>`;
       }).join('');
-      return `<tr class="hb-type-header"><td colspan="2"><strong>${r.type.name}</strong></td></tr>${rowsHtml}`;
     }).join('');
-    tbody.querySelectorAll('.hb-price-cell').forEach(cell => {
-      cell.addEventListener('click', () => {
-        if (cell.textContent.trim() === '—') return; // this Type has no price for this sub-type
-        hbSelectPriceCell(cell.dataset.typeId, cell.dataset.skuId, cell.dataset.svcName, appliance);
+    grid.querySelectorAll('.hb-price-card:not(.hb-card-unavailable)').forEach(card => {
+      card.addEventListener('click', () => {
+        hbSelectPriceCell(card.dataset.typeId, card.dataset.skuId, card.dataset.svcName, appliance);
       });
     });
     // Default selection: whatever type/typeId this popup was opened
     // with (a specific "Book <Type> Service" link), defaulting to its
-    // plain Service row, or else the first available Type+row.
+    // plain Service card, or else the first available Type+card.
     const defaultRow = available.find(r => r.type.id === initialTypeId) || available[0];
-    const candidateCells = Array.from(tbody.querySelectorAll(`.hb-price-cell[data-type-id="${defaultRow.type.id}"]`));
-    const firstPriced = candidateCells.find(c => c.textContent.trim() !== '—') || candidateCells[0];
+    const candidateCards = Array.from(grid.querySelectorAll(`.hb-price-card[data-type-id="${defaultRow.type.id}"]`));
+    const firstPriced = candidateCards.find(c => !c.classList.contains('hb-card-unavailable')) || candidateCards[0];
     if (firstPriced) hbSelectPriceCell(firstPriced.dataset.typeId, firstPriced.dataset.skuId, firstPriced.dataset.svcName, appliance);
   } catch (e) {
     hbSetNotAvailable(true);
   }
 }
 
-// Marks one price-table row selected (for booking) and reflects that
-// choice in the hidden #hbType/#hbServiceType fields the rest of the
-// popup (hbCurrentType(), hbHandleSubmit()) already reads, plus the
+// Marks one price card selected (for booking) and reflects that choice
+// in the hidden #hbType/#hbServiceType fields the rest of the popup
+// (hbCurrentType(), hbHandleSubmit()) already reads, plus the
 // module-level hbSelectedSkuId (sent straight through to the booking
-// payload so an extra-SKU row like Gas Filling is priced exactly like
-// that row said — see server.js's servicePrices[skuId] lookup), plus a
+// payload so an extra-SKU card like Gas Filling is priced exactly like
+// that card said — see server.js's servicePrices[skuId] lookup), plus a
 // plain-language "Selected: ..." line above the form.
 function hbSelectPriceCell(typeId, skuId, svcName, appliance) {
-  const typeSel = document.getElementById('hbType');
-  if (typeSel) typeSel.value = typeId;
+  hbSelectedTypeId = typeId;
   // The booking record's serviceType field only distinguishes
   // Service-family vs Repair — skuId (below) carries the exact sub-type.
   const serviceTypeEl = document.getElementById('hbServiceType');
   if (serviceTypeEl) serviceTypeEl.value = (skuId === 'svc-repair') ? 'repair' : 'service';
   hbSelectedSkuId = (skuId === 'svc-service' || skuId === 'svc-repair') ? null : skuId;
-  const tbody = document.getElementById('hbPriceTableBody');
+  const grid = document.getElementById('hbPriceTableBody');
   let priceText = '';
-  if (tbody) {
-    tbody.querySelectorAll('.hb-price-cell').forEach(c => c.classList.remove('selected'));
-    const activeCell = tbody.querySelector(`.hb-price-cell[data-type-id="${typeId}"][data-sku-id="${skuId}"]`);
-    if (activeCell) {
-      activeCell.classList.add('selected');
-      priceText = activeCell.textContent.trim();
+  if (grid) {
+    grid.querySelectorAll('.hb-price-card').forEach(c => c.classList.remove('selected'));
+    const activeCard = grid.querySelector(`.hb-price-card[data-type-id="${typeId}"][data-sku-id="${skuId}"]`);
+    if (activeCard) {
+      activeCard.classList.add('selected');
+      priceText = activeCard.querySelector('.hb-card-price').textContent.trim();
     }
   }
   const type = (appliance.types || []).find(t => t.id === typeId);
@@ -4843,7 +4847,7 @@ function bindCompactBookModal() {
     const cityId = document.getElementById('hbCity').value;
     try { localStorage.setItem('seerua_last_city', cityId); } catch (e) { /* private browsing etc */ }
     const appliance = hbCurrentAppliance();
-    if (appliance) hbPopulatePriceTable(appliance, document.getElementById('hbType').value);
+    if (appliance) hbPopulatePriceTable(appliance, hbSelectedTypeId);
   });
   document.getElementById('hbDate').addEventListener('change', hbRefreshSlots);
   document.getElementById('hbForm').addEventListener('submit', hbHandleSubmit);
