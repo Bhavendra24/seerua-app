@@ -324,11 +324,23 @@
               <input type="number" id="fQty" min="1" max="10" value="1">
             </div>
           </div>
-          <div class="field">
+          <!-- HIDDEN (per explicit request, to match the SEO pages'
+               compact booking widget, which never had these): "Problem /
+               Notes" and "Photo" are no longer asked for. Kept in the DOM
+               (not deleted) purely because main2.js's bindFormEvents()
+               has several top-level `document.getElementById('fProblem'/
+               'fPhoto').addEventListener(...)` calls that run
+               unconditionally on page load — deleting these elements
+               outright would throw immediately and break the ENTIRE
+               booking form site-wide, not just hide two fields. Same
+               "hide, don't delete" approach already used for #fPhoneField
+               just below. Both stay blank; the server already treats
+               problem/photoUrl as optional. -->
+          <div class="field" style="display:none;">
             <label for="fProblem" data-i18n="booking.problemLabel">Problem / Notes (optional)</label>
             <textarea id="fProblem" rows="2" data-i18n-placeholder="booking.problemPlaceholder" placeholder="e.g. Not cooling properly"></textarea>
           </div>
-          <div class="field">
+          <div class="field" style="display:none;">
             <label for="fPhoto" data-i18n="booking.photoLabel">Photo of the appliance/issue (optional)</label>
             <input type="file" id="fPhoto" accept="image/*" capture="environment">
             <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;" data-i18n="booking.photoHelp">Helps the technician arrive prepared with the right spare part.</p>
@@ -788,6 +800,127 @@
         </div>
       </div>
       <div class="form-msg" id="qbMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPACT ONE-CLICK BOOK MODAL (per explicit request: "aisi technology
+     lagao ki book karte hi chhota alag se form khul jaay kahi se bhi
+     chahe direct ya search se" — a single small form should open the
+     moment someone taps Book, whether they arrived directly on the
+     homepage or via a link from a search/SEO page, with no more
+     Quick Book -> tap Book again -> Account Gate -> booking-form chain).
+     Modeled on the SEO pages' own one-item booking widget (see
+     #sbSection in appliance-city.template.html / seo-book.js), which
+     already proved this "one small form, one submit" flow works —
+     but built as part of main2.js instead of its own file (see
+     openCompactBookModal() near the end of main2.js), since this is
+     the homepage, where main2.js's own CITIES/APPLIANCES/fetchJSON/
+     verifyPhoneWithOtp/getAccount are already loaded and safe to
+     reuse, unlike the page-scoped SEO widget which deliberately avoids
+     depending on main2.js. -->
+<div class="modal-backdrop" id="hbModal">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="hbModalClose" aria-label="Close">✕</button>
+
+    <div id="hbFormStep">
+      <h3 id="hbTitle">Book Service</h3>
+      <div class="field" id="hbCityField">
+        <label for="hbCity">City *</label>
+        <select id="hbCity" required></select>
+      </div>
+      <div class="field" id="hbTypeField" style="display:none;">
+        <label for="hbType">Type</label>
+        <select id="hbType"></select>
+      </div>
+
+      <!-- Shown instead of the price card/form below when this
+           appliance/type has no pricing set up for the selected city —
+           same friendly notice Quick Book already uses (#qbNotAvailable
+           above), not a confusing blank/broken-looking form. -->
+      <div id="hbNotAvailable" class="qb-not-available" style="display:none;">
+        <div class="qb-not-available-icon">🚧</div>
+        <p><strong>Currently not serving this in your city.</strong><br>We're working on it — coming soon!</p>
+      </div>
+
+      <div id="hbBookableWrap">
+        <div class="qb-price-card qb-price-card-nophoto">
+          <div style="width:100%;">
+            <div class="qb-price-title" id="hbPriceTitle">Service in your city</div>
+            <div class="qb-price-row">
+              <span class="qb-price-tag">🏷️</span>
+              <span class="qb-price-strike" id="hbPriceStrike"></span>
+              <span class="qb-price-now" id="hbPriceNow"></span>
+            </div>
+          </div>
+        </div>
+        <div class="qb-service-type-row" id="hbServiceTypeRow" style="margin-bottom:14px;">
+          <button type="button" class="qb-service-type-btn active" data-service-type="service">Service / AMC</button>
+          <button type="button" class="qb-service-type-btn" data-service-type="repair">Repair</button>
+        </div>
+        <input type="hidden" id="hbServiceType" value="service">
+        <form id="hbForm">
+          <div class="field">
+            <label for="hbName">Full Name *</label>
+            <input type="text" id="hbName" required placeholder="Your name">
+          </div>
+          <div class="field">
+            <label for="hbPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
+            <input type="tel" id="hbPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="hbAddress">Full Address *</label>
+            <textarea id="hbAddress" rows="2" required placeholder="House no., street, landmark"></textarea>
+          </div>
+          <div class="field">
+            <label for="hbDate">Preferred Date *</label>
+            <input type="date" id="hbDate" required>
+          </div>
+          <div class="field">
+            <label>Time Slot *</label>
+            <div id="hbSlots"></div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="hbSubmitBtn">Book Now</button>
+          <div class="form-msg" id="hbMsg"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Same inline-OTP-step approach as Account Gate/the SEO widget —
+         swaps in as a sibling step inside this same still-open popup
+         (nothing ever closes/reopens visually), driven by the shared
+         verifyPhoneWithOtp() in main2.js. -->
+    <div id="hbOtpStep" style="display:none;">
+      <h3>Verify Your Number</h3>
+      <p class="modal-sub">We've sent a code by SMS to <strong id="hbOtpPhone"></strong>.</p>
+      <div class="field">
+        <label for="hbOtpCode">Enter OTP</label>
+        <input type="tel" id="hbOtpCode" inputmode="numeric" maxlength="6" placeholder="Enter the code" autocomplete="one-time-code" style="letter-spacing:0.3em;font-size:1.2rem;text-align:center;">
+      </div>
+      <button type="button" class="btn btn-primary btn-block" id="hbOtpSubmit">Verify</button>
+      <div class="form-msg" id="hbOtpMsg"></div>
+      <button type="button" class="btn btn-outline btn-block" id="hbOtpResend" style="margin-top:8px;">Resend Code</button>
+      <button type="button" class="btn btn-link btn-block" id="hbOtpBack" style="margin-top:4px;">← Back</button>
+    </div>
+
+    <!-- Same success-screen style as everywhere else on the site
+         (#bookingSuccessView / #sbSuccess) — big SVG checkmark,
+         "Thank you!", then Booking No./Service/Date & Time/Service
+         Charge in the same .success-detail-card rows. -->
+    <div id="hbSuccess" style="display:none;text-align:center;padding:20px 0;">
+      <div class="success-check-circle" style="width:96px;height:96px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto;">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 13l4.5 4.5L19 7.5" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
+      <div class="success-detail-card" style="max-width:320px;margin:14px auto 0;text-align:left;">
+        <div class="success-detail-row"><span>Booking No.</span><strong id="hbSuccessId"></strong></div>
+        <div class="success-detail-row"><span>Service</span><strong id="hbSuccessService" style="text-align:right;"></strong></div>
+        <div class="success-detail-row"><span>Date &amp; Time</span><strong id="hbSuccessVisit"></strong></div>
+        <div class="success-detail-row"><span>Service Charge</span><strong id="hbSuccessCharge" style="color:var(--green);"></strong></div>
+      </div>
+      <button type="button" class="btn btn-primary btn-block" style="margin-top:14px;max-width:320px;margin-left:auto;margin-right:auto;" id="hbSuccessDone">Done</button>
     </div>
   </div>
 </div>
