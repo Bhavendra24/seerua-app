@@ -72,7 +72,7 @@
         <svg id="headerAccountIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         <span id="headerAccountInitial" class="header-account-initial" style="display:none;"></span>
       </a>
-      <a class="btn btn-primary btn-sm" href="javascript:void(0)" onclick="if(window.openSbModal){window.openSbModal();}">Book Now</a>
+      <a class="btn btn-primary btn-sm" href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook">Book Now</a>
     </div>
   </div>
 </header>
@@ -107,7 +107,7 @@
         <h1 style="max-width:760px;">{{APPLIANCE_NAME}} Service &amp; Repair in <span class="highlight">{{CITY_NAME}}</span></h1>
         <p class="hero-sub" style="max-width:640px;">Verified {{CITY_NAME}} technicians, transparent pricing, and same day doorstep {{APPLIANCE_NAME}} visits — no guesswork on price, no waiting around.</p>
         <div class="hero-cta-row">
-          <a href="javascript:void(0)" class="btn btn-primary" onclick="if(window.openSbModal){window.openSbModal();}">Book {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</a>
+          <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-primary">Book {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</a>
           <a href="tel:+919389585479" class="btn btn-outline">📞 Call Now</a>
         </div>
       </div>
@@ -153,130 +153,6 @@
     {{ALL_SERVICES_LIST_HTML}}
   </div>
 </section>
-
-<!-- ONE-CLICK BOOK POPUP (per explicit request: this used to be a section
-     embedded directly in the page — booking right here instead of a hop
-     to the homepage was the original ask — but with the homepage now
-     also opening a single small POPUP for its own one-click "Book Now"
-     (see #hbModal/openCompactBookModal() in index.template.html/
-     main2.js), this page's own form needs to look and behave the exact
-     same way for the whole site to feel consistent: a small popup that
-     opens on tap, not a box sitting inline in the page's normal scroll
-     flow. See public/js/seo-book.js for the script driving this —
-     deliberately its own small, page-scoped script, not a reuse of the
-     homepage's main2.js/#hbModal, since this page's city+appliance (and
-     type, if this is a type-specific page) never change, so there's no
-     need for the homepage's city/appliance picker here at all — just
-     name, phone+OTP, address, date/time and submit. -->
-<div class="modal-backdrop" id="sbModal">
-  <div class="modal" style="max-width:420px;">
-    <button type="button" class="modal-close" id="sbModalClose" aria-label="Close">✕</button>
-
-    <div id="sbFormStep">
-      <h3 id="sbTitle">Book {{APPLIANCE_NAME}} Service</h3>
-      <form id="sbForm">
-        <div class="field" id="sbTypeField" style="display:none;">
-          <label for="sbType">Type</label>
-          <select id="sbType"></select>
-        </div>
-        <!-- Same price-card + Service/Repair pill-toggle look as the
-             homepage's own compact Book popup (.qb-price-card /
-             .qb-service-type-btn in style.css) — per explicit request
-             that this form look like the same one used everywhere else
-             on the site, not a plain generic dropdown form. -->
-        <div class="qb-price-card qb-price-card-nophoto">
-          <div style="width:100%;">
-            <div class="qb-price-title" id="sbPriceTitle">{{APPLIANCE_NAME}} Service</div>
-            <div class="qb-price-row">
-              <span class="qb-price-tag">🏷️</span>
-              <span class="qb-price-strike" id="sbPriceStrike"></span>
-              <span class="qb-price-now" id="sbPriceDisplay"></span>
-            </div>
-          </div>
-        </div>
-        <div class="qb-service-type-row" id="sbServiceTypeRow" style="margin-bottom:14px;">
-          <button type="button" class="qb-service-type-btn active" data-service-type="service">Service / AMC</button>
-          <button type="button" class="qb-service-type-btn" data-service-type="repair">Repair</button>
-        </div>
-        <input type="hidden" id="sbServiceType" value="service">
-        <div class="field">
-          <label for="sbName">Full Name *</label>
-          <input type="text" id="sbName" required placeholder="Your name">
-        </div>
-        <div class="field">
-          <label for="sbPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
-          <input type="tel" id="sbPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
-        </div>
-        <div class="field">
-          <label for="sbAddress">Full Address *</label>
-          <textarea id="sbAddress" rows="2" required placeholder="House no., street, landmark"></textarea>
-        </div>
-        <div class="field">
-          <label for="sbDate">Preferred Date *</label>
-          <input type="date" id="sbDate" required>
-        </div>
-        <div class="field">
-          <label>Time Slot *</label>
-          <div id="sbSlots"></div>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block" id="sbSubmitBtn">Book Now</button>
-        <div class="form-msg" id="sbMsg"></div>
-      </form>
-    </div>
-
-    <!-- Same OTP-entry-box approach as the homepage's Account Gate/
-         compact popup: swaps in as a sibling step inside this same
-         still-open popup (nothing ever closes/reopens visually), driven
-         by verifyPhoneWithOtp() in seo-book.js. -->
-    <div id="sbOtpStep" style="display:none;">
-      <h3>Verify Your Number</h3>
-      <p class="modal-sub" id="sbOtpMsg"></p>
-      <div class="field">
-        <label>Mobile Number</label>
-        <input type="tel" id="sbOtpPhone" readonly>
-      </div>
-      <div class="field">
-        <label for="sbOtpCode">Enter OTP</label>
-        <input type="text" id="sbOtpCode" maxlength="6" inputmode="numeric" placeholder="6 digit code">
-      </div>
-      <button type="button" class="btn btn-primary btn-block" id="sbOtpSubmit">Verify</button>
-      <div style="display:flex;justify-content:space-between;margin-top:10px;">
-        <button type="button" class="btn btn-sm" id="sbOtpBack">✕ Change Number</button>
-        <button type="button" class="btn btn-outline btn-sm" id="sbOtpResend">Resend OTP</button>
-      </div>
-    </div>
-
-    <!-- Same success-screen style as everywhere else on the site
-         (#bookingSuccessView / the homepage's #hbSuccess) — big SVG
-         checkmark (not a plain ✓ character, which renders as a thin
-         hairline on many phones), "Thank you!", then Booking No. /
-         Service / Date & Time / Service Charge in the same
-         .success-detail-card rows, so this page's booking flow ends
-         looking exactly like the one everywhere else on the site. -->
-    <div id="sbSuccess" style="display:none;text-align:center;padding:20px 0;">
-      <div class="success-check-circle" style="width:96px;height:96px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto;">
-        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 13l4.5 4.5L19 7.5" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
-      <div class="success-detail-card" style="max-width:320px;margin:14px auto 0;text-align:left;">
-        <div class="success-detail-row"><span>Booking No.</span><strong id="sbSuccessId"></strong></div>
-        <div class="success-detail-row"><span>Service</span><strong id="sbSuccessService" style="text-align:right;"></strong></div>
-        <div class="success-detail-row"><span>Date &amp; Time</span><strong id="sbSuccessVisit"></strong></div>
-        <div class="success-detail-row"><span>Service Charge</span><strong id="sbSuccessCharge" style="color:var(--green);"></strong></div>
-      </div>
-      <button type="button" class="btn btn-primary btn-block" style="margin-top:14px;max-width:320px;margin-left:auto;margin-right:auto;" id="sbSuccessDone">Done</button>
-    </div>
-  </div>
-</div>
-<script>
-  // Fixed context for this exact page — city/appliance (and type, on a
-  // type-specific page) are already known from the URL, so seo-book.js
-  // never needs to ask for them again.
-  window.SB_CONTEXT = {{SB_CONTEXT_JSON}};
-</script>
-<script src="/js/seo-book.js?v=202609211" defer></script>
 
 <section>
   <div class="container">
@@ -333,6 +209,15 @@
     </div>
   </div>
 </section>
+
+<!-- SEO CONTENT (per explicit request, referencing Dainik Care's
+     appliance+city pages): a longer, genuinely useful body — why this
+     appliance needs regular service, the actual problems we fix, why to
+     choose Seerua specifically for this city — placed between the short
+     "About" blurb above and the FAQ below, same structure Dainik Care
+     uses. Uses the site's own green-checkmark .qb-checklist style (not
+     a plain unbulleted list) for the two bullet sections. -->
+{{SEO_ARTICLE_HTML}}
 
 <section>
   <div class="container">
@@ -409,7 +294,7 @@
         <p>Book now, or message us on WhatsApp for a quick response.</p>
       </div>
       <div class="hero-cta-row" style="margin:0;">
-        <a href="javascript:void(0)" class="btn btn-white" onclick="if(window.openSbModal){window.openSbModal();}">Book Service</a>
+        <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-white">Book Service</a>
         <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="btn btn-primary">WhatsApp Us</a>
       </div>
     </div>
