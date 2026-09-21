@@ -86,6 +86,13 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
 .table-wrap th:nth-last-child(2), .table-wrap td:nth-last-child(2) { text-align: right; font-weight: 700; color: var(--blue-700); }
 .table-wrap th:last-child, .table-wrap td:last-child { padding-left: 40px; }
 .table-wrap tbody tr:last-child td { border-bottom: none; }
+/* Section header row grouping a city-overview page's pricing table by
+   appliance (per explicit request: "customer ko price dhundhna mushkil
+   hoga, sabhi appliance ki bahut row hai") — a plain <tr><td colspan>
+   would otherwise inherit the last-two-columns right-align/bold-blue
+   rule above, which looks wrong for a full-width header; this resets
+   that back to a normal left-aligned, subtly-tinted section label. */
+.table-wrap tr.pricing-appliance-header td { background: var(--mist); text-align: left !important; font-family: var(--font-display); color: var(--blue-900); font-size: 0.95rem; padding-top: 16px; padding-bottom: 8px; }
 @media (max-width: 640px) {
   .table-wrap th, .table-wrap td { padding: 10px 12px; font-size: 0.82rem; }
   .table-wrap th:last-child, .table-wrap td:last-child { padding-left: 20px; }
