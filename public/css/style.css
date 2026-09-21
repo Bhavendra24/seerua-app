@@ -1192,25 +1192,25 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .qb-btn-book { background: #1aa251; color: #fff; }
 .qb-btn-book:hover { background: #158a44; }
 
-/* Compact "compare all types, then book" price table inside the
-   homepage's one-click Book popup (#hbModal) — per explicit request
-   ("main page par appliance ke price check karna bahut aasan tha...
-   sabhi appliance ke price hi khatam kar diye"): every Type's Service/
-   AMC and Repair price shown side by side, same comparison the full
-   SEO page's table already gives, but right inside the popup. Tapping
-   a price cell both picks that Type/Service-Repair for booking AND
-   shows it's selected — one interactive table doing what used to be a
-   separate Type dropdown + Service/Repair toggle. */
-.hb-price-table-wrap { overflow-x: auto; margin-bottom: 8px; }
-.hb-price-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.hb-price-table th, .hb-price-table td { padding: 9px 8px; text-align: center; border-bottom: 1px solid var(--line); }
-.hb-price-table th:first-child, .hb-price-table td:first-child { text-align: left; }
-.hb-price-table th { font-family: var(--font-display); color: var(--blue-900); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.02em; }
-.hb-price-table td.hb-price-cell { cursor: pointer; font-weight: 700; color: var(--blue-700); border-radius: 8px; }
-.hb-price-table td.hb-price-cell:hover { background: var(--mist); }
-.hb-price-table td.hb-price-cell.selected { background: var(--blue-900); color: #fff; }
-.hb-price-table tr.hb-type-header td { background: var(--mist); text-align: left !important; font-family: var(--font-display); font-weight: 700; color: var(--blue-900); }
-.hb-price-table td.hb-sub-label { text-align: left; color: var(--slate); padding-left: 16px; }
+/* One-card-per-sub-type picker inside the homepage's one-click Book
+   popup (#hbModal) — per explicit request ("pahle jaise sabhi type ke
+   appliance the jis par click karo usi ka naam aur price jude"): back
+   to the old Quick Book look — every Type + Service/Repair/
+   Installation/Uninstallation/Gas Filling is its own separate card
+   with its own name and price, instead of a dense table listing
+   everything together. Tapping a card both picks that exact Type +
+   sub-type for booking AND highlights it as selected (see
+   hbSelectPriceCell() in main2.js). */
+.hb-price-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 8px; max-height: 260px; overflow-y: auto; padding: 2px; }
+.hb-price-card { cursor: pointer; border: 1px solid var(--line); border-radius: 10px; padding: 10px 8px; text-align: center; background: #fff; }
+.hb-price-card:hover { background: var(--mist); }
+.hb-price-card.selected { background: var(--blue-900); border-color: var(--blue-900); color: #fff; }
+.hb-price-card .hb-card-type { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--slate); margin-bottom: 2px; }
+.hb-price-card.selected .hb-card-type { color: #cfe0f5; }
+.hb-price-card .hb-card-service { display: block; font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; }
+.hb-price-card .hb-card-price { display: block; font-weight: 700; color: var(--blue-700); }
+.hb-price-card.selected .hb-card-price { color: #fff; }
+.hb-price-card.hb-card-unavailable { cursor: default; opacity: 0.5; }
 .hb-selected-line { font-size: 0.85rem; color: var(--slate); margin: 2px 0 14px; }
 .hb-selected-line strong { color: var(--ink); }
 
