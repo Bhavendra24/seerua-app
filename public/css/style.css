@@ -1212,6 +1212,18 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 .hb-price-card.selected .hb-card-price { color: #fff; }
 .hb-price-card.hb-card-unavailable { cursor: default; opacity: 0.5; }
 .hb-selected-line { font-size: 0.85rem; color: var(--slate); margin: 2px 0 14px; }
+
+/* Quick-book price-boxes panel — sits on the homepage itself, below the
+   appliance grid (per explicit request: "pahle jaise quick booking ke
+   box banao, jis box ko click karo tab popup khule"). Opens with that
+   appliance's every Type + sub-type as its own .qb-service-card (same
+   design the old Quick Book modal used) — tapping a card's Book button
+   is what actually opens the popup, straight to the booking form. */
+.appliance-boxes-panel { margin-top: 24px; border: 1px solid var(--line); border-radius: var(--radius-md); padding: 20px; background: #fff; }
+.appliance-boxes-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.appliance-boxes-panel-head h3 { margin: 0; font-family: var(--font-display); color: var(--blue-900); }
+.appliance-boxes-panel-close { background: none; border: none; font-size: 1.4rem; line-height: 1; cursor: pointer; color: var(--slate); padding: 4px 8px; }
+.appliance-boxes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
 .hb-selected-line strong { color: var(--ink); }
 
 /* Scrollable list of individual service cards (Service/Repair/
