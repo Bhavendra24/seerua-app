@@ -1485,14 +1485,42 @@ function firstCityUrlForAppliance(a) {
   return `/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}`;
 }
 
+// FLOW CHANGE (per explicit request — "customer jaise hi kisi appliance
+// par click kare tabhi us appliance ki details form me bhar jaay", i.e.
+// one click, not two): clicking the card's photo/title used to navigate
+// to that appliance's SEO page, where the customer then had to tap
+// "Book Now" a second time to actually get a form — two clicks total to
+// reach the same compact popup a direct "Book Now" tap already opens in
+// one. This intercepts a plain click on the card (not a modifier-key/
+// middle click, which still opens the SEO page in a new tab as normal —
+// and the href stays in the raw HTML either way, so Google can still
+// crawl and index every SEO page exactly as before) and opens the same
+// popup "Book Now" does, immediately, with this exact appliance preset.
+let serviceCardClicksBound = false;
+function bindServiceCardClicks(grid) {
+  if (serviceCardClicksBound) return;
+  serviceCardClicksBound = true;
+  grid.addEventListener('click', (e) => {
+    const link = e.target.closest('.service-card-link');
+    if (!link) return;
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    const card = link.closest('.service-card');
+    const applianceId = card && card.getAttribute('data-appliance');
+    if (!applianceId) return;
+    e.preventDefault();
+    openCompactBookModal(applianceId);
+  });
+}
+
 function renderServicesGrid() {
   const grid = document.getElementById('servicesGrid');
-  // SEO FIX: each card's photo/title now sits inside a real <a href> to
-  // that appliance's own SEO landing page (in addition to the "Book Now"
-  // button, which keeps opening the quick-book modal) — previously the
-  // whole card was just a JS onclick with no crawlable link at all, so
-  // Google had no way to discover these pages by following links from the
-  // homepage.
+  // SEO FIX: each card's photo/title still sits inside a real <a href> to
+  // that appliance's own SEO landing page — kept purely so Google can
+  // still discover/crawl/index these pages by following links from the
+  // homepage (and so ctrl/cmd-click or middle-click still opens it in a
+  // new tab like any normal link) — but see bindServiceCardClicks() just
+  // above: a normal tap/click on it now opens the compact Book popup
+  // directly instead of navigating away.
   grid.innerHTML = ALL_APPLIANCES.map(a => {
     const href = firstCityUrlForAppliance(a) || '#';
     return `
@@ -1507,6 +1535,7 @@ function renderServicesGrid() {
     </div>
   `;
   }).join('');
+  bindServiceCardClicks(grid);
 }
 
 const CART_STORAGE_KEY = 'seerua_cart_v1';
@@ -4731,6 +4760,11 @@ async function hbHandleSubmit(e) {
     document.getElementById('hbSuccessService').textContent = serviceLabel;
     document.getElementById('hbSuccessVisit').textContent = `${hbSelectedSlotLabel}, ${formatDateDisplay(date)}`;
     document.getElementById('hbSuccessCharge').textContent = `₹${data.booking.totalPrice}`;
+    // Same confirmation chime the main booking form already plays on
+    // success (per explicit request: "submit hone ke confirm ki avaz bhi
+    // aye") — reuses the exact same playSuccessChime() defined above,
+    // nothing new to test here.
+    playSuccessChime();
   } catch (err) {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Book Now';

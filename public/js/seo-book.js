@@ -59,6 +59,29 @@
 
   function el(id) { return document.getElementById(id); }
 
+  // Same two-tone confirmation chime the homepage's booking forms play
+  // right when the success screen appears (see playSuccessChime() in
+  // main2.js) — copied here rather than shared, since this page
+  // deliberately never loads main2.js (see the file-top note above).
+  function playSuccessChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (e) { /* Web Audio not available/blocked — the visual checkmark alone is still shown */ }
+  }
+
   // Same "DD Mon YYYY" convention used everywhere else on the site
   // (see formatDateDisplay() in main2.js) — kept as its own tiny copy
   // here rather than depending on main2.js, which this page doesn't load.
@@ -469,6 +492,12 @@
       el('sbSuccessService').textContent = serviceLabel.trim();
       el('sbSuccessVisit').textContent = `${selectedSlotLabel}, ${formatDateDisplay(date)}`;
       el('sbSuccessCharge').textContent = `₹${data.booking.totalPrice}`;
+      // Same confirmation chime the homepage's booking forms play on
+      // success (per explicit request: "submit hone ke confirm ki avaz
+      // bhi aye") — a tiny local copy since this page doesn't load
+      // main2.js (see the file-top note on why this widget stays
+      // dependency-free from main2.js).
+      playSuccessChime();
     } catch (err) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Book Now';
