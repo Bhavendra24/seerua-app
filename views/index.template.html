@@ -839,31 +839,22 @@
       </div>
 
       <div id="hbBookableWrap">
-        <!-- COMPARE-AND-BOOK PRICE TABLE (per explicit request: "main
-             page par appliance ke price check karna bahut aasan tha...
-             sabhi appliance ke price hi khatam kar diye" — tapping a
-             card used to open that appliance's full SEO page, where
-             every Type's Service/AMC and Repair price sat side by side
-             in one table, easy to compare before booking. The 1-click
-             popup's single Type-dropdown + one price at a time lost
-             that comparison entirely.) Shows every Type's Service and
-             Repair price at once, right in this same popup — tapping a
-             price cell selects that Type + Service/Repair for booking
-             (replacing a separate Type dropdown and Service/Repair
-             toggle with one interactive table that does both jobs), so
-             the one-click flow keeps the compare-before-you-book
-             experience instead of trading it away for speed. -->
+        <!-- ONE-CARD-PER-SUB-TYPE PICKER (per explicit request: "pahle
+             jaise sabhi type ke appliance the jis par click karo usi ka
+             naam aur price jude" — back to the old Quick Book look,
+             where every Type + Service/Repair/Installation/... was its
+             own separate card with its own name and price, instead of a
+             dense table listing everything together at once). Tapping a
+             card selects that exact Type + sub-type for booking (see
+             hbSelectPriceCell() in main2.js) and shows just that one
+             name + price, without the rest of the list staying visible
+             all together. -->
         <div class="qb-price-title" id="hbPriceTitle" style="margin-bottom:8px;">Service in your city</div>
-        <div class="hb-price-table-wrap">
-          <table class="hb-price-table">
-            <thead><tr><th>Type / Service</th><th>Price</th></tr></thead>
-            <tbody id="hbPriceTableBody"></tbody>
-          </table>
-        </div>
+        <div class="hb-price-cards" id="hbPriceTableBody"></div>
         <p class="hb-selected-line" id="hbSelectedLine"></p>
         <!-- Hidden internal state only — no longer a visible dropdown or
-             pill toggle; both are now set by tapping a cell in the price
-             table above (see hbSelectPriceCell() in main2.js). -->
+             pill toggle; both are now set by tapping a card above (see
+             hbSelectPriceCell() in main2.js). -->
         <select id="hbType" style="display:none;"></select>
         <input type="hidden" id="hbServiceType" value="service">
         <form id="hbForm">
