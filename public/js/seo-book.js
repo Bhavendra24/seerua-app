@@ -531,6 +531,22 @@
     if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'sbModal') closeSbModal(); });
     const doneBtn = el('sbSuccessDone');
     if (doneBtn) doneBtn.addEventListener('click', closeSbModal);
+
+    // Auto-open when arriving with ?book=1 in the URL — used by the
+    // city-overview page's pricing table ("Book" links) and its
+    // appliance cards' "Book Now" links (see server.js), which point
+    // straight at this exact appliance/type page instead of the old
+    // homepage redirect. Cleans the URL afterward (same
+    // clearQuickBookUrlParams() pattern main2.js uses) so a refresh or
+    // share of this page's URL doesn't reopen the popup on its own.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('book') === '1') {
+      window.openSbModal();
+      params.delete('book');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+      try { window.history.replaceState({}, '', newUrl); } catch (e) { /* not fatal — the popup already opened */ }
+    }
   }
 
   if (document.readyState === 'loading') {
