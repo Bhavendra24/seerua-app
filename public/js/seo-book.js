@@ -156,7 +156,7 @@
   // Called from a pricing-table "Book" button's onclick (see
   // buildSbBookOnclick() in server.js) to pre-select this exact row —
   // a plain Service/Repair row (skuId omitted) or an extra-SKU row
-  // (Installation, Gas Filling, ...) — and scroll to this widget.
+  // (Installation, Gas Filling, ...) — right before opening the popup.
   window.sbApplyPreset = function (typeId, skuId, skuLabel, skuPrice) {
     if (!FOCUS_TYPE_ID) {
       const sel = el('sbType');
@@ -170,6 +170,31 @@
     updateServiceTypeVisibility();
     updatePriceDisplay();
   };
+
+  // ---------------- Popup open/close ----------------
+  // FLOW CHANGE (per explicit request — "form main page me hi hai...
+  // main chahta hu ki form alag se ho"): this widget used to be a
+  // section sitting directly in the page's normal scroll flow, always
+  // visible. Now that the homepage's own "Book Now" opens a single
+  // small POPUP (see #hbModal/openCompactBookModal() in main2.js), this
+  // page's form needs to behave the exact same way for the whole site
+  // to feel consistent — a popup that opens on tap, closed by default.
+  window.openSbModal = function () {
+    const modal = el('sbModal');
+    if (!modal) return;
+    el('sbFormStep').style.display = '';
+    el('sbOtpStep').style.display = 'none';
+    el('sbSuccess').style.display = 'none';
+    const msg = el('sbMsg');
+    if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+    const submitBtn = el('sbSubmitBtn');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Now'; }
+    modal.classList.add('open');
+  };
+  function closeSbModal() {
+    const modal = el('sbModal');
+    if (modal) modal.classList.remove('open');
+  }
 
   // ---------------- Slots ----------------
   let selectedSlotId = null;
@@ -466,6 +491,17 @@
       dateEl.addEventListener('change', refreshSlots);
     }
     form.addEventListener('submit', handleSubmit);
+
+    // Popup open/close wiring — see window.openSbModal() above. The
+    // plain "Book Now" links (header/hero/CTA banner) call
+    // window.openSbModal() directly; the pricing table's per-row "Book"
+    // buttons call window.sbApplyPreset() then window.openSbModal().
+    const closeBtn = el('sbModalClose');
+    if (closeBtn) closeBtn.addEventListener('click', closeSbModal);
+    const modal = el('sbModal');
+    if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'sbModal') closeSbModal(); });
+    const doneBtn = el('sbSuccessDone');
+    if (doneBtn) doneBtn.addEventListener('click', closeSbModal);
   }
 
   if (document.readyState === 'loading') {
