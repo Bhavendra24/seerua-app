@@ -4493,6 +4493,12 @@ let hbApplianceId = null;
 let hbSelectedSlotId = null;
 let hbSelectedSlotLabel = null;
 let hbBound = false;
+// Set when the selected row is an extra SKU (Installation, Gas Filling,
+// Uninstallation, ...) rather than plain Service/Repair — sent as-is in
+// the booking payload so the server prices it from that exact SKU
+// (see server.js's servicePrices[skuId] lookup), same as the SEO page's
+// per-service pricing table already does via sbApplyPreset().
+let hbSelectedSkuId = null;
 
 function hbCurrentAppliance() {
   const list = ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES;
@@ -4507,20 +4513,7 @@ function hbCurrentType() {
   return appliance.types.find(t => t.id === typeId) || appliance.types[0] || null;
 }
 
-function hbPopulateTypeSelect(appliance, initialTypeId) {
-  const wrap = document.getElementById('hbTypeField');
-  const sel = document.getElementById('hbType');
-  if (!appliance.types || appliance.types.length <= 1) {
-    wrap.style.display = 'none';
-    return;
-  }
-  wrap.style.display = '';
-  sel.innerHTML = appliance.types.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-  const requestedType = initialTypeId && appliance.types.find(t => t.id === initialTypeId);
-  if (requestedType) sel.value = requestedType.id;
-}
-
-// Toggles between the price-card/form and the "not available in your
+// Toggles between the price table/form and the "not available in your
 // city" notice — same friendly-notice pattern as qbSetNotAvailable().
 function hbSetNotAvailable(isUnavailable) {
   const notAvailEl = document.getElementById('hbNotAvailable');
@@ -4529,31 +4522,99 @@ function hbSetNotAvailable(isUnavailable) {
   if (wrap) wrap.style.display = isUnavailable ? 'none' : '';
 }
 
-async function hbUpdatePrice() {
+// COMPARE-AND-BOOK PRICE TABLE (per explicit request: "main page par
+// appliance ke price check karna bahut aasan tha... sabhi appliance ke
+// price hi khatam kar diye", then further clarified: "jis type tatha sub
+// type par click karte hi popup me usi appliance ke price aa jaye") —
+// fetches EVERY Type's full service breakdown for the selected city (in
+// parallel) and lists every Type + sub-type/service row (Service, Repair,
+// and for appliances like AC also Installation, Uninstallation, Gas
+// Filling — same rows the SEO page's own pricing table shows), grouped
+// under a header row per Type. Tapping any row's price both picks that
+// exact Type + sub-type for booking and highlights it as selected.
+async function hbPopulatePriceTable(appliance, initialTypeId) {
   const cityId = document.getElementById('hbCity').value;
-  const appliance = hbCurrentAppliance();
-  const type = hbCurrentType();
-  const priceNowEl = document.getElementById('hbPriceNow');
-  const priceStrikeEl = document.getElementById('hbPriceStrike');
+  const tbody = document.getElementById('hbPriceTableBody');
   const titleEl = document.getElementById('hbPriceTitle');
-  if (!cityId || !appliance || !type) { hbSetNotAvailable(true); return; }
-  titleEl.textContent = `${appliance.name} ${type.name}`.trim();
-  priceNowEl.textContent = '...';
-  priceStrikeEl.textContent = '';
-  const serviceType = document.getElementById('hbServiceType').value;
+  if (!tbody || !titleEl) return;
+  titleEl.textContent = `${appliance.name} — compare & book`;
+  if (!cityId) { hbSetNotAvailable(true); return; }
+  tbody.innerHTML = '<tr><td colspan="2">Loading prices...</td></tr>';
   try {
-    const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${type.id}`);
-    const actual = serviceType === 'repair' ? row.repairPrice : row.servicePrice;
-    // Same "was ₹X / now ₹Y" discount-badge look as Quick Book/the SEO
-    // widget — purely visual, never what's actually charged.
-    const shownMrp = Math.round((actual * 1.2) / 10) * 10;
-    priceStrikeEl.textContent = `₹${shownMrp}`;
-    priceNowEl.textContent = `₹${actual}`;
+    const rows = await Promise.all((appliance.types || []).map(async (t) => {
+      try {
+        const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${t.id}`);
+        return { type: t, servicePrices: row.servicePrices || {}, servicePrice: row.servicePrice, repairPrice: row.repairPrice };
+      } catch (e) {
+        return { type: t, servicePrices: {}, servicePrice: null, repairPrice: null };
+      }
+    }));
+    const available = rows.filter(r => Object.values(r.servicePrices).some(p => typeof p === 'number') || typeof r.servicePrice === 'number' || typeof r.repairPrice === 'number');
+    if (!available.length) { hbSetNotAvailable(true); return; }
     hbSetNotAvailable(false);
-    hbRefreshSlots();
+    tbody.innerHTML = available.map(r => {
+      const services = (r.type.services && r.type.services.length) ? r.type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
+      const rowsHtml = services.map(svc => {
+        const price = typeof r.servicePrices[svc.id] === 'number'
+          ? r.servicePrices[svc.id]
+          : (svc.id === 'svc-service' ? r.servicePrice : (svc.id === 'svc-repair' ? r.repairPrice : null));
+        return `
+        <tr>
+          <td class="hb-sub-label">${svc.name}</td>
+          <td class="hb-price-cell" data-type-id="${r.type.id}" data-sku-id="${svc.id}" data-svc-name="${svc.name}">${typeof price === 'number' ? '₹' + price : '—'}</td>
+        </tr>`;
+      }).join('');
+      return `<tr class="hb-type-header"><td colspan="2"><strong>${r.type.name}</strong></td></tr>${rowsHtml}`;
+    }).join('');
+    tbody.querySelectorAll('.hb-price-cell').forEach(cell => {
+      cell.addEventListener('click', () => {
+        if (cell.textContent.trim() === '—') return; // this Type has no price for this sub-type
+        hbSelectPriceCell(cell.dataset.typeId, cell.dataset.skuId, cell.dataset.svcName, appliance);
+      });
+    });
+    // Default selection: whatever type/typeId this popup was opened
+    // with (a specific "Book <Type> Service" link), defaulting to its
+    // plain Service row, or else the first available Type+row.
+    const defaultRow = available.find(r => r.type.id === initialTypeId) || available[0];
+    const candidateCells = Array.from(tbody.querySelectorAll(`.hb-price-cell[data-type-id="${defaultRow.type.id}"]`));
+    const firstPriced = candidateCells.find(c => c.textContent.trim() !== '—') || candidateCells[0];
+    if (firstPriced) hbSelectPriceCell(firstPriced.dataset.typeId, firstPriced.dataset.skuId, firstPriced.dataset.svcName, appliance);
   } catch (e) {
     hbSetNotAvailable(true);
   }
+}
+
+// Marks one price-table row selected (for booking) and reflects that
+// choice in the hidden #hbType/#hbServiceType fields the rest of the
+// popup (hbCurrentType(), hbHandleSubmit()) already reads, plus the
+// module-level hbSelectedSkuId (sent straight through to the booking
+// payload so an extra-SKU row like Gas Filling is priced exactly like
+// that row said — see server.js's servicePrices[skuId] lookup), plus a
+// plain-language "Selected: ..." line above the form.
+function hbSelectPriceCell(typeId, skuId, svcName, appliance) {
+  const typeSel = document.getElementById('hbType');
+  if (typeSel) typeSel.value = typeId;
+  // The booking record's serviceType field only distinguishes
+  // Service-family vs Repair — skuId (below) carries the exact sub-type.
+  const serviceTypeEl = document.getElementById('hbServiceType');
+  if (serviceTypeEl) serviceTypeEl.value = (skuId === 'svc-repair') ? 'repair' : 'service';
+  hbSelectedSkuId = (skuId === 'svc-service' || skuId === 'svc-repair') ? null : skuId;
+  const tbody = document.getElementById('hbPriceTableBody');
+  let priceText = '';
+  if (tbody) {
+    tbody.querySelectorAll('.hb-price-cell').forEach(c => c.classList.remove('selected'));
+    const activeCell = tbody.querySelector(`.hb-price-cell[data-type-id="${typeId}"][data-sku-id="${skuId}"]`);
+    if (activeCell) {
+      activeCell.classList.add('selected');
+      priceText = activeCell.textContent.trim();
+    }
+  }
+  const type = (appliance.types || []).find(t => t.id === typeId);
+  const line = document.getElementById('hbSelectedLine');
+  if (line && type) {
+    line.innerHTML = `Selected: <strong>${type.name} — ${svcName} — ${priceText}</strong>`;
+  }
+  hbRefreshSlots();
 }
 
 function hbRenderSlots(slots) {
@@ -4631,10 +4692,6 @@ function openCompactBookModal(applianceId, typeId) {
   const existingCity = (acc && acc.cityId) || (fCityEl && fCityEl.value) || lastCity;
   if (existingCity) citySelect.value = existingCity;
 
-  hbPopulateTypeSelect(appliance, typeId);
-  document.getElementById('hbServiceType').value = 'service';
-  document.querySelectorAll('#hbServiceTypeRow .qb-service-type-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
-
   // Prefill name/phone/address from a saved account, same courtesy the
   // rest of the site already gives a returning customer.
   document.getElementById('hbName').value = acc ? (acc.name || '') : '';
@@ -4649,7 +4706,7 @@ function openCompactBookModal(applianceId, typeId) {
   document.getElementById('hbSlots').innerHTML = '';
 
   if (citySelect.value) {
-    hbUpdatePrice();
+    hbPopulatePriceTable(appliance, typeId);
   } else {
     hbSetNotAvailable(true);
   }
@@ -4735,7 +4792,7 @@ async function hbHandleSubmit(e) {
   submitBtn.textContent = 'Booking...';
   const payload = {
     name, phone, address, cityId,
-    items: [{ applianceId: appliance.id, typeId: type.id, serviceType, qty: 1, problem: '', photoUrl: '', skuId: null }],
+    items: [{ applianceId: appliance.id, typeId: type.id, serviceType, qty: 1, problem: '', photoUrl: '', skuId: hbSelectedSkuId }],
     bookingDate: date,
     timeSlotId: hbSelectedSlotId
   };
@@ -4783,17 +4840,10 @@ function bindCompactBookModal() {
   const doneBtn = document.getElementById('hbSuccessDone');
   if (doneBtn) doneBtn.addEventListener('click', closeCompactBookModal);
   document.getElementById('hbCity').addEventListener('change', () => {
-    try { localStorage.setItem('seerua_last_city', document.getElementById('hbCity').value); } catch (e) { /* private browsing etc */ }
-    hbUpdatePrice();
-  });
-  document.getElementById('hbType').addEventListener('change', hbUpdatePrice);
-  document.querySelectorAll('#hbServiceTypeRow .qb-service-type-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#hbServiceTypeRow .qb-service-type-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('hbServiceType').value = btn.getAttribute('data-service-type');
-      hbUpdatePrice();
-    });
+    const cityId = document.getElementById('hbCity').value;
+    try { localStorage.setItem('seerua_last_city', cityId); } catch (e) { /* private browsing etc */ }
+    const appliance = hbCurrentAppliance();
+    if (appliance) hbPopulatePriceTable(appliance, document.getElementById('hbType').value);
   });
   document.getElementById('hbDate').addEventListener('change', hbRefreshSlots);
   document.getElementById('hbForm').addEventListener('submit', hbHandleSubmit);
