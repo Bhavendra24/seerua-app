@@ -698,7 +698,12 @@ function bindUrlTriggeredSections() {
     // opens straight to that type instead of always the first one.
     const urlTypeId = qbUrlParams.get('type');
     if (urlApplianceId) {
-      openQuickBookModal(urlApplianceId, urlTypeId);
+      // FLOW CHANGE (per explicit request — "kahi se bhi chahe direct ya
+      // search se" — the compact one-click form should open no matter
+      // how someone arrives): this is exactly the "arrived via a link
+      // from elsewhere" path, so it opens the same compact modal a
+      // direct "Book Now" tap does, not the old multi-step Quick Book.
+      openCompactBookModal(urlApplianceId, urlTypeId);
       clearQuickBookUrlParams();
     }
   }
@@ -1113,7 +1118,7 @@ function bindFooterApplianceLinks() {
       const id = a.getAttribute('data-appliance');
       if (!id || !APPLIANCES.some(x => x.id === id)) return;
       e.preventDefault();
-      openQuickBookModal(id);
+      openCompactBookModal(id);
     });
   });
 }
@@ -1274,7 +1279,7 @@ function autoOpenBookingFromUrlParams() {
     if (match) document.getElementById('fCity').value = cityId;
   }
   if (applianceId && APPLIANCES.find(a => a.id === applianceId && !a.hidden)) {
-    openQuickBookModal(applianceId, typeId);
+    openCompactBookModal(applianceId, typeId);
     clearQuickBookUrlParams();
   } else if (window.location.hash === '#book' || window.location.hash === '#services') {
     document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
@@ -1498,7 +1503,7 @@ function renderServicesGrid() {
           : `<div class="service-icon-wrap"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
         <h3>${a.name}</h3>
       </a>
-      <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="openCompactBookModal('${a.id}')">Book Now</button>
     </div>
   `;
   }).join('');
@@ -2855,21 +2860,27 @@ function verifyPhoneWithOtp(phone, opts) {
       return;
     }
 
-    // Inline mode: show/hide the two step-divs inside accountGateModal
-    // (which stays open throughout). Modal mode (unchanged): show/hide
-    // the standalone #otpEntryModal backdrop, same as before.
+    // Inline mode: show/hide the two step-divs inside WHATEVER popup is
+    // already open (which stays open throughout — nothing ever closes
+    // and reopens visually). Defaults to Account Gate's own
+    // agPhoneStep/agOtpStep pair for backward compatibility with its
+    // existing caller; opts.steps lets any other caller (e.g. the
+    // homepage's compact Book modal) name its own pair of sibling step
+    // divs instead. Modal mode (unchanged): show/hide the standalone
+    // #otpEntryModal backdrop, same as before.
+    const stepIds = opts.steps || { phoneStep: 'agPhoneStep', otpStep: 'agOtpStep' };
     const showOtpUI = inline
       ? () => {
-          const phoneStep = document.getElementById('agPhoneStep');
-          const otpStep = document.getElementById('agOtpStep');
+          const phoneStep = document.getElementById(stepIds.phoneStep);
+          const otpStep = document.getElementById(stepIds.otpStep);
           if (phoneStep) phoneStep.style.display = 'none';
           if (otpStep) otpStep.style.display = '';
         }
       : () => { modal.classList.add('open'); };
     const hideOtpUI = inline
       ? () => {
-          const phoneStep = document.getElementById('agPhoneStep');
-          const otpStep = document.getElementById('agOtpStep');
+          const phoneStep = document.getElementById(stepIds.phoneStep);
+          const otpStep = document.getElementById(stepIds.otpStep);
           if (otpStep) otpStep.style.display = 'none';
           if (phoneStep) phoneStep.style.display = '';
         }
@@ -4434,3 +4445,324 @@ document.getElementById('qbAddBtn').addEventListener('click', async () => {
 bindQuickBookModal();
 
 init();
+
+// ============================================================
+// COMPACT ONE-CLICK BOOK MODAL (homepage) — see #hbModal in
+// index.template.html for the full explanation of why this exists.
+// Opens directly from an appliance card's "Book Now" tap (or a link
+// from elsewhere carrying ?appliance=...) with everything — city,
+// type, Service/Repair, price, name, phone+OTP, address, date/time —
+// in ONE small popup, instead of the old Quick Book -> tap Book again
+// -> Account Gate -> booking-form chain. Modeled closely on the SEO
+// pages' own single-item widget (seo-book.js), but written as part of
+// main2.js (not its own file) since this only ever runs on the
+// homepage, where CITIES/APPLIANCES/fetchJSON/ensureOtpConfig/
+// verifyPhoneWithOtp/getAccount/saveAccount/formatDateDisplay/
+// populateSelect are already loaded above and safe to reuse directly.
+// ============================================================
+let hbApplianceId = null;
+let hbSelectedSlotId = null;
+let hbSelectedSlotLabel = null;
+let hbBound = false;
+
+function hbCurrentAppliance() {
+  const list = ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES;
+  return list.find(a => a.id === hbApplianceId);
+}
+
+function hbCurrentType() {
+  const appliance = hbCurrentAppliance();
+  if (!appliance) return null;
+  const sel = document.getElementById('hbType');
+  const typeId = sel && sel.value;
+  return appliance.types.find(t => t.id === typeId) || appliance.types[0] || null;
+}
+
+function hbPopulateTypeSelect(appliance, initialTypeId) {
+  const wrap = document.getElementById('hbTypeField');
+  const sel = document.getElementById('hbType');
+  if (!appliance.types || appliance.types.length <= 1) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  sel.innerHTML = appliance.types.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  const requestedType = initialTypeId && appliance.types.find(t => t.id === initialTypeId);
+  if (requestedType) sel.value = requestedType.id;
+}
+
+// Toggles between the price-card/form and the "not available in your
+// city" notice — same friendly-notice pattern as qbSetNotAvailable().
+function hbSetNotAvailable(isUnavailable) {
+  const notAvailEl = document.getElementById('hbNotAvailable');
+  const wrap = document.getElementById('hbBookableWrap');
+  if (notAvailEl) notAvailEl.style.display = isUnavailable ? 'block' : 'none';
+  if (wrap) wrap.style.display = isUnavailable ? 'none' : '';
+}
+
+async function hbUpdatePrice() {
+  const cityId = document.getElementById('hbCity').value;
+  const appliance = hbCurrentAppliance();
+  const type = hbCurrentType();
+  const priceNowEl = document.getElementById('hbPriceNow');
+  const priceStrikeEl = document.getElementById('hbPriceStrike');
+  const titleEl = document.getElementById('hbPriceTitle');
+  if (!cityId || !appliance || !type) { hbSetNotAvailable(true); return; }
+  titleEl.textContent = `${appliance.name} ${type.name}`.trim();
+  priceNowEl.textContent = '...';
+  priceStrikeEl.textContent = '';
+  const serviceType = document.getElementById('hbServiceType').value;
+  try {
+    const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${type.id}`);
+    const actual = serviceType === 'repair' ? row.repairPrice : row.servicePrice;
+    // Same "was ₹X / now ₹Y" discount-badge look as Quick Book/the SEO
+    // widget — purely visual, never what's actually charged.
+    const shownMrp = Math.round((actual * 1.2) / 10) * 10;
+    priceStrikeEl.textContent = `₹${shownMrp}`;
+    priceNowEl.textContent = `₹${actual}`;
+    hbSetNotAvailable(false);
+    hbRefreshSlots();
+  } catch (e) {
+    hbSetNotAvailable(true);
+  }
+}
+
+function hbRenderSlots(slots) {
+  const box = document.getElementById('hbSlots');
+  if (!box) return;
+  hbSelectedSlotId = null;
+  hbSelectedSlotLabel = null;
+  if (!slots.length) {
+    box.innerHTML = '<p class="form-msg">No slots configured.</p>';
+    return;
+  }
+  box.innerHTML = slots.map(s => {
+    const disabled = !s.available;
+    return `<button type="button" class="btn btn-outline btn-sm hb-slot-btn" data-slot-id="${s.id}" data-slot-label="${s.label}" ${disabled ? 'disabled' : ''} style="margin:0 6px 6px 0;${disabled ? 'opacity:.45;cursor:not-allowed;' : ''}">${s.label}${disabled ? ' (Full)' : ''}</button>`;
+  }).join('');
+  box.querySelectorAll('.hb-slot-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      box.querySelectorAll('.hb-slot-btn').forEach(b => b.classList.remove('btn-primary'));
+      btn.classList.add('btn-primary');
+      hbSelectedSlotId = btn.dataset.slotId;
+      hbSelectedSlotLabel = btn.dataset.slotLabel;
+    });
+  });
+}
+
+async function hbRefreshSlots() {
+  const date = document.getElementById('hbDate').value;
+  const cityId = document.getElementById('hbCity').value;
+  const appliance = hbCurrentAppliance();
+  const box = document.getElementById('hbSlots');
+  if (!box) return;
+  if (!date || !cityId || !appliance) { box.innerHTML = ''; return; }
+  box.innerHTML = '<p class="form-msg">Loading slots...</p>';
+  try {
+    const slots = await fetchJSON(`/api/slots?date=${encodeURIComponent(date)}&cityId=${encodeURIComponent(cityId)}&applianceIds=${encodeURIComponent(appliance.id)}`);
+    hbRenderSlots(slots);
+  } catch (e) {
+    box.innerHTML = '<p class="form-msg error">Could not load slots. Please try again.</p>';
+  }
+}
+
+// Opened straight from an appliance card's "Book Now" tap (or a
+// ?appliance=...&type=... link from elsewhere) — see the call sites in
+// renderServicesGrid(), bindFooterApplianceLinks(),
+// bindUrlTriggeredSections() and autoOpenBookingFromUrlParams() above.
+function openCompactBookModal(applianceId, typeId) {
+  if (BOOKING_PAUSED_STATUS && BOOKING_PAUSED_STATUS.bookingPaused) {
+    if (typeof openBookingForm === 'function') openBookingForm();
+    return;
+  }
+  hbApplianceId = applianceId;
+  const appliance = hbCurrentAppliance();
+  if (!appliance) return;
+
+  document.getElementById('hbFormStep').style.display = '';
+  document.getElementById('hbOtpStep').style.display = 'none';
+  document.getElementById('hbSuccess').style.display = 'none';
+  const msg = document.getElementById('hbMsg');
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+  const submitBtn = document.getElementById('hbSubmitBtn');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Book Now';
+  document.getElementById('hbTitle').textContent = appliance.name + ' Service';
+
+  // City: reuse whatever's already known (a saved account, the shared
+  // #fCity selector, or the last city picked anywhere on the site) so
+  // this popup doesn't ask again if it's already known — same courtesy
+  // Quick Book already gives.
+  const citySelect = document.getElementById('hbCity');
+  populateSelect(citySelect, CITIES, 'Select city');
+  const acc = getAccount();
+  let lastCity = '';
+  try { lastCity = localStorage.getItem('seerua_last_city') || ''; } catch (e) { /* private browsing etc */ }
+  const fCityEl = document.getElementById('fCity');
+  const existingCity = (acc && acc.cityId) || (fCityEl && fCityEl.value) || lastCity;
+  if (existingCity) citySelect.value = existingCity;
+
+  hbPopulateTypeSelect(appliance, typeId);
+  document.getElementById('hbServiceType').value = 'service';
+  document.querySelectorAll('#hbServiceTypeRow .qb-service-type-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+
+  // Prefill name/phone/address from a saved account, same courtesy the
+  // rest of the site already gives a returning customer.
+  document.getElementById('hbName').value = acc ? (acc.name || '') : '';
+  document.getElementById('hbPhone').value = acc ? (acc.phone || '') : '';
+  document.getElementById('hbAddress').value = acc ? (acc.address || '') : '';
+
+  const dateEl = document.getElementById('hbDate');
+  const today = new Date();
+  const y = today.getFullYear(), m = String(today.getMonth() + 1).padStart(2, '0'), d = String(today.getDate()).padStart(2, '0');
+  dateEl.min = `${y}-${m}-${d}`;
+  if (!dateEl.value || dateEl.value < dateEl.min) dateEl.value = `${y}-${m}-${d}`;
+  document.getElementById('hbSlots').innerHTML = '';
+
+  if (citySelect.value) {
+    hbUpdatePrice();
+  } else {
+    hbSetNotAvailable(true);
+  }
+
+  document.getElementById('hbModal').classList.add('open');
+}
+window.openCompactBookModal = openCompactBookModal;
+
+function closeCompactBookModal() {
+  document.getElementById('hbModal').classList.remove('open');
+}
+
+async function hbHandleSubmit(e) {
+  e.preventDefault();
+  const msg = document.getElementById('hbMsg');
+  msg.className = 'form-msg';
+  msg.textContent = '';
+
+  const appliance = hbCurrentAppliance();
+  const type = hbCurrentType();
+  if (!appliance || !type) {
+    msg.className = 'form-msg error';
+    msg.textContent = 'This service is not available here right now.';
+    return;
+  }
+  const cityId = document.getElementById('hbCity').value;
+  const name = document.getElementById('hbName').value.trim();
+  const phone = document.getElementById('hbPhone').value.trim();
+  const address = document.getElementById('hbAddress').value.trim();
+  const serviceType = document.getElementById('hbServiceType').value;
+  const date = document.getElementById('hbDate').value;
+
+  if (!cityId) { msg.className = 'form-msg error'; msg.textContent = 'Please select a city.'; return; }
+  if (!name) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your name.'; return; }
+  if (!/^[0-9]{10}$/.test(phone)) { msg.className = 'form-msg error'; msg.textContent = 'Please enter a valid 10 digit mobile number.'; return; }
+  if (!address) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your full address.'; return; }
+  if (!date) { msg.className = 'form-msg error'; msg.textContent = 'Please select a preferred date.'; return; }
+  if (!hbSelectedSlotId) { msg.className = 'form-msg error'; msg.textContent = 'Please select an available time slot.'; return; }
+
+  const submitBtn = document.getElementById('hbSubmitBtn');
+  submitBtn.disabled = true;
+
+  let phoneAlreadyVerified = false;
+  try {
+    const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
+    phoneAlreadyVerified = !!check.verified;
+  } catch (e) { /* fall back to normal OTP flow */ }
+
+  let otpEnabled = true;
+  try {
+    const cfg = await ensureOtpConfig();
+    otpEnabled = cfg.enabled !== false;
+  } catch (e) { /* fall back to normal OTP flow */ }
+
+  let accessToken;
+  if (otpEnabled && !phoneAlreadyVerified) {
+    submitBtn.textContent = 'Sending OTP...';
+    msg.className = 'form-msg notice';
+    msg.textContent = 'Please complete the OTP verification that just opened to confirm your booking.';
+    try {
+      // Reuses the exact same inline-OTP-swap function Account Gate
+      // uses (verifyPhoneWithOtp with inline:true) — its own scoped
+      // step-div pair (opts.steps) is exactly what was generalized in
+      // this function for this new caller, so nothing about how OTP
+      // actually gets verified is new or untested here.
+      accessToken = await verifyPhoneWithOtp(phone, {
+        inline: true,
+        ids: {
+          phone: 'hbOtpPhone', code: 'hbOtpCode', msg: 'hbOtpMsg',
+          submit: 'hbOtpSubmit', resend: 'hbOtpResend', close: 'hbOtpBack'
+        },
+        steps: { phoneStep: 'hbFormStep', otpStep: 'hbOtpStep' }
+      });
+    } catch (err) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Book Now';
+      msg.className = 'form-msg error';
+      msg.textContent = err.message || 'OTP verification failed. Please try again.';
+      return;
+    }
+  }
+
+  submitBtn.textContent = 'Booking...';
+  const payload = {
+    name, phone, address, cityId,
+    items: [{ applianceId: appliance.id, typeId: type.id, serviceType, qty: 1, problem: '', photoUrl: '', skuId: null }],
+    bookingDate: date,
+    timeSlotId: hbSelectedSlotId
+  };
+  if (accessToken) payload.accessToken = accessToken;
+
+  try {
+    const data = await fetchJSON('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    // Save/refresh the shared account so a returning visit (or any other
+    // flow on the site) recognizes this customer too — same courtesy
+    // Account Gate and the full booking form already give.
+    const existingAcc = getAccount();
+    saveAccount({ phone, name, address, cityId, accessToken: accessToken || (existingAcc && existingAcc.accessToken) });
+    document.getElementById('hbFormStep').style.display = 'none';
+    document.getElementById('hbOtpStep').style.display = 'none';
+    document.getElementById('hbSuccess').style.display = '';
+    const serviceLabel = `${appliance.name} (${type.name}, ${serviceType === 'repair' ? 'Repair' : 'Service'})`;
+    document.getElementById('hbSuccessId').textContent = data.booking.id;
+    document.getElementById('hbSuccessService').textContent = serviceLabel;
+    document.getElementById('hbSuccessVisit').textContent = `${hbSelectedSlotLabel}, ${formatDateDisplay(date)}`;
+    document.getElementById('hbSuccessCharge').textContent = `₹${data.booking.totalPrice}`;
+  } catch (err) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Book Now';
+    msg.className = 'form-msg error';
+    msg.textContent = err.message || 'Could not complete booking. Please try again or call us.';
+  }
+}
+
+function bindCompactBookModal() {
+  if (hbBound) return;
+  hbBound = true;
+  document.getElementById('hbModalClose').addEventListener('click', closeCompactBookModal);
+  document.getElementById('hbModal').addEventListener('click', (e) => {
+    if (e.target.id === 'hbModal') closeCompactBookModal();
+  });
+  const doneBtn = document.getElementById('hbSuccessDone');
+  if (doneBtn) doneBtn.addEventListener('click', closeCompactBookModal);
+  document.getElementById('hbCity').addEventListener('change', () => {
+    try { localStorage.setItem('seerua_last_city', document.getElementById('hbCity').value); } catch (e) { /* private browsing etc */ }
+    hbUpdatePrice();
+  });
+  document.getElementById('hbType').addEventListener('change', hbUpdatePrice);
+  document.querySelectorAll('#hbServiceTypeRow .qb-service-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#hbServiceTypeRow .qb-service-type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('hbServiceType').value = btn.getAttribute('data-service-type');
+      hbUpdatePrice();
+    });
+  });
+  document.getElementById('hbDate').addEventListener('change', hbRefreshSlots);
+  document.getElementById('hbForm').addEventListener('submit', hbHandleSubmit);
+}
+
+bindCompactBookModal();
