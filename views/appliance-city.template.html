@@ -34,7 +34,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609205">
+<link rel="stylesheet" href="/css/style.css?v=202609206">
 
 <script type="application/ld+json">
 {{SERVICE_SCHEMA_JSON}}
@@ -99,42 +99,36 @@
   <span style="color:var(--blue-900);font-weight:600;">{{APPLIANCE_NAME}} Service</span>
 </nav>
 
-<section class="hero" style="padding-bottom:44px;">
+<section class="hero" style="padding-bottom:6px;">
   <div class="container">
     <div class="hero-grid" style="max-width:1300px;">
       <div class="hero-copy">
         <span class="eyebrow">Doorstep {{APPLIANCE_NAME}} service in {{CITY_NAME}}</span>
         <h1 style="max-width:760px;">{{APPLIANCE_NAME}} Service &amp; Repair in <span class="highlight">{{CITY_NAME}}</span></h1>
         <p class="hero-sub" style="max-width:640px;">Verified {{CITY_NAME}} technicians, transparent pricing, and same day doorstep {{APPLIANCE_NAME}} visits — no guesswork on price, no waiting around.</p>
-        <!-- CHANGED (explicit request): "Book ... Service in ..." reworded
-             to "Choose Your ... Service in ..." — it opens the price
-             cards/booking popup for this exact appliance+city, "Choose"
-             reads more honestly as picking a service than "Book" does
-             before anything's actually been selected yet. The "Call Now"
-             button next to it is removed — one clear CTA, not two
-             competing ones. -->
-        <div class="hero-cta-row">
-          <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-primary">Choose Your {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</a>
-        </div>
+        <!-- CHANGED (explicit, repeated request): the old "Book AC Service
+             in Moradabad" button and the separate "Call Now" button next
+             to it are both gone — replaced with this one line of plain
+             text, not a link/button, right where they used to be, with
+             almost no space around it. The actual tap targets are the
+             Add/Book buttons on the price cards right below. -->
+        <p class="hero-cta-text" style="margin:6px 0 0;font-weight:700;color:var(--blue-900);">Choose Your {{APPLIANCE_NAME}} Service</p>
       </div>
       {{APPLIANCE_PHOTO_HTML}}
     </div>
   </div>
 </section>
 
-<section class="bg-mist">
+<section class="bg-mist" style="padding-top:4px;">
   <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow">{{CITY_NAME}} pricing</span>
-      <h2>{{APPLIANCE_NAME}} Service &amp; Repair Prices in {{CITY_NAME}}</h2>
+    <!-- CHANGED (explicit, repeated request): the "{{CITY_NAME}} pricing"
+         eyebrow label ("MORADABAD PRICING") is removed — it was the exact
+         redundant label the user kept pointing at, since the H2 right
+         below it already says "Choose Your ... Service in ...". Section's
+         top padding + margin-bottom further trimmed to close the gap. -->
+    <div class="section-head reveal" style="margin-bottom:4px;">
+      <h2>Choose Your {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</h2>
       <p>Exact visit charges for {{APPLIANCE_NAME}} in {{CITY_NAME}} — no surprises, no hidden fees.</p>
-      <!-- BUG FIX: a second "Book {{APPLIANCE_NAME}} Service in
-           {{CITY_NAME}}" button was added here, right on top of the
-           identical one already in the hero section a short scroll
-           above — same text, same link, right next to each other once
-           the page's short, so it just read as a mistake rather than a
-           helpful shortcut. Removed; the hero's button is the only one
-           now. -->
     </div>
     <!-- REBUILT (explicit request — full, real detail on the page itself,
          not hidden behind a popup, both for a customer to pick in one tap
