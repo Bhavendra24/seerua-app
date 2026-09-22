@@ -140,18 +140,20 @@
       <p id="servicesSubText">From {{APPLIANCE_LIST_TEXT}}, repair and service for every essential home appliance.</p>
     </div>
     <div class="services-grid reveal" id="servicesGrid">{{SERVICES_GRID_HTML}}</div>
-    <!-- APPLIANCE PRICE BOXES (explicit request — restoring an older,
-         simpler flow: "AC par click karega, uske niche AC ke type aur
-         price ki akarshak alag-alag [boxes] honge"). Tapping an
-         appliance card above opens THIS panel right below the grid —
-         one card per type+service actually priced in the customer's
-         city, price shown up front, no photo per card (the appliance's
-         own photo is already right above). Tapping a card's "Book"
-         button goes straight to the short Name/Address/Date&Time form
-         — see openApplianceBoxesPanel() in main2.js. -->
-    <div id="applianceBoxesPanel" class="appliance-boxes-panel" style="display:none;"></div>
   </div>
 </section>
+
+<!-- APPLIANCE PRICE BOXES (explicit, repeated request — tapping an
+     appliance card must open a box "seedha" (directly/immediately), not
+     boxes appearing further down the page. This is now a real popup
+     (same .modal-backdrop system as the main Quick Book modal) — one
+     card per type+service actually priced in the customer's city, price
+     shown up front, no photo per card. Tapping a card's "Book" button
+     goes straight to the short Name/Address/Date&Time form — see
+     openApplianceBoxesPanel() in main2.js. -->
+<div class="modal-backdrop" id="applianceBoxesPanel">
+  <div class="modal modal-lg" id="applianceBoxesPanelBody"></div>
+</div>
 
 <!-- SERVICE DETAILS (SEO content) — built dynamically in main.js from each
      appliance's aboutText (Admin panel → Appliances & Types), so this
