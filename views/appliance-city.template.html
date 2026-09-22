@@ -106,9 +106,15 @@
         <span class="eyebrow">Doorstep {{APPLIANCE_NAME}} service in {{CITY_NAME}}</span>
         <h1 style="max-width:760px;">{{APPLIANCE_NAME}} Service &amp; Repair in <span class="highlight">{{CITY_NAME}}</span></h1>
         <p class="hero-sub" style="max-width:640px;">Verified {{CITY_NAME}} technicians, transparent pricing, and same day doorstep {{APPLIANCE_NAME}} visits — no guesswork on price, no waiting around.</p>
+        <!-- CHANGED (explicit request): "Book ... Service in ..." reworded
+             to "Choose Your ... Service in ..." — it opens the price
+             cards/booking popup for this exact appliance+city, "Choose"
+             reads more honestly as picking a service than "Book" does
+             before anything's actually been selected yet. The "Call Now"
+             button next to it is removed — one clear CTA, not two
+             competing ones. -->
         <div class="hero-cta-row">
-          <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-primary">Book {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</a>
-          <a href="tel:+919389585479" class="btn btn-outline">📞 Call Now</a>
+          <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-primary">Choose Your {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</a>
         </div>
       </div>
       {{APPLIANCE_PHOTO_HTML}}
