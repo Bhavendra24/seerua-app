@@ -1178,6 +1178,16 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    without JS). */
 .pricing-cards-wrap .qb-service-card { margin-bottom: 16px; }
 .pricing-cards-wrap .qb-actions a.qb-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+/* Compact type picker on a general appliance page with more than one
+   type (e.g. AC: Window/Split/Cassette) — "window split ke upar box hi
+   bana do": one small box per type instead of every type's full card
+   list stacked on this page. Each box links straight to that type's own
+   dedicated page, which still has the full photo+checklist cards. */
+.type-box-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.type-box { flex: 1 1 140px; border: 1px solid #94a3b8; border-radius: var(--radius-md); padding: 16px 14px; text-align: center; text-decoration: none; color: inherit; background: var(--white); transition: border-color 0.15s ease, transform 0.15s ease; }
+.type-box:hover { border-color: var(--accent-500); transform: translateY(-2px); }
+.type-box-name { display: block; font-weight: 700; margin-bottom: 6px; }
+.type-box-price { display: block; color: var(--accent-600); font-family: var(--font-display); font-weight: 700; }
 .qb-price-card-nophoto { display: block; }
 .qb-price-title { font-weight: 700; margin-bottom: 6px; }
 .qb-price-row { display: flex; align-items: center; gap: 8px; font-weight: 700; }
