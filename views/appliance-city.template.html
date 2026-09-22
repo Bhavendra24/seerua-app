@@ -34,7 +34,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609206">
+<link rel="stylesheet" href="/css/style.css?v=202609205">
 
 <script type="application/ld+json">
 {{SERVICE_SCHEMA_JSON}}
@@ -99,7 +99,7 @@
   <span style="color:var(--blue-900);font-weight:600;">{{APPLIANCE_NAME}} Service</span>
 </nav>
 
-<section class="hero" style="padding-bottom:6px;">
+<section class="hero" style="padding-bottom:44px;">
   <div class="container">
     <div class="hero-grid" style="max-width:1300px;">
       <div class="hero-copy">
@@ -122,16 +122,19 @@
   </div>
 </section>
 
-<section class="bg-mist" style="padding-top:4px;">
+<section class="bg-mist">
   <div class="container">
-    <!-- CHANGED (explicit, repeated request): the "{{CITY_NAME}} pricing"
-         eyebrow label ("MORADABAD PRICING") is removed — it was the exact
-         redundant label the user kept pointing at, since the H2 right
-         below it already says "Choose Your ... Service in ...". Section's
-         top padding + margin-bottom further trimmed to close the gap. -->
-    <div class="section-head reveal" style="margin-bottom:4px;">
-      <h2>Choose Your {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</h2>
+    <div class="section-head reveal">
+      <span class="eyebrow">{{CITY_NAME}} pricing</span>
+      <h2>{{APPLIANCE_NAME}} Service &amp; Repair Prices in {{CITY_NAME}}</h2>
       <p>Exact visit charges for {{APPLIANCE_NAME}} in {{CITY_NAME}} — no surprises, no hidden fees.</p>
+      <!-- BUG FIX: a second "Book {{APPLIANCE_NAME}} Service in
+           {{CITY_NAME}}" button was added here, right on top of the
+           identical one already in the hero section a short scroll
+           above — same text, same link, right next to each other once
+           the page's short, so it just read as a mistake rather than a
+           helpful shortcut. Removed; the hero's button is the only one
+           now. -->
     </div>
     <!-- REBUILT (explicit request — full, real detail on the page itself,
          not hidden behind a popup, both for a customer to pick in one tap
