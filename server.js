@@ -5053,41 +5053,69 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     // — showing all types here again would undercut the whole point of
     // a dedicated page (and just duplicate the general appliance page).
     const relevantTypes = focusType ? [focusType] : appliance.types;
-    const pricingRowsHtml = relevantTypes.map(t => {
+    // REBUILT (explicit request — "ek baar me select ho jay aur appliance
+    // ki details bhi ho jisase se seo jordar bane"): the old 3-column
+    // table only ever named a price, never showed what was actually
+    // included — a customer had to open the booking popup just to see
+    // the checklist, and none of that detail was ever visible/crawlable
+    // text for Google either. This replaces it with one real, full card
+    // per priced service (Service, Repair, Installation, Uninstallation,
+    // Gas Filling, ...) — photo, price, and its COMPLETE checklist, all
+    // server-rendered so it's on the page from the first load, no popup
+    // needed to see it. "Add"/"Book" both go straight to the Quick Book
+    // popup already scoped to this exact type (see bookHref below) — one
+    // tap, not a separate page. (Explicitly no "Review" button here, and
+    // wording throughout is Seerua's own, not copied from any
+    // competitor's site.)
+    const pricingCardsHtml = relevantTypes.map(t => {
       const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
       if (!row) return '';
+      const services = (Array.isArray(t.services) && t.services.length)
+        ? t.services
+        : [{ id: 'svc-service', name: 'Service', checklist: [] }, { id: 'svc-repair', name: 'Repair', checklist: [] }];
       // On the general appliance page (not already focused on this one
-      // type), link each type name to its own dedicated page — both for
-      // customers who want to jump straight to it, and so Google can
-      // discover these pages by simply crawling this one, not just via
-      // the sitemap.
+      // type), a small link above this type's own cards still points to
+      // its own dedicated page — real SEO value, customers who want to
+      // jump straight there, and how Google discovers that page at all
+      // by crawling this one, not just the sitemap.
       const typeLink = focusType
         ? null
         : `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
-      const services = Array.isArray(t.services) ? t.services : [];
-      const primarySkuId = services[0] ? services[0].id : null;
-      const svcPrice = resolvedPrice(row, primarySkuId, 'servicePrice');
-      const repPrice = resolvedPrice(row, 'svc-repair', 'repairPrice');
-      // NEW: a per-row "Book" button — this type's own id is threaded
-      // through as the &type= query param, so clicking "Book" on the
-      // "Split AC" row opens the Quick Book modal with Split AC already
-      // selected, instead of leaving the customer to pick the type
-      // themselves after a single generic hero button.
+      const typeHeadingHtml = (!focusType && relevantTypes.length > 1)
+        ? `<h3 style="margin:24px 0 12px;"><a href="${typeLink}" style="color:inherit;text-decoration:underline;">${escapeHtml(t.name)}</a></h3>`
+        : '';
       const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
-      // FIX (explicit request): on a type's own dedicated page (focusType
-      // set, so there's no separate page left to link this name to), the
-      // type name used to just sit there as plain unlinked text — tapping
-      // it did nothing. Now it opens the same Quick Book detail view
-      // (photo + full checklist + price) as the "Book" button, so tapping
-      // the name itself is as good as tapping "Book". On the general
-      // appliance page it keeps navigating to that type's own page as
-      // before (real SEO value — see the comment this replaced), since
-      // that page is where this same detail view lives anyway.
-      const typeCell = typeLink
-        ? `<a href="${typeLink}" style="color:inherit;text-decoration:underline;">${t.name}</a>`
-        : `<a href="${bookHref}" style="color:inherit;text-decoration:underline;">${t.name}</a>`;
-      return `<tr><td>${typeCell}</td><td>₹${svcPrice}</td><td>₹${repPrice}</td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
-    }).join('\n          ');
+      const photoHtml = appliance.photoUrl
+        ? buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(t.name)} technician at work" class="qb-price-img" loading="lazy"`)
+        : `<div class="qb-price-img" style="display:flex;align-items:center;justify-content:center;">${SERVER_SERVICE_ICONS[appliance.icon] || SERVER_SERVICE_ICONS.wrench}</div>`;
+      const cardsHtml = services.map(svc => {
+        const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
+          ? row.servicePrices[svc.id]
+          : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
+        if (typeof price !== 'number') return '';
+        const mrp = Math.round((price * 1.2) / 10) * 10;
+        const checklistHtml = (svc.checklist || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+        return `
+          <div class="qb-service-card">
+            <div class="qb-price-card">
+              <div class="qb-price-photo-wrap">
+                ${photoHtml}
+                <span class="qb-price-badge">₹${price}/-</span>
+              </div>
+              <div>
+                <div class="qb-price-title">${escapeHtml(t.name)} ${escapeHtml(svc.name)} In ${escapeHtml(city.name)}</div>
+                <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
+              </div>
+            </div>
+            ${checklistHtml ? `<ul class="qb-checklist">${checklistHtml}</ul>` : ''}
+            <div class="qb-actions">
+              <a href="${bookHref}" class="qb-btn qb-btn-add">🛒 Add</a>
+              <a href="${bookHref}" class="qb-btn qb-btn-book">Book</a>
+            </div>
+          </div>`;
+      }).join('');
+      return typeHeadingHtml + cardsHtml;
+    }).join('\n');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
     // every appliance), so it stays an honest, specific number. Narrows
@@ -5105,62 +5133,13 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       ? `₹${Math.min(...applianceServicePrices)}-₹${Math.max(...applianceServicePrices)}`
       : '';
 
-    // SEO FIX: the pricing table above only ever showed 2 fixed columns
-    // ("Service / AMC" and "Repair"), so a real, priced SKU like
-    // "Gas Filling" or "Installation" never actually appeared anywhere in
-    // this page's visible, crawlable text — even though it's a genuine
-    // service customers search for by name ("AC gas filling in
-    // Moradabad", "AC installation in Noida"). A search engine can often
-    // infer these are related to "AC service", but an exact phrase match
-    // in real content is a much stronger, more direct signal, and it also
-    // answers the customer immediately instead of making them open the
-    // booking modal to discover we do it. Rendered as a flat, visible
-    // chip list (not a separate page per SKU — that would just be
-    // thin/duplicate content multiplied by every type x SKU combination)
-    // right under the pricing table.
-    const allServicesListHtml = relevantTypes.flatMap(t => {
-      const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
-      if (!row) return [];
-      const services = Array.isArray(t.services) ? t.services : [];
-      // Skip whichever SKU the pricing table above already shows as
-      // "Service / AMC" (this type's first service) and "Repair"
-      // ('svc-repair') — repeating those exact same two lines again here
-      // would just be visible duplicate content for no benefit. Only the
-      // SKUs NOT already on the table (Installation, Uninstallation, Gas
-      // Filling, etc.) are genuinely new information worth adding.
-      const primarySkuId = services[0] ? services[0].id : null;
-      const alreadyShown = new Set([primarySkuId, 'svc-repair']);
-      // Same type-page link as the main rows above (when there's a real
-      // dedicated page to link to), so "Window AC Installation" links
-      // through exactly like "Window AC" does right above it — not left
-      // as plain unlinked text while everything else in the table links.
-      const typeLink = focusType
-        ? null
-        : `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
-      const typeLabel = typeLink
-        ? `<a href="${typeLink}" style="color:inherit;text-decoration:underline;">${escapeHtml(t.name)}</a> `
-        : '';
-      const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
-      return services.filter(s => !alreadyShown.has(s.id)).map(s => {
-        const price = (row.servicePrices && typeof row.servicePrices[s.id] === 'number') ? row.servicePrices[s.id] : null;
-        if (price === null) return '';
-        // Real 4 <td>s (not a colspan) so this row's columns line up
-        // exactly with the rows above it — mixing colspan rows into an
-        // auto-layout table made browsers compute each row's column
-        // widths slightly differently, which is why this text was
-        // shifting out of the normal left-aligned position and wrapping
-        // oddly instead of matching "Window AC" etc. above it. Same
-        // per-type Book link as the main row above, so "Gas Filling" is
-        // just as bookable directly as "Service"/"Repair" are.
-        // FIX (explicit request, same as the main pricing rows above): the
-        // sub-type/service name itself ("Gas Filling", "Installation") is
-        // now a link to the same Quick Book detail view the "Book" button
-        // opens — not just the button. typeLabel above still separately
-        // links the type name to its own page when one exists (general
-        // page only), so this never nests one <a> inside another.
-        return `<tr><td>${typeLabel}<a href="${bookHref}" style="color:inherit;text-decoration:underline;">${escapeHtml(s.name)}</a></td><td>₹${price}</td><td></td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
-      }).filter(Boolean);
-    }).join('\n          ');
+    // allServicesListHtml (the old separate "extra SKUs" chip list) is
+    // gone — every priced SKU (Installation, Uninstallation, Gas Filling,
+    // same as Service/Repair) now gets its own full card above in
+    // pricingCardsHtml, so there's nothing left for a second list to add.
+    // {{ALL_SERVICES_LIST_HTML}} itself always resolves to '' below, kept
+    // only so a stray reference to it elsewhere doesn't break.
+    const allServicesListHtml = '';
 
     const otherAppliancesHtml = allAppliances.filter(a => a.id !== appliance.id)
       .map(a => `<a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="city-chip">${a.name} Service in ${city.name}</a>`)
@@ -5264,13 +5243,9 @@ ${JSON.stringify({
       .split('{{TYPE_QUERY}}').join(typeQuery)
       // Both merged into ONE table's rows (not a separate box below it in
       // a different pill/chip style) — Service/Repair rows first, then
-      // any other priced SKU (Installation, Uninstallation, Gas Filling)
-      // as its own row of the exact same table, so the whole page reads
-      // as one consistent price list instead of two differently-styled
-      // ones stacked on top of each other.
+      // Full price-card list — see pricingCardsHtml above.
       .split('{{PRICING_ROWS_HTML}}').join(
-        (pricingRowsHtml || `<tr><td colspan="4">Pricing coming soon for ${appliance.name} in ${city.name}.</td></tr>`)
-        + (allServicesListHtml ? '\n          ' + allServicesListHtml : '')
+        pricingCardsHtml || `<p class="form-msg">Pricing coming soon for ${escapeHtml(appliance.name)} in ${escapeHtml(city.name)}.</p>`
       )
       .split('{{ALL_SERVICES_LIST_HTML}}').join('')
       .split('{{SERVICE_PROCESS_HTML}}').join(formatServiceProcessHtml(appliance.serviceProcess) || `<p>Our technician inspects your ${appliance.name} in front of you, explains the issue clearly, and only proceeds once you approve the price.</p>`)
