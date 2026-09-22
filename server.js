@@ -4803,16 +4803,6 @@ app.get('/', (req, res) => {
     const applianceListText = joinWithAnd(appliances.map(a => a.name));
     const servicesGridHtml = buildServicesGridHtml(appliances);
     const siteContent = readData('site-content');
-    // Footer "Services" / "All Cities" columns (see FOOTER_SERVICES_HTML
-    // used on the appliance-city/blog pages) — the homepage isn't scoped
-    // to one city, so each appliance link here points at the first
-    // active city; a customer anywhere can still switch city on that
-    // page. Same pattern as the per-city pages, just not city-specific.
-    const primaryCity = cities[0];
-    const footerServicesHtml = primaryCity
-      ? appliances.map(a => `<li><a href="/appliance-repair/${slugify(primaryCity.name)}/${applianceSlug(a.name)}">${escapeHtml(a.name)} Repair &amp; Service</a></li>`).join('\n          ')
-      : '';
-    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
     const template = fs.readFileSync(INDEX_TEMPLATE_PATH, 'utf-8');
     const html = template
       .replace('{{AREA_SERVED_JSON}}', JSON.stringify(cityNames))
@@ -4824,8 +4814,6 @@ app.get('/', (req, res) => {
       .replace('{{AGGREGATE_RATING_JSON}}', aggregateRatingJsonFragment(computeSiteRating()))
       .replace('{{FOOTER_SLOGAN}}', escapeHtml(siteContent.footerSlogan || ''))
       .replace('{{FOOTER_DESCRIPTION}}', escapeHtml(fillContentPlaceholders(siteContent.footerDescription || '', cityListText, applianceListText)))
-      .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
-      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .replace('{{FAQ_LIST_HTML}}', buildFaqListHtml(siteContent.faqs || [], cityListText, applianceListText))
       .replace('{{FAQ_SCHEMA_JSON}}', buildFaqSchemaHtml(siteContent.faqs || [], cityListText, applianceListText))
       .replace('{{SERVICES_GRID_HTML}}', servicesGridHtml);
@@ -5076,9 +5064,6 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       const typeLink = focusType
         ? null
         : `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
-      const typeCell = typeLink
-        ? `<a href="${typeLink}" style="color:inherit;text-decoration:underline;">${t.name}</a>`
-        : t.name;
       const services = Array.isArray(t.services) ? t.services : [];
       const primarySkuId = services[0] ? services[0].id : null;
       const svcPrice = resolvedPrice(row, primarySkuId, 'servicePrice');
@@ -5089,6 +5074,18 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       // selected, instead of leaving the customer to pick the type
       // themselves after a single generic hero button.
       const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
+      // FIX (explicit request): on a type's own dedicated page (focusType
+      // set, so there's no separate page left to link this name to), the
+      // type name used to just sit there as plain unlinked text — tapping
+      // it did nothing. Now it opens the same Quick Book detail view
+      // (photo + full checklist + price) as the "Book" button, so tapping
+      // the name itself is as good as tapping "Book". On the general
+      // appliance page it keeps navigating to that type's own page as
+      // before (real SEO value — see the comment this replaced), since
+      // that page is where this same detail view lives anyway.
+      const typeCell = typeLink
+        ? `<a href="${typeLink}" style="color:inherit;text-decoration:underline;">${t.name}</a>`
+        : `<a href="${bookHref}" style="color:inherit;text-decoration:underline;">${t.name}</a>`;
       return `<tr><td>${typeCell}</td><td>₹${svcPrice}</td><td>₹${repPrice}</td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
     }).join('\n          ');
     // Used for the Service schema's price hint — the overall low-to-high
@@ -5155,7 +5152,13 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
         // oddly instead of matching "Window AC" etc. above it. Same
         // per-type Book link as the main row above, so "Gas Filling" is
         // just as bookable directly as "Service"/"Repair" are.
-        return `<tr><td>${typeLabel}${escapeHtml(s.name)}</td><td>₹${price}</td><td></td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
+        // FIX (explicit request, same as the main pricing rows above): the
+        // sub-type/service name itself ("Gas Filling", "Installation") is
+        // now a link to the same Quick Book detail view the "Book" button
+        // opens — not just the button. typeLabel above still separately
+        // links the type name to its own page when one exists (general
+        // page only), so this never nests one <a> inside another.
+        return `<tr><td>${typeLabel}<a href="${bookHref}" style="color:inherit;text-decoration:underline;">${escapeHtml(s.name)}</a></td><td>₹${price}</td><td></td><td><a href="${bookHref}" class="btn btn-outline btn-sm">Book</a></td></tr>`;
       }).filter(Boolean);
     }).join('\n          ');
 
@@ -5174,7 +5177,6 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       .join('\n      ');
 
     const footerServicesHtml = allAppliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
-    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
 
     const cityUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}`;
     const canonicalUrl = `${cityUrl}/${applianceSlug(appliance.name)}${focusType ? '/' + slugify(focusType.name) : ''}`;
@@ -5206,75 +5208,6 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     const appliancePhotoHtml = appliance.photoUrl
       ? `<div class="hero-photo">${buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"`)}</div>`
       : '';
-
-    // SEO CONTENT (per explicit request, referencing Dainik Care's
-    // appliance+city pages): a "why it matters" paragraph + two real
-    // bullet lists (common problems we fix, why choose Seerua) between
-    // the short About blurb and the FAQ — same structure competitor
-    // pages use, but rendered with the site's own green-checkmark
-    // .qb-checklist style instead of their plain, marker-less lists.
-    // Content is per-APPLIANCE (the actual problems don't change by
-    // city), with the city name and this page's own real price range
-    // woven in dynamically — so it stays genuinely relevant to this
-    // exact page rather than one generic paragraph copy-pasted with
-    // just the city name swapped.
-    const APPLIANCE_SEO_CONTENT = {
-      AC: {
-        whyMatters: 'Summers push an AC hard for months at a stretch, and dust, dirty filters, or a slow refrigerant leak can quietly cut its cooling by half long before it stops working altogether. Regular service catches this early — before a full breakdown means AC-less days right in peak heat.',
-        problems: ['Weak or no cooling despite the compressor running', 'Water leaking from the indoor unit', 'Unusual noise or vibration from the outdoor unit', 'Bad odour when the AC is switched on', 'AC turning off on its own or not starting at all']
-      },
-      'Washing Machine': {
-        whyMatters: "A washing machine that drains slowly, spins unevenly, or leaks water is usually a small, fixable issue — but left alone, the same fault can damage the motor or drum and turn into a much bigger repair.",
-        problems: ['Machine not draining water properly', 'Excessive vibration or noise during the spin cycle', 'Drum not spinning, or spinning unevenly', 'Water leaking from the machine', 'Machine not powering on at all']
-      },
-      RO: {
-        whyMatters: "An RO purifier's filters and membrane wear out silently — the water still looks and tastes fine even after purification has dropped — which is exactly why a fixed service schedule matters more than waiting for a visible problem.",
-        problems: ['Slow water flow from the purifier', 'Unusual taste or odour in the purified water', 'Water leaking from the unit', 'A continuous humming or buzzing sound from the motor', "RO not turning on, or the filter-change light staying on"]
-      },
-      Fridge: {
-        whyMatters: "A fridge that's cooling a little less than before is easy to ignore — until food inside stops staying fresh as long, or the compressor is put under enough strain to fail completely.",
-        problems: ['Fridge not cooling enough, or not cooling at all', 'Ice building up excessively in the freezer', 'Water leaking inside or underneath the fridge', 'Unusual noise from the compressor', "Door not sealing properly"]
-      },
-      Chimney: {
-        whyMatters: 'A kitchen chimney clogged with grease loses suction power gradually, so most people only notice once cooking smoke and odour are already lingering in the kitchen far longer than they should.',
-        problems: ['Reduced suction power', 'Unpleasant odour lingering in the kitchen', 'Increased noise from the motor', 'Grease buildup on filters and the body', 'Chimney light not working']
-      },
-      Geyser: {
-        whyMatters: "A geyser's heating element and thermostat wear out with regular use, especially with hard water — regular servicing keeps hot water reliable and catches a developing leak before it damages the wall or bathroom fittings.",
-        problems: ['Water not heating, or heating too slowly', 'Water leaking from the geyser', 'Unusual noise while heating', 'Geyser tripping the electrical connection', 'Pilot light issues (gas geysers)']
-      },
-      Microwave: {
-        whyMatters: "A microwave that's heating unevenly, sparking inside, or making unusual noises is a sign a component needs attention — using it in that state for too long risks damaging it further, or becoming unsafe.",
-        problems: ['No heating, or uneven heating', 'Turntable/plate not spinning', 'Sparking inside the microwave', 'Display or buttons not responding', 'Unusual noise during operation']
-      }
-    };
-    function buildApplianceSeoArticleHtml(appliance, city, priceRange) {
-      const content = APPLIANCE_SEO_CONTENT[appliance.name] || {
-        whyMatters: `Regular ${appliance.name.toLowerCase()} service catches small issues before they turn into a full breakdown or a much bigger repair bill.`,
-        problems: ['Not working as expected', 'Unusual noise during operation', 'Reduced performance over time', 'Visible wear or damage', 'Needs a professional inspection']
-      };
-      const problemsHtml = content.problems.map(p => `<li>${escapeHtml(p)}</li>`).join('');
-      const priceLine = priceRange ? ` In ${escapeHtml(city.name)}, pricing for this starts at ${escapeHtml(priceRange)}.` : '';
-      return `
-<section>
-  <div class="container">
-    <div class="reveal" style="max-width:820px;margin:0 auto;">
-      <h2>Why ${escapeHtml(appliance.name)} Service Matters in ${escapeHtml(city.name)}</h2>
-      <p>${escapeHtml(content.whyMatters)}${priceLine}</p>
-      <h3>Common ${escapeHtml(appliance.name)} Problems We Fix in ${escapeHtml(city.name)}</h3>
-      <ul class="qb-checklist">${problemsHtml}</ul>
-      <h3>Why Choose Seerua for ${escapeHtml(appliance.name)} Service in ${escapeHtml(city.name)}</h3>
-      <ul class="qb-checklist">
-        <li>Verified, background-checked ${escapeHtml(city.name)} technicians</li>
-        <li>Transparent pricing shown upfront — no hidden charges</li>
-        <li>Same-day doorstep visits available</li>
-        <li>Genuine spare parts and a 30-day repair warranty</li>
-        <li>Support available even after the visit is done</li>
-      </ul>
-    </div>
-  </div>
-</section>`;
-    }
 
     // NEW: FAQ section, per-appliance-per-city — competitor research
     // (Vijay Home Services) showed FAQ blocks with FAQPage schema on
@@ -5344,11 +5277,9 @@ ${JSON.stringify({
       .split('{{ABOUT_TEXT}}').join(
         escapeHtml(appliance.aboutText || '').replace(/Foam Jet Service/g, '<strong style="text-decoration:underline;">Foam Jet Service</strong>')
       )
-      .split('{{SEO_ARTICLE_HTML}}').join(buildApplianceSeoArticleHtml(appliance, city, priceRange))
       .split('{{OTHER_APPLIANCES_HTML}}').join(otherAppliancesHtml || '<span class="city-chip">More services coming soon</span>')
       .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
-      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
       .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
@@ -5418,7 +5349,6 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
     const articles = readData('blog-articles');
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
     const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
-    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
     const articleCardsHtml = articles.map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}/blog`;
 
@@ -5430,7 +5360,6 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
       .split('{{CANONICAL_URL}}').join(canonicalUrl)
       .split('{{ARTICLE_CARDS_HTML}}').join(articleCardsHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
-      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
       .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
@@ -5467,7 +5396,6 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
     }
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
     const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
-    const footerCitiesHtml = cities.map(c => `<li><a href="/appliance-repair/${slugify(c.name)}">${escapeHtml(c.name)}</a></li>`).join('\n          ');
     const blogIndexUrl = `/appliance-repair/${slugify(city.name)}/blog`;
     const relatedArticlesHtml = articles.filter(a => a.slug !== article.slug).slice(0, 3).map(a => articleCardHtml(a, city)).join('');
     const canonicalUrl = `${SITE_URL}${blogIndexUrl}/${article.slug}`;
@@ -5492,7 +5420,6 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
       .split('{{ARTICLE_BODY_HTML}}').join(personalize(article.bodyHtml, city.name))
       .split('{{RELATED_ARTICLES_HTML}}').join(relatedArticlesHtml)
       .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
-      .split('{{FOOTER_CITIES_HTML}}').join(footerCitiesHtml)
       .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
       .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
       .split('{{YEAR}}').join(String(new Date().getFullYear()))
