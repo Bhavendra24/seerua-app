@@ -5124,7 +5124,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
                     <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
                   </div>
                 </div>
-                ${checklistHtml ? `<ul class="qb-checklist">${checklistHtml}</ul>` : ''}
+                ${checklistHtml ? `<details class="qb-checklist-details"><summary>What's included</summary><ul class="qb-checklist">${checklistHtml}</ul></details>` : ''}
                 <div class="qb-actions">
                   <a href="${bookHref}" class="qb-btn qb-btn-add">🛒 Add</a>
                   <a href="${bookHref}" class="qb-btn qb-btn-book">Book</a>
