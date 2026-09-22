@@ -1183,8 +1183,14 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
    bana do": one small box per type instead of every type's full card
    list stacked on this page. Each box links straight to that type's own
    dedicated page, which still has the full photo+checklist cards. */
-.type-box-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.type-box { flex: 1 1 140px; border: 1px solid #94a3b8; border-radius: var(--radius-md); padding: 16px 14px; text-align: center; text-decoration: none; color: inherit; background: var(--white); transition: border-color 0.15s ease, transform 0.15s ease; }
+/* CHANGED (explicit request): this used to wrap onto more and more lines
+   as an appliance got more types, making the box list look "lambi"
+   (long). Now it's a horizontal slider — one row, scrolls sideways —
+   so it stays compact no matter how many types there are. */
+.type-box-row { display: flex; flex-wrap: nowrap; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.type-box-row::-webkit-scrollbar { height: 5px; }
+.type-box-row::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.type-box { flex: 0 0 140px; scroll-snap-align: start; border: 1px solid #94a3b8; border-radius: var(--radius-md); padding: 16px 14px; text-align: center; text-decoration: none; color: inherit; background: var(--white); transition: border-color 0.15s ease, transform 0.15s ease; }
 .type-box:hover { border-color: var(--accent-500); transform: translateY(-2px); }
 .type-box-name { display: block; font-weight: 700; margin-bottom: 6px; }
 .type-box-price { display: block; color: var(--accent-600); font-family: var(--font-display); font-weight: 700; }
