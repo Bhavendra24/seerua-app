@@ -4745,7 +4745,7 @@ function buildServicesGridHtml(appliances) {
         ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${escapeHtml(a.name)} service technician at work" loading="lazy"`)
         : `<div class="service-icon-wrap"><div class="service-icon">${SERVER_SERVICE_ICONS[a.icon] || SERVER_SERVICE_ICONS.wrench}</div></div>`}
       <h3>${escapeHtml(a.name)}</h3>
-      <button type="button" class="btn btn-outline btn-sm" onclick="openQuickBookModal('${a.id}')">Book Now</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="openApplianceBoxesPanel('${a.id}')">Book Now</button>
     </div>
   `).join('');
 }
