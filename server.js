@@ -5067,55 +5067,71 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     // tap, not a separate page. (Explicitly no "Review" button here, and
     // wording throughout is Seerua's own, not copied from any
     // competitor's site.)
-    const pricingCardsHtml = relevantTypes.map(t => {
-      const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
-      if (!row) return '';
-      const services = (Array.isArray(t.services) && t.services.length)
-        ? t.services
-        : [{ id: 'svc-service', name: 'Service', checklist: [] }, { id: 'svc-repair', name: 'Repair', checklist: [] }];
-      // On the general appliance page (not already focused on this one
-      // type), a small link above this type's own cards still points to
-      // its own dedicated page — real SEO value, customers who want to
-      // jump straight there, and how Google discovers that page at all
-      // by crawling this one, not just the sitemap.
-      const typeLink = focusType
-        ? null
-        : `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
-      const typeHeadingHtml = (!focusType && relevantTypes.length > 1)
-        ? `<h3 style="margin:24px 0 12px;"><a href="${typeLink}" style="color:inherit;text-decoration:underline;">${escapeHtml(t.name)}</a></h3>`
-        : '';
-      const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
-      const photoHtml = appliance.photoUrl
-        ? buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(t.name)} technician at work" class="qb-price-img" loading="lazy"`)
-        : `<div class="qb-price-img" style="display:flex;align-items:center;justify-content:center;">${SERVER_SERVICE_ICONS[appliance.icon] || SERVER_SERVICE_ICONS.wrench}</div>`;
-      const cardsHtml = services.map(svc => {
-        const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
-          ? row.servicePrices[svc.id]
-          : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
-        if (typeof price !== 'number') return '';
-        const mrp = Math.round((price * 1.2) / 10) * 10;
-        const checklistHtml = (svc.checklist || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
-        return `
-          <div class="qb-service-card">
-            <div class="qb-price-card">
-              <div class="qb-price-photo-wrap">
-                ${photoHtml}
-                <span class="qb-price-badge">₹${price}/-</span>
-              </div>
-              <div>
-                <div class="qb-price-title">${escapeHtml(t.name)} ${escapeHtml(svc.name)} In ${escapeHtml(city.name)}</div>
-                <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
-              </div>
-            </div>
-            ${checklistHtml ? `<ul class="qb-checklist">${checklistHtml}</ul>` : ''}
-            <div class="qb-actions">
-              <a href="${bookHref}" class="qb-btn qb-btn-add">🛒 Add</a>
-              <a href="${bookHref}" class="qb-btn qb-btn-book">Book</a>
-            </div>
-          </div>`;
-      }).join('');
-      return typeHeadingHtml + cardsHtml;
-    }).join('\n');
+    // FIX (explicit request — the general appliance page's full list was
+    // "lambi lag rahi hai": every type's every service stacked as a full
+    // card, 15 long cards deep for AC). On a page with more than one
+    // type, that full detail now lives ONLY on each type's own dedicated
+    // page (already built, already short — 5 cards for just that one
+    // type). This page instead shows one compact box per type (Window
+    // AC / Split AC / Cassette AC, "window split ke upar box hi bana
+    // do"), each just naming the type and its lowest price, linking
+    // straight to that type's full page. A single-type page (focusType
+    // set, or an appliance with only one type) skips the boxes entirely
+    // and shows that one type's full cards directly, same as before —
+    // nothing to choose between there.
+    const isMultiTypeOverview = !focusType && relevantTypes.length > 1;
+    const pricingCardsHtml = isMultiTypeOverview
+      ? `<div class="type-box-row">` + relevantTypes.map(t => {
+          const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
+          if (!row) return '';
+          const services = (Array.isArray(t.services) && t.services.length)
+            ? t.services
+            : [{ id: 'svc-service' }, { id: 'svc-repair' }];
+          const prices = services.map(svc => (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
+            ? row.servicePrices[svc.id]
+            : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null))
+          ).filter(p => typeof p === 'number');
+          if (!prices.length) return '';
+          const typeLink = `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
+          return `<a href="${typeLink}" class="type-box"><span class="type-box-name">${escapeHtml(t.name)}</span><span class="type-box-price">From ₹${Math.min(...prices)}</span></a>`;
+        }).join('') + `</div>`
+      : relevantTypes.map(t => {
+          const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
+          if (!row) return '';
+          const services = (Array.isArray(t.services) && t.services.length)
+            ? t.services
+            : [{ id: 'svc-service', name: 'Service', checklist: [] }, { id: 'svc-repair', name: 'Repair', checklist: [] }];
+          const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
+          const photoHtml = appliance.photoUrl
+            ? buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(t.name)} technician at work" class="qb-price-img" loading="lazy"`)
+            : `<div class="qb-price-img" style="display:flex;align-items:center;justify-content:center;">${SERVER_SERVICE_ICONS[appliance.icon] || SERVER_SERVICE_ICONS.wrench}</div>`;
+          return services.map(svc => {
+            const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
+              ? row.servicePrices[svc.id]
+              : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
+            if (typeof price !== 'number') return '';
+            const mrp = Math.round((price * 1.2) / 10) * 10;
+            const checklistHtml = (svc.checklist || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+            return `
+              <div class="qb-service-card">
+                <div class="qb-price-card">
+                  <div class="qb-price-photo-wrap">
+                    ${photoHtml}
+                    <span class="qb-price-badge">₹${price}/-</span>
+                  </div>
+                  <div>
+                    <div class="qb-price-title">${escapeHtml(t.name)} ${escapeHtml(svc.name)} In ${escapeHtml(city.name)}</div>
+                    <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
+                  </div>
+                </div>
+                ${checklistHtml ? `<ul class="qb-checklist">${checklistHtml}</ul>` : ''}
+                <div class="qb-actions">
+                  <a href="${bookHref}" class="qb-btn qb-btn-add">🛒 Add</a>
+                  <a href="${bookHref}" class="qb-btn qb-btn-book">Book</a>
+                </div>
+              </div>`;
+          }).join('');
+        }).join('\n');
     // Used for the Service schema's price hint — the overall low-to-high
     // range across this appliance's own types in this city only (not
     // every appliance), so it stays an honest, specific number. Narrows
