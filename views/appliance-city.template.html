@@ -99,7 +99,7 @@
   <span style="color:var(--blue-900);font-weight:600;">{{APPLIANCE_NAME}} Service</span>
 </nav>
 
-<section class="hero" style="padding-bottom:16px;">
+<section class="hero" style="padding-bottom:6px;">
   <div class="container">
     <div class="hero-grid" style="max-width:1300px;">
       <div class="hero-copy">
@@ -122,15 +122,14 @@
   </div>
 </section>
 
-<section class="bg-mist" style="padding-top:14px;">
+<section class="bg-mist" style="padding-top:4px;">
   <div class="container">
-    <!-- CHANGED (explicit request): heading reworded to match the hero's
-         "Choose Your ... Service in ..." wording — plain text, not a
-         link. Section's own top padding + the hero's bottom padding
-         above were stacking into a big empty gap before this heading;
-         both trimmed down. -->
-    <div class="section-head reveal" style="margin-bottom:6px;">
-      <span class="eyebrow">{{CITY_NAME}} pricing</span>
+    <!-- CHANGED (explicit, repeated request): the "{{CITY_NAME}} pricing"
+         eyebrow label ("MORADABAD PRICING") is removed — it was the exact
+         redundant label the user kept pointing at, since the H2 right
+         below it already says "Choose Your ... Service in ...". Section's
+         top padding + margin-bottom further trimmed to close the gap. -->
+    <div class="section-head reveal" style="margin-bottom:4px;">
       <h2>Choose Your {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</h2>
       <p>Exact visit charges for {{APPLIANCE_NAME}} in {{CITY_NAME}} — no surprises, no hidden fees.</p>
     </div>
