@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609207">
+<link rel="stylesheet" href="/css/style.css?v=202609205">
 
 <script type="application/ld+json">
 {
@@ -140,14 +140,15 @@
       <p id="servicesSubText">From {{APPLIANCE_LIST_TEXT}}, repair and service for every essential home appliance.</p>
     </div>
     <div class="services-grid reveal" id="servicesGrid">{{SERVICES_GRID_HTML}}</div>
-    <!-- QUICK-BOOK PRICE BOXES (per explicit request: "popup me ye kuchh
-         nahi karna hai, pahle jaise quick booking ke box banao, jis box
-         ko click karo tab popup khule") — clicking an appliance card
-         opens THIS panel (not a popup) showing every Type + sub-type as
-         its own price box, same look as the old Quick Book cards
-         (.qb-service-card). Only once a specific box's "Book" is tapped
-         does the actual popup (#hbModal) open, straight to the booking
-         form with that exact service already selected. -->
+    <!-- APPLIANCE PRICE BOXES (explicit request — restoring an older,
+         simpler flow: "AC par click karega, uske niche AC ke type aur
+         price ki akarshak alag-alag [boxes] honge"). Tapping an
+         appliance card above opens THIS panel right below the grid —
+         one card per type+service actually priced in the customer's
+         city, price shown up front, no photo per card (the appliance's
+         own photo is already right above). Tapping a card's "Book"
+         button goes straight to the short Name/Address/Date&Time form
+         — see openApplianceBoxesPanel() in main2.js. -->
     <div id="applianceBoxesPanel" class="appliance-boxes-panel" style="display:none;"></div>
   </div>
 </section>
@@ -333,23 +334,11 @@
               <input type="number" id="fQty" min="1" max="10" value="1">
             </div>
           </div>
-          <!-- HIDDEN (per explicit request, to match the SEO pages'
-               compact booking widget, which never had these): "Problem /
-               Notes" and "Photo" are no longer asked for. Kept in the DOM
-               (not deleted) purely because main2.js's bindFormEvents()
-               has several top-level `document.getElementById('fProblem'/
-               'fPhoto').addEventListener(...)` calls that run
-               unconditionally on page load — deleting these elements
-               outright would throw immediately and break the ENTIRE
-               booking form site-wide, not just hide two fields. Same
-               "hide, don't delete" approach already used for #fPhoneField
-               just below. Both stay blank; the server already treats
-               problem/photoUrl as optional. -->
-          <div class="field" style="display:none;">
+          <div class="field">
             <label for="fProblem" data-i18n="booking.problemLabel">Problem / Notes (optional)</label>
             <textarea id="fProblem" rows="2" data-i18n-placeholder="booking.problemPlaceholder" placeholder="e.g. Not cooling properly"></textarea>
           </div>
-          <div class="field" style="display:none;">
+          <div class="field">
             <label for="fPhoto" data-i18n="booking.photoLabel">Photo of the appliance/issue (optional)</label>
             <input type="file" id="fPhoto" accept="image/*" capture="environment">
             <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;" data-i18n="booking.photoHelp">Helps the technician arrive prepared with the right spare part.</p>
@@ -549,43 +538,23 @@
 
 <footer class="site-footer">
   <div class="container">
-    <div class="footer-grid">
-      <div class="footer-col-brand">
-        <div class="footer-brand">
-          <picture><source srcset="/images/logo.webp" type="image/webp"><img src="/images/logo.png" alt="Seerua Appliance Care"></picture>
-          <span>Seerua Appliance Care</span>
-        </div>
-        <p class="footer-slogan">{{FOOTER_SLOGAN}}</p>
-        <p>{{FOOTER_DESCRIPTION}}</p>
-        <div class="footer-contact-icons">
-          <a href="tel:+919389585479" class="footer-icon-link footer-icon-call" aria-label="Call us" title="Call us">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.49a1 1 0 011 1 11.36 11.36 0 00.57 3.56 1 1 0 01-.25 1.02l-2.2 2.2z" fill="currentColor"/></svg>
-          </a>
-          <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="footer-icon-link footer-icon-whatsapp" aria-label="Chat on WhatsApp" title="WhatsApp">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.36-.53.05-1.05.24-3.52-.73-2.98-1.17-4.86-4.2-5.01-4.4-.15-.19-1.2-1.59-1.2-3.03 0-1.44.75-2.15 1.02-2.44.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.76 1.26 1.63 2.04 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.73-.85.92-1.14.19-.29.39-.24.65-.14.27.1 1.68.79 1.97.93.29.15.48.22.55.34.07.13.07.75-.17 1.43z" fill="currentColor"/></svg>
-          </a>
-          <a href="mailto:b4india@gmail.com" class="footer-icon-link" aria-label="Email us" title="Email us">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5.5A1.5 1.5 0 014.5 4h15A1.5 1.5 0 0121 5.5v13a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5v-13z" stroke="currentColor" stroke-width="1.6"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
-        </div>
+    <div class="footer-col-brand">
+      <div class="footer-brand">
+        <picture><source srcset="/images/logo.webp" type="image/webp"><img src="/images/logo.png" alt="Seerua Appliance Care"></picture>
+        <span>Seerua Appliance Care</span>
       </div>
-      <div class="footer-col">
-        <h5>Quick Links</h5>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/#services">Our Services</a></li>
-          <li><a href="/#about">About Us</a></li>
-          <li><a href="/#faq">FAQs</a></li>
-          <li><a href="/careers">Careers</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h5>Services</h5>
-        <ul>{{FOOTER_SERVICES_HTML}}</ul>
-      </div>
-      <div class="footer-col">
-        <h5>All Cities</h5>
-        <ul>{{FOOTER_CITIES_HTML}}</ul>
+      <p class="footer-slogan">{{FOOTER_SLOGAN}}</p>
+      <p>{{FOOTER_DESCRIPTION}}</p>
+      <div class="footer-contact-icons">
+        <a href="tel:+919389585479" class="footer-icon-link footer-icon-call" aria-label="Call us" title="Call us">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.49a1 1 0 011 1 11.36 11.36 0 00.57 3.56 1 1 0 01-.25 1.02l-2.2 2.2z" fill="currentColor"/></svg>
+        </a>
+        <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="footer-icon-link footer-icon-whatsapp" aria-label="Chat on WhatsApp" title="WhatsApp">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.36-.53.05-1.05.24-3.52-.73-2.98-1.17-4.86-4.2-5.01-4.4-.15-.19-1.2-1.59-1.2-3.03 0-1.44.75-2.15 1.02-2.44.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.76 1.26 1.63 2.04 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.73-.85.92-1.14.19-.29.39-.24.65-.14.27.1 1.68.79 1.97.93.29.15.48.22.55.34.07.13.07.75-.17 1.43z" fill="currentColor"/></svg>
+        </a>
+        <a href="mailto:b4india@gmail.com" class="footer-icon-link" aria-label="Email us" title="Email us">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5.5A1.5 1.5 0 014.5 4h15A1.5 1.5 0 0121 5.5v13a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5v-13z" stroke="currentColor" stroke-width="1.6"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
       </div>
     </div>
     <div class="footer-bottom">
@@ -829,128 +798,6 @@
         </div>
       </div>
       <div class="form-msg" id="qbMsg"></div>
-    </div>
-  </div>
-</div>
-
-<!-- COMPACT ONE-CLICK BOOK MODAL (per explicit request: "aisi technology
-     lagao ki book karte hi chhota alag se form khul jaay kahi se bhi
-     chahe direct ya search se" — a single small form should open the
-     moment someone taps Book, whether they arrived directly on the
-     homepage or via a link from a search/SEO page, with no more
-     Quick Book -> tap Book again -> Account Gate -> booking-form chain).
-     Modeled on the SEO pages' own one-item booking widget (see
-     #sbSection in appliance-city.template.html / seo-book.js), which
-     already proved this "one small form, one submit" flow works —
-     but built as part of main2.js instead of its own file (see
-     openCompactBookModal() near the end of main2.js), since this is
-     the homepage, where main2.js's own CITIES/APPLIANCES/fetchJSON/
-     verifyPhoneWithOtp/getAccount are already loaded and safe to
-     reuse, unlike the page-scoped SEO widget which deliberately avoids
-     depending on main2.js. -->
-<div class="modal-backdrop" id="hbModal">
-  <div class="modal" style="max-width:420px;">
-    <button type="button" class="modal-close" id="hbModalClose" aria-label="Close">✕</button>
-
-    <div id="hbFormStep">
-      <h3 id="hbTitle">Book Service</h3>
-      <div class="field" id="hbCityField">
-        <label for="hbCity">City *</label>
-        <select id="hbCity" required></select>
-      </div>
-      <!-- Shown instead of the price table/form below when this appliance
-           has no pricing set up at all for the selected city — same
-           friendly notice Quick Book already uses (#qbNotAvailable
-           above), not a confusing blank/broken-looking form. -->
-      <div id="hbNotAvailable" class="qb-not-available" style="display:none;">
-        <div class="qb-not-available-icon">🚧</div>
-        <p><strong>Currently not serving this in your city.</strong><br>We're working on it — coming soon!</p>
-      </div>
-
-      <div id="hbBookableWrap">
-        <!-- ONE-CARD-PER-SUB-TYPE PICKER — only shown as a fallback for
-             entry points that open this popup without already knowing
-             which exact service was wanted (an old shared link, a
-             generic "Book Now" with no type). The homepage's own
-             appliance cards now pick the service BEFORE this popup ever
-             opens (see openApplianceBoxesPanel()/#applianceBoxesPanel
-             in main2.js — per explicit request: "popup me ye kuchh nahi
-             karna hai, pahle jaise quick booking ke box banao"), so for
-             that flow this whole wrap stays hidden and only the
-             "Selected: ..." line below shows (see
-             hbApplyPresetSelection() in main2.js). -->
-        <div id="hbPriceCardsWrap">
-          <div class="qb-price-title" id="hbPriceTitle" style="margin-bottom:8px;">Service in your city</div>
-          <div class="hb-price-cards" id="hbPriceTableBody"></div>
-        </div>
-        <p class="hb-selected-line" id="hbSelectedLine"></p>
-        <!-- Hidden internal state only — no longer a visible dropdown or
-             pill toggle; both are now set by tapping a card above (see
-             hbSelectPriceCell() in main2.js). -->
-        <select id="hbType" style="display:none;"></select>
-        <input type="hidden" id="hbServiceType" value="service">
-        <form id="hbForm">
-          <div class="field">
-            <label for="hbName">Full Name *</label>
-            <input type="text" id="hbName" required placeholder="Your name">
-          </div>
-          <div class="field">
-            <label for="hbPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
-            <input type="tel" id="hbPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
-          </div>
-          <div class="field">
-            <label for="hbAddress">Full Address *</label>
-            <textarea id="hbAddress" rows="2" required placeholder="House no., street, landmark"></textarea>
-          </div>
-          <div class="field">
-            <label for="hbDate">Preferred Date *</label>
-            <input type="date" id="hbDate" required>
-          </div>
-          <div class="field">
-            <label>Time Slot *</label>
-            <div id="hbSlots"></div>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block" id="hbSubmitBtn">Book Now</button>
-          <div class="form-msg" id="hbMsg"></div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Same inline-OTP-step approach as Account Gate/the SEO widget —
-         swaps in as a sibling step inside this same still-open popup
-         (nothing ever closes/reopens visually), driven by the shared
-         verifyPhoneWithOtp() in main2.js. -->
-    <div id="hbOtpStep" style="display:none;">
-      <h3>Verify Your Number</h3>
-      <p class="modal-sub">We've sent a code by SMS to <strong id="hbOtpPhone"></strong>.</p>
-      <div class="field">
-        <label for="hbOtpCode">Enter OTP</label>
-        <input type="tel" id="hbOtpCode" inputmode="numeric" maxlength="6" placeholder="Enter the code" autocomplete="one-time-code" style="letter-spacing:0.3em;font-size:1.2rem;text-align:center;">
-      </div>
-      <button type="button" class="btn btn-primary btn-block" id="hbOtpSubmit">Verify</button>
-      <div class="form-msg" id="hbOtpMsg"></div>
-      <button type="button" class="btn btn-outline btn-block" id="hbOtpResend" style="margin-top:8px;">Resend Code</button>
-      <button type="button" class="btn btn-link btn-block" id="hbOtpBack" style="margin-top:4px;">← Back</button>
-    </div>
-
-    <!-- Same success-screen style as everywhere else on the site
-         (#bookingSuccessView / #sbSuccess) — big SVG checkmark,
-         "Thank you!", then Booking No./Service/Date & Time/Service
-         Charge in the same .success-detail-card rows. -->
-    <div id="hbSuccess" style="display:none;text-align:center;padding:20px 0;">
-      <div class="success-check-circle" style="width:96px;height:96px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto;">
-        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 13l4.5 4.5L19 7.5" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <p style="margin-top:14px;font-weight:700;color:var(--ink);">Thank you!</p>
-      <div class="success-detail-card" style="max-width:320px;margin:14px auto 0;text-align:left;">
-        <div class="success-detail-row"><span>Booking No.</span><strong id="hbSuccessId"></strong></div>
-        <div class="success-detail-row"><span>Service</span><strong id="hbSuccessService" style="text-align:right;"></strong></div>
-        <div class="success-detail-row"><span>Date &amp; Time</span><strong id="hbSuccessVisit"></strong></div>
-        <div class="success-detail-row"><span>Service Charge</span><strong id="hbSuccessCharge" style="color:var(--green);"></strong></div>
-      </div>
-      <button type="button" class="btn btn-primary btn-block" style="margin-top:14px;max-width:320px;margin-left:auto;margin-right:auto;" id="hbSuccessDone">Done</button>
     </div>
   </div>
 </div>
