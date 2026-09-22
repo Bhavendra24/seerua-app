@@ -698,12 +698,7 @@ function bindUrlTriggeredSections() {
     // opens straight to that type instead of always the first one.
     const urlTypeId = qbUrlParams.get('type');
     if (urlApplianceId) {
-      // FLOW CHANGE (per explicit request — "kahi se bhi chahe direct ya
-      // search se" — the compact one-click form should open no matter
-      // how someone arrives): this is exactly the "arrived via a link
-      // from elsewhere" path, so it opens the same compact modal a
-      // direct "Book Now" tap does, not the old multi-step Quick Book.
-      openCompactBookModal(urlApplianceId, urlTypeId);
+      openQuickBookModal(urlApplianceId, urlTypeId);
       clearQuickBookUrlParams();
     }
   }
@@ -1118,7 +1113,7 @@ function bindFooterApplianceLinks() {
       const id = a.getAttribute('data-appliance');
       if (!id || !APPLIANCES.some(x => x.id === id)) return;
       e.preventDefault();
-      openCompactBookModal(id);
+      openQuickBookModal(id);
     });
   });
 }
@@ -1279,7 +1274,7 @@ function autoOpenBookingFromUrlParams() {
     if (match) document.getElementById('fCity').value = cityId;
   }
   if (applianceId && APPLIANCES.find(a => a.id === applianceId && !a.hidden)) {
-    openCompactBookModal(applianceId, typeId);
+    openQuickBookModal(applianceId, typeId);
     clearQuickBookUrlParams();
   } else if (window.location.hash === '#book' || window.location.hash === '#services') {
     document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
@@ -1485,42 +1480,14 @@ function firstCityUrlForAppliance(a) {
   return `/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}`;
 }
 
-// FLOW CHANGE (per explicit request — "customer jaise hi kisi appliance
-// par click kare tabhi us appliance ki details form me bhar jaay", i.e.
-// one click, not two): clicking the card's photo/title used to navigate
-// to that appliance's SEO page, where the customer then had to tap
-// "Book Now" a second time to actually get a form — two clicks total to
-// reach the same compact popup a direct "Book Now" tap already opens in
-// one. This intercepts a plain click on the card (not a modifier-key/
-// middle click, which still opens the SEO page in a new tab as normal —
-// and the href stays in the raw HTML either way, so Google can still
-// crawl and index every SEO page exactly as before) and opens the same
-// popup "Book Now" does, immediately, with this exact appliance preset.
-let serviceCardClicksBound = false;
-function bindServiceCardClicks(grid) {
-  if (serviceCardClicksBound) return;
-  serviceCardClicksBound = true;
-  grid.addEventListener('click', (e) => {
-    const link = e.target.closest('.service-card-link');
-    if (!link) return;
-    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-    const card = link.closest('.service-card');
-    const applianceId = card && card.getAttribute('data-appliance');
-    if (!applianceId) return;
-    e.preventDefault();
-    openApplianceBoxesPanel(applianceId);
-  });
-}
-
 function renderServicesGrid() {
   const grid = document.getElementById('servicesGrid');
-  // SEO FIX: each card's photo/title still sits inside a real <a href> to
-  // that appliance's own SEO landing page — kept purely so Google can
-  // still discover/crawl/index these pages by following links from the
-  // homepage (and so ctrl/cmd-click or middle-click still opens it in a
-  // new tab like any normal link) — but see bindServiceCardClicks() just
-  // above: a normal tap/click on it now opens the compact Book popup
-  // directly instead of navigating away.
+  // SEO FIX: each card's photo/title now sits inside a real <a href> to
+  // that appliance's own SEO landing page (in addition to the "Book Now"
+  // button, which keeps opening the quick-book modal) — previously the
+  // whole card was just a JS onclick with no crawlable link at all, so
+  // Google had no way to discover these pages by following links from the
+  // homepage.
   grid.innerHTML = ALL_APPLIANCES.map(a => {
     const href = firstCityUrlForAppliance(a) || '#';
     return `
@@ -1535,257 +1502,7 @@ function renderServicesGrid() {
     </div>
   `;
   }).join('');
-  bindServiceCardClicks(grid);
 }
-
-// Reads the site's currently-chosen city — the header/bottom-nav "City"
-// button's underlying #fCity value, falling back to the last city
-// remembered in localStorage (see populateCitySheetGrid()/the
-// bottomSheetCityGrid click handler above) — same city context the
-// price-boxes panel below (and the compact Book popup) already use.
-function currentSiteCityId() {
-  const el = document.getElementById('fCity');
-  if (el && el.value) return el.value;
-  try { return localStorage.getItem('seerua_last_city') || ''; } catch (e) { return ''; }
-}
-
-// DAINIK-CARE-STYLE REDESIGN (per explicit request, with reference
-// screenshots): a horizontal row of appliance icons at the top — tapping
-// one re-opens this same panel for that appliance, so the customer can
-// switch appliance without closing the panel and scrolling back up to
-// the homepage grid. Highlights whichever appliance is currently open.
-function buildApplianceIconRowHtml(activeApplianceId) {
-  const list = ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES;
-  return `<div class="appliance-icon-row" id="applianceIconRow">${list.map(a => `
-    <button type="button" class="appliance-icon-item${a.id === activeApplianceId ? ' active' : ''}" data-appliance-id="${a.id}">
-      ${a.photoUrl ? `<img src="${toWebpUrl(a.photoUrl)}" alt="${escapeHtml(a.name)}">` : `<div class="service-icon-wrap" style="width:52px;height:52px;"><div class="service-icon">${ICONS[a.icon] || ICONS.wrench}</div></div>`}
-      <span>${escapeHtml(a.name)}</span>
-    </button>
-  `).join('')}</div>`;
-}
-
-function bindApplianceIconRow(panel) {
-  const row = panel.querySelector('#applianceIconRow');
-  if (!row) return;
-  row.querySelectorAll('.appliance-icon-item').forEach(btn => {
-    btn.addEventListener('click', () => openApplianceBoxesPanel(btn.getAttribute('data-appliance-id')));
-  });
-}
-
-function bindApplianceBoxesPanelClose(panel) {
-  const closeBtn = panel.querySelector('.appliance-boxes-panel-close');
-  if (closeBtn) closeBtn.addEventListener('click', () => { panel.style.display = 'none'; });
-}
-
-// Builds one Dainik-Care-style card: appliance photo with a price badge
-// overlaid on its top-left corner, title + location pin + strike-through
-// MRP/price, the FULL checklist always visible (not collapsed — per
-// explicit request to match the reference screenshots), and three
-// distinct actions: Add (cart, blue), Book (green), Review (amber).
-function buildDainikStyleCardHtml(appliance, type, svc, price, cityLabel) {
-  const mrp = Math.round((price * 1.2) / 10) * 10;
-  const checklistHtml = (svc.checklist || []).map(item => `<li>${item}</li>`).join('');
-  const photoHtml = appliance.photoUrl
-    ? `<img src="${toWebpUrl(appliance.photoUrl)}" alt="${escapeHtml(type.name)} ${escapeHtml(svc.name)}" class="qb-price-img">`
-    : `<div class="service-icon-wrap qb-price-img" style="display:flex;align-items:center;justify-content:center;"><div class="service-icon">${ICONS[appliance.icon] || ICONS.wrench}</div></div>`;
-  return `
-    <div class="qb-service-card" data-type-id="${type.id}" data-sku-id="${svc.id}">
-      <div class="qb-price-card">
-        <div class="qb-price-photo-wrap">
-          ${photoHtml}
-          <span class="qb-price-badge">₹${price}/-</span>
-        </div>
-        <div>
-          <div class="qb-price-title">${escapeHtml(type.name)} ${escapeHtml(svc.name)} In ${escapeHtml(cityLabel)}</div>
-          <div class="qb-price-row"><span class="qb-price-tag">📍</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
-        </div>
-      </div>
-      ${checklistHtml ? `<ul class="qb-checklist">${checklistHtml}</ul>` : ''}
-      <div class="qb-actions qb-actions-3">
-        <button type="button" class="qb-btn qb-btn-add" data-action="add">🛒 Add</button>
-        <button type="button" class="qb-btn qb-btn-book" data-action="book">Book</button>
-        <button type="button" class="qb-btn qb-btn-review" data-action="review">Review</button>
-      </div>
-    </div>`;
-}
-
-// Scrolls to the homepage's real testimonials (only ever real, verified
-// bookings — see loadPublicReviews() — never sample/placeholder
-// reviews). That section stays hidden until there are at least 3 real
-// reviews, so this politely says so instead of scrolling to nothing.
-function qbGoToReviews() {
-  const section = document.getElementById('testimonialsSection');
-  if (section && section.style.display !== 'none' && section.offsetParent !== null) {
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } else if (typeof showToast === 'function') {
-    showToast('Real customer reviews will show here once a few bookings are completed.');
-  }
-}
-window.qbGoToReviews = qbGoToReviews;
-
-// Wires a rendered grid of buildDainikStyleCardHtml() cards' Add/Book/
-// Review buttons. `svcLookup(typeId, skuId)` returns { appliance, type,
-// svc, price } for a card — kept as a callback rather than a closure
-// over one fixed dataset, since the same wiring is reused both for the
-// single active type-tab's cards and (defensively) after a re-render.
-function bindApplianceBoxesGridActions(grid, applianceId, svcLookup) {
-  grid.querySelectorAll('.qb-service-card[data-sku-id]').forEach(card => {
-    const typeId = card.getAttribute('data-type-id');
-    const skuId = card.getAttribute('data-sku-id');
-    card.querySelectorAll('button[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.getAttribute('data-action');
-        if (action === 'review') { qbGoToReviews(); return; }
-        const found = svcLookup(typeId, skuId);
-        if (!found) return;
-        if (action === 'book') {
-          openCompactBookModal(applianceId, typeId, skuId);
-        } else {
-          // "Add" — reuses the exact same account-gate + cart logic the
-          // classic Quick Book modal's Add button uses (qbAddService),
-          // just pointed at this panel's appliance/type instead of
-          // whatever qbShowDetails() last opened.
-          qbApplianceId = applianceId;
-          qbSelectedTypeId = typeId;
-          qbAddService(found.svc, found.price, false);
-        }
-      });
-    });
-  });
-}
-
-// QUICK-BOOK PRICE-BOXES PANEL (per explicit request: "popup me ye
-// kuchh nahi karna hai, pahle jaise quick booking ke box banao, jis box
-// ko click karo tab popup khule"; later restyled per Dainik Care
-// reference screenshots: appliance-icon row on top, type-tabs, and a
-// photo+badge card with Add/Book/Review) — tapping an appliance card
-// opens THIS panel on the page itself (not the booking popup).
-async function openApplianceBoxesPanel(applianceId) {
-  const panel = document.getElementById('applianceBoxesPanel');
-  if (!panel) { openCompactBookModal(applianceId); return; } // very old cached page without the panel markup — fall back rather than do nothing
-  const appliance = (ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES).find(a => a.id === applianceId);
-  if (!appliance) return;
-
-  const cityId = currentSiteCityId();
-  const iconRowHtml = buildApplianceIconRowHtml(applianceId);
-  panel.style.display = '';
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-  if (!cityId) {
-    panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
-      ${iconRowHtml}
-      <p class="form-msg">Please choose your city first, then tap this appliance again.</p>
-      <button type="button" class="btn btn-primary btn-sm" id="applianceBoxesChooseCity">Choose City</button>
-    `;
-    bindApplianceBoxesPanelClose(panel);
-    bindApplianceIconRow(panel);
-    const chooseCityBtn = document.getElementById('applianceBoxesChooseCity');
-    if (chooseCityBtn) chooseCityBtn.addEventListener('click', () => (document.getElementById('navCityBtn') || document.getElementById('bottomNavCityBtn'))?.click());
-    return;
-  }
-
-  panel.innerHTML = `
-    <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
-    ${iconRowHtml}
-    <p class="form-msg">Loading prices...</p>
-  `;
-  bindApplianceBoxesPanelClose(panel);
-  bindApplianceIconRow(panel);
-
-  try {
-    const rows = await Promise.all((appliance.types || []).map(async (t) => {
-      try {
-        const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${t.id}`);
-        return { type: t, row };
-      } catch (e) {
-        return { type: t, row: null };
-      }
-    }));
-
-    const cityLabel = (CITIES.find(c => c.id === cityId) || {}).name || 'Your City';
-    // Group into one { type, cardsHtml, svcMap } entry per type that
-    // actually has at least one priced service — this is what powers the
-    // type-tabs (Window AC / Split AC / ... exactly like the reference
-    // screenshots), instead of the old flat list of every type stacked
-    // one after another.
-    const typesWithCards = rows.map(({ type, row }) => {
-      if (!row) return null;
-      const services = (type.services && type.services.length) ? type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
-      const svcMap = {};
-      const cardsHtml = services.map(svc => {
-        const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
-          ? row.servicePrices[svc.id]
-          : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
-        if (typeof price !== 'number') return '';
-        svcMap[svc.id] = { svc, price };
-        return buildDainikStyleCardHtml(appliance, type, svc, price, cityLabel);
-      }).join('');
-      return cardsHtml ? { type, cardsHtml, svcMap } : null;
-    }).filter(Boolean);
-
-    if (!typesWithCards.length) {
-      panel.innerHTML = `
-        <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
-        ${iconRowHtml}
-        <p class="form-msg">This appliance is not available in your city right now.</p>
-      `;
-      bindApplianceBoxesPanelClose(panel);
-      bindApplianceIconRow(panel);
-      return;
-    }
-
-    const lookup = (typeId, skuId) => {
-      const t = typesWithCards.find(x => x.type.id === typeId);
-      return t && t.svcMap[skuId] ? { appliance, type: t.type, svc: t.svcMap[skuId].svc, price: t.svcMap[skuId].price } : null;
-    };
-
-    const renderGridForType = (typeId) => {
-      const gridEl = document.getElementById('applianceBoxesGrid');
-      if (!gridEl) return;
-      const t = typesWithCards.find(x => x.type.id === typeId) || typesWithCards[0];
-      gridEl.innerHTML = t.cardsHtml;
-      bindApplianceBoxesGridActions(gridEl, applianceId, lookup);
-    };
-
-    const initialTypeId = typesWithCards[0].type.id;
-    const tabsHtml = typesWithCards.length > 1
-      ? `<div class="qb-type-tabs" id="applianceBoxesTypeTabs">${typesWithCards.map(t =>
-          `<button type="button" data-type-id="${t.type.id}" class="${t.type.id === initialTypeId ? 'active' : ''}">${escapeHtml(t.type.name)}</button>`
-        ).join('')}</div>`
-      : '';
-
-    panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
-      ${iconRowHtml}
-      ${tabsHtml}
-      <div class="appliance-boxes-grid" id="applianceBoxesGrid">${typesWithCards[0].cardsHtml}</div>
-    `;
-    bindApplianceBoxesPanelClose(panel);
-    bindApplianceIconRow(panel);
-    bindApplianceBoxesGridActions(document.getElementById('applianceBoxesGrid'), applianceId, lookup);
-
-    const tabsEl = document.getElementById('applianceBoxesTypeTabs');
-    if (tabsEl) {
-      tabsEl.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          tabsEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          renderGridForType(btn.getAttribute('data-type-id'));
-        });
-      });
-    }
-  } catch (e) {
-    panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
-      ${iconRowHtml}
-      <p class="form-msg error">Could not load prices. Please try again.</p>
-    `;
-    bindApplianceBoxesPanelClose(panel);
-    bindApplianceIconRow(panel);
-  }
-}
-window.openApplianceBoxesPanel = openApplianceBoxesPanel;
 
 const CART_STORAGE_KEY = 'seerua_cart_v1';
 
@@ -3138,27 +2855,21 @@ function verifyPhoneWithOtp(phone, opts) {
       return;
     }
 
-    // Inline mode: show/hide the two step-divs inside WHATEVER popup is
-    // already open (which stays open throughout — nothing ever closes
-    // and reopens visually). Defaults to Account Gate's own
-    // agPhoneStep/agOtpStep pair for backward compatibility with its
-    // existing caller; opts.steps lets any other caller (e.g. the
-    // homepage's compact Book modal) name its own pair of sibling step
-    // divs instead. Modal mode (unchanged): show/hide the standalone
-    // #otpEntryModal backdrop, same as before.
-    const stepIds = opts.steps || { phoneStep: 'agPhoneStep', otpStep: 'agOtpStep' };
+    // Inline mode: show/hide the two step-divs inside accountGateModal
+    // (which stays open throughout). Modal mode (unchanged): show/hide
+    // the standalone #otpEntryModal backdrop, same as before.
     const showOtpUI = inline
       ? () => {
-          const phoneStep = document.getElementById(stepIds.phoneStep);
-          const otpStep = document.getElementById(stepIds.otpStep);
+          const phoneStep = document.getElementById('agPhoneStep');
+          const otpStep = document.getElementById('agOtpStep');
           if (phoneStep) phoneStep.style.display = 'none';
           if (otpStep) otpStep.style.display = '';
         }
       : () => { modal.classList.add('open'); };
     const hideOtpUI = inline
       ? () => {
-          const phoneStep = document.getElementById(stepIds.phoneStep);
-          const otpStep = document.getElementById(stepIds.otpStep);
+          const phoneStep = document.getElementById('agPhoneStep');
+          const otpStep = document.getElementById('agOtpStep');
           if (otpStep) otpStep.style.display = 'none';
           if (phoneStep) phoneStep.style.display = '';
         }
@@ -4531,6 +4242,121 @@ async function qbAddService(svc, price, thenBook) {
   }
 }
 
+// APPLIANCE PRICE BOXES (per explicit request, restoring an older,
+// simpler flow that had been lost from this codebase — "AC par click
+// karega, uske niche AC ke type aur price ki akarshak alag-alag [cards]
+// honge, customer 'Split AC Repairing' par click kare aur form me detail
+// aa jaay"): tapping an appliance card on the homepage no longer jumps
+// straight into the tabbed Quick Book popup. It opens THIS panel right
+// below the services grid instead — one flat, scannable list of cards,
+// one per type+service combo actually priced in the customer's city
+// (Window AC Service, Window AC Repair, Split AC Service, Split AC
+// Repair, ...), each showing its price up front. Deliberately no photo
+// per card (qb-price-card-nophoto) — the appliance's own photo is
+// already shown right above, in the services grid; repeating it on every
+// card here was flagged before as pointless duplication. Tapping a
+// card's "Book" goes straight into qbAddService(..., true) — the exact
+// same call the Quick Book modal's own service cards use for "Book" — so
+// it lands on the same short Name/Address/Date&Time form (phone already
+// verified via the Account Gate) as every other booking path, no
+// separate modal or OTP logic duplicated here.
+async function openApplianceBoxesPanel(applianceId) {
+  const panel = document.getElementById('applianceBoxesPanel');
+  if (!panel) { openQuickBookModal(applianceId); return; } // very old cached page without this panel's markup — fall back to the popup rather than do nothing
+  const appliance = (ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES).find(a => a.id === applianceId);
+  if (!appliance) return;
+
+  const cityId = document.getElementById('fCity').value;
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  if (!cityId) {
+    panel.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <p class="form-msg">Please choose your city first, then tap this appliance again.</p>
+      <button type="button" class="btn btn-primary btn-sm" id="applianceBoxesChooseCity">Choose City</button>
+    `;
+    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    document.getElementById('applianceBoxesChooseCity')?.addEventListener('click', () => (document.getElementById('navCityBtn') || document.getElementById('bottomNavCityBtn'))?.click());
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+    <p class="form-msg">Loading prices…</p>
+  `;
+  panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+
+  try {
+    const rows = await Promise.all((appliance.types || []).map(async (t) => {
+      try {
+        const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${t.id}`);
+        return { type: t, row };
+      } catch (e) {
+        return { type: t, row: null };
+      }
+    }));
+    const cardsHtml = rows.flatMap(({ type, row }) => {
+      if (!row) return [];
+      const services = (type.services && type.services.length) ? type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
+      return services.map(svc => {
+        const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
+          ? row.servicePrices[svc.id]
+          : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
+        if (typeof price !== 'number') return '';
+        const mrp = Math.round((price * 1.2) / 10) * 10;
+        const checklistHtml = (svc.checklist || []).map(item => `<li>${item}</li>`).join('');
+        return `
+        <div class="qb-service-card">
+          <div class="qb-price-card qb-price-card-nophoto">
+            <div>
+              <div class="qb-price-title">${escapeHtml(type.name)} ${escapeHtml(svc.name)}</div>
+              <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
+              <div class="qb-price-trust">✔ Most Trusted Service</div>
+            </div>
+          </div>
+          ${checklistHtml ? `<details class="qb-checklist-details"><summary>What's included</summary><ul class="qb-checklist">${checklistHtml}</ul></details>` : ''}
+          <div class="qb-actions">
+            <button type="button" class="qb-btn qb-btn-book" data-type-id="${type.id}" data-sku-id="${svc.id}" data-price="${price}">Book — ₹${price}</button>
+          </div>
+        </div>`;
+      });
+    }).join('');
+
+    if (!cardsHtml) {
+      panel.innerHTML = `
+        <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+        <p class="form-msg">This appliance is not available in your city right now.</p>
+      `;
+      panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+      return;
+    }
+
+    panel.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <div class="appliance-boxes-grid">${cardsHtml}</div>
+    `;
+    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    panel.querySelectorAll('.qb-btn-book[data-sku-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = (appliance.types || []).find(t => t.id === btn.dataset.typeId);
+        const services = (type && type.services && type.services.length) ? type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
+        const svc = services.find(s => s.id === btn.dataset.skuId) || { id: btn.dataset.skuId, name: 'Service' };
+        qbApplianceId = applianceId;
+        qbSelectedTypeId = btn.dataset.typeId;
+        qbAddService(svc, Number(btn.dataset.price), true);
+      });
+    });
+  } catch (e) {
+    panel.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      <p class="form-msg error">Could not load prices. Please try again.</p>
+    `;
+    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+  }
+}
+window.openApplianceBoxesPanel = openApplianceBoxesPanel;
+
 async function qbUpdatePrice() {
   const cityId = document.getElementById('fCity').value;
   if (!cityId || !qbApplianceId || !qbSelectedTypeId) return;
@@ -4723,440 +4549,3 @@ document.getElementById('qbAddBtn').addEventListener('click', async () => {
 bindQuickBookModal();
 
 init();
-
-// ============================================================
-// COMPACT ONE-CLICK BOOK MODAL (homepage) — see #hbModal in
-// index.template.html for the full explanation of why this exists.
-// Opens directly from an appliance card's "Book Now" tap (or a link
-// from elsewhere carrying ?appliance=...) with everything — city,
-// type, Service/Repair, price, name, phone+OTP, address, date/time —
-// in ONE small popup, instead of the old Quick Book -> tap Book again
-// -> Account Gate -> booking-form chain. Modeled closely on the SEO
-// pages' own single-item widget (seo-book.js), but written as part of
-// main2.js (not its own file) since this only ever runs on the
-// homepage, where CITIES/APPLIANCES/fetchJSON/ensureOtpConfig/
-// verifyPhoneWithOtp/getAccount/saveAccount/formatDateDisplay/
-// populateSelect are already loaded above and safe to reuse directly.
-// ============================================================
-let hbApplianceId = null;
-let hbSelectedSlotId = null;
-let hbSelectedSlotLabel = null;
-let hbBound = false;
-// Set when the selected row is an extra SKU (Installation, Gas Filling,
-// Uninstallation, ...) rather than plain Service/Repair — sent as-is in
-// the booking payload so the server prices it from that exact SKU
-// (see server.js's servicePrices[skuId] lookup), same as the SEO page's
-// per-service pricing table already does via sbApplyPreset().
-let hbSelectedSkuId = null;
-// Which Type card is currently selected — tracked here directly rather
-// than read back from the hidden #hbType <select>, since that select
-// has no <option> elements (it's a plain state holder, not a real
-// dropdown), so assigning .value = typeId to it silently no-ops and a
-// read of .value always comes back empty. Real bug this hid: picking
-// any Type other than the appliance's first (e.g. "Split AC" when
-// "Window AC" is first) always booked the first Type anyway.
-let hbSelectedTypeId = null;
-// Set (to the raw skuId the caller asked for, e.g. "svc-gasfill" or
-// plain "svc-service"/"svc-repair") whenever this popup was opened
-// already knowing the exact service — the homepage's price-boxes panel
-// always does this now. In that mode the in-popup picker
-// (#hbPriceCardsWrap) stays hidden entirely; only the "Selected: ..."
-// line and the booking form show. null means the old fallback picker
-// mode (used only by entry points that don't yet know the choice).
-let hbPresetSkuId = null;
-
-function hbCurrentAppliance() {
-  const list = ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES;
-  return list.find(a => a.id === hbApplianceId);
-}
-
-function hbCurrentType() {
-  const appliance = hbCurrentAppliance();
-  if (!appliance) return null;
-  return appliance.types.find(t => t.id === hbSelectedTypeId) || appliance.types[0] || null;
-}
-
-// Toggles between the price table/form and the "not available in your
-// city" notice — same friendly-notice pattern as qbSetNotAvailable().
-function hbSetNotAvailable(isUnavailable) {
-  const notAvailEl = document.getElementById('hbNotAvailable');
-  const wrap = document.getElementById('hbBookableWrap');
-  if (notAvailEl) notAvailEl.style.display = isUnavailable ? 'block' : 'none';
-  if (wrap) wrap.style.display = isUnavailable ? 'none' : '';
-}
-
-// ONE-CARD-PER-SUB-TYPE PICKER (per explicit request: "pahle jaise sabhi
-// type ke appliance the jis par click karo usi ka naam aur price jude" —
-// back to the old Quick Book look: every Type + sub-type (Service,
-// Repair, and for appliances like AC also Installation, Uninstallation,
-// Gas Filling) is its own separate small card with its own name and
-// price, instead of a dense table listing everything together at once.
-// Fetches every Type's full service breakdown for the selected city (in
-// parallel), lays each Type+sub-type out as its own card, and tapping a
-// card both picks that exact combination for booking and highlights it.
-async function hbPopulatePriceTable(appliance, initialTypeId) {
-  const cityId = document.getElementById('hbCity').value;
-  const grid = document.getElementById('hbPriceTableBody');
-  const titleEl = document.getElementById('hbPriceTitle');
-  if (!grid || !titleEl) return;
-  const wrap = document.getElementById('hbPriceCardsWrap');
-  if (wrap) wrap.style.display = '';
-  titleEl.textContent = `${appliance.name} — choose a service`;
-  if (!cityId) { hbSetNotAvailable(true); return; }
-  grid.innerHTML = '<p style="text-align:center;color:var(--slate);grid-column:1/-1;">Loading prices...</p>';
-  try {
-    const rows = await Promise.all((appliance.types || []).map(async (t) => {
-      try {
-        const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${t.id}`);
-        return { type: t, servicePrices: row.servicePrices || {}, servicePrice: row.servicePrice, repairPrice: row.repairPrice };
-      } catch (e) {
-        return { type: t, servicePrices: {}, servicePrice: null, repairPrice: null };
-      }
-    }));
-    const available = rows.filter(r => Object.values(r.servicePrices).some(p => typeof p === 'number') || typeof r.servicePrice === 'number' || typeof r.repairPrice === 'number');
-    if (!available.length) { hbSetNotAvailable(true); return; }
-    hbSetNotAvailable(false);
-    grid.innerHTML = available.map(r => {
-      const services = (r.type.services && r.type.services.length) ? r.type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
-      return services.map(svc => {
-        const price = typeof r.servicePrices[svc.id] === 'number'
-          ? r.servicePrices[svc.id]
-          : (svc.id === 'svc-service' ? r.servicePrice : (svc.id === 'svc-repair' ? r.repairPrice : null));
-        const hasPrice = typeof price === 'number';
-        return `
-        <div class="hb-price-card${hasPrice ? '' : ' hb-card-unavailable'}" data-type-id="${r.type.id}" data-sku-id="${svc.id}" data-svc-name="${svc.name}">
-          <span class="hb-card-type">${r.type.name}</span>
-          <span class="hb-card-service">${svc.name}</span>
-          <span class="hb-card-price">${hasPrice ? '₹' + price : '—'}</span>
-        </div>`;
-      }).join('');
-    }).join('');
-    grid.querySelectorAll('.hb-price-card:not(.hb-card-unavailable)').forEach(card => {
-      card.addEventListener('click', () => {
-        hbSelectPriceCell(card.dataset.typeId, card.dataset.skuId, card.dataset.svcName, appliance);
-      });
-    });
-    // Default selection: whatever type/typeId this popup was opened
-    // with (a specific "Book <Type> Service" link), defaulting to its
-    // plain Service card, or else the first available Type+card.
-    const defaultRow = available.find(r => r.type.id === initialTypeId) || available[0];
-    const candidateCards = Array.from(grid.querySelectorAll(`.hb-price-card[data-type-id="${defaultRow.type.id}"]`));
-    const firstPriced = candidateCards.find(c => !c.classList.contains('hb-card-unavailable')) || candidateCards[0];
-    if (firstPriced) hbSelectPriceCell(firstPriced.dataset.typeId, firstPriced.dataset.skuId, firstPriced.dataset.svcName, appliance);
-  } catch (e) {
-    hbSetNotAvailable(true);
-  }
-}
-
-// Marks one price card selected (for booking) and reflects that choice
-// in the hidden #hbType/#hbServiceType fields the rest of the popup
-// (hbCurrentType(), hbHandleSubmit()) already reads, plus the
-// module-level hbSelectedSkuId (sent straight through to the booking
-// payload so an extra-SKU card like Gas Filling is priced exactly like
-// that card said — see server.js's servicePrices[skuId] lookup), plus a
-// plain-language "Selected: ..." line above the form.
-function hbSelectPriceCell(typeId, skuId, svcName, appliance) {
-  hbSelectedTypeId = typeId;
-  // The booking record's serviceType field only distinguishes
-  // Service-family vs Repair — skuId (below) carries the exact sub-type.
-  const serviceTypeEl = document.getElementById('hbServiceType');
-  if (serviceTypeEl) serviceTypeEl.value = (skuId === 'svc-repair') ? 'repair' : 'service';
-  hbSelectedSkuId = (skuId === 'svc-service' || skuId === 'svc-repair') ? null : skuId;
-  const grid = document.getElementById('hbPriceTableBody');
-  let priceText = '';
-  if (grid) {
-    grid.querySelectorAll('.hb-price-card').forEach(c => c.classList.remove('selected'));
-    const activeCard = grid.querySelector(`.hb-price-card[data-type-id="${typeId}"][data-sku-id="${skuId}"]`);
-    if (activeCard) {
-      activeCard.classList.add('selected');
-      priceText = activeCard.querySelector('.hb-card-price').textContent.trim();
-    }
-  }
-  const type = (appliance.types || []).find(t => t.id === typeId);
-  const line = document.getElementById('hbSelectedLine');
-  if (line && type) {
-    line.innerHTML = `Selected: <strong>${type.name} — ${svcName} — ${priceText}</strong>`;
-  }
-  hbRefreshSlots();
-}
-
-// PRESET SELECTION (per explicit request: "popup me ye kuchh nahi karna
-// hai, pahle jaise quick booking ke box banao, jis box ko click karo
-// tab popup khule") — used when this popup is opened from the
-// homepage's own price-boxes panel, where the exact Type + sub-type was
-// already picked BEFORE the popup ever appeared. Skips the in-popup
-// picker (#hbPriceCardsWrap stays hidden) entirely and goes straight to
-// showing that one selection + the booking form, fetching only that
-// single price instead of every Type's full breakdown.
-async function hbApplyPresetSelection(appliance, typeId, skuId) {
-  const wrap = document.getElementById('hbPriceCardsWrap');
-  if (wrap) wrap.style.display = 'none';
-  const cityId = document.getElementById('hbCity').value;
-  if (!cityId) { hbSetNotAvailable(true); return; }
-  const type = (appliance.types || []).find(t => t.id === typeId) || (appliance.types || [])[0];
-  if (!type) { hbSetNotAvailable(true); return; }
-  const line = document.getElementById('hbSelectedLine');
-  if (line) line.textContent = 'Loading price...';
-  try {
-    const row = await fetchJSON(`/api/price?cityId=${cityId}&applianceId=${appliance.id}&typeId=${type.id}`);
-    const price = (row.servicePrices && typeof row.servicePrices[skuId] === 'number')
-      ? row.servicePrices[skuId]
-      : (skuId === 'svc-repair' ? row.repairPrice : row.servicePrice);
-    if (typeof price !== 'number') { hbSetNotAvailable(true); return; }
-    hbSetNotAvailable(false);
-    hbSelectedTypeId = type.id;
-    hbSelectedSkuId = (skuId === 'svc-service' || skuId === 'svc-repair') ? null : skuId;
-    const serviceTypeEl = document.getElementById('hbServiceType');
-    if (serviceTypeEl) serviceTypeEl.value = (skuId === 'svc-repair') ? 'repair' : 'service';
-    const svc = (type.services || []).find(s => s.id === skuId);
-    const svcName = svc ? svc.name : (skuId === 'svc-repair' ? 'Repair' : 'Service / AMC');
-    if (line) line.innerHTML = `Selected: <strong>${type.name} — ${svcName} — ₹${price}</strong>`;
-    hbRefreshSlots();
-  } catch (e) {
-    hbSetNotAvailable(true);
-  }
-}
-
-function hbRenderSlots(slots) {
-  const box = document.getElementById('hbSlots');
-  if (!box) return;
-  hbSelectedSlotId = null;
-  hbSelectedSlotLabel = null;
-  if (!slots.length) {
-    box.innerHTML = '<p class="form-msg">No slots configured.</p>';
-    return;
-  }
-  box.innerHTML = slots.map(s => {
-    const disabled = !s.available;
-    return `<button type="button" class="btn btn-outline btn-sm hb-slot-btn" data-slot-id="${s.id}" data-slot-label="${s.label}" ${disabled ? 'disabled' : ''} style="margin:0 6px 6px 0;${disabled ? 'opacity:.45;cursor:not-allowed;' : ''}">${s.label}${disabled ? ' (Full)' : ''}</button>`;
-  }).join('');
-  box.querySelectorAll('.hb-slot-btn:not([disabled])').forEach(btn => {
-    btn.addEventListener('click', () => {
-      box.querySelectorAll('.hb-slot-btn').forEach(b => b.classList.remove('btn-primary'));
-      btn.classList.add('btn-primary');
-      hbSelectedSlotId = btn.dataset.slotId;
-      hbSelectedSlotLabel = btn.dataset.slotLabel;
-    });
-  });
-}
-
-async function hbRefreshSlots() {
-  const date = document.getElementById('hbDate').value;
-  const cityId = document.getElementById('hbCity').value;
-  const appliance = hbCurrentAppliance();
-  const box = document.getElementById('hbSlots');
-  if (!box) return;
-  if (!date || !cityId || !appliance) { box.innerHTML = ''; return; }
-  box.innerHTML = '<p class="form-msg">Loading slots...</p>';
-  try {
-    const slots = await fetchJSON(`/api/slots?date=${encodeURIComponent(date)}&cityId=${encodeURIComponent(cityId)}&applianceIds=${encodeURIComponent(appliance.id)}`);
-    hbRenderSlots(slots);
-  } catch (e) {
-    box.innerHTML = '<p class="form-msg error">Could not load slots. Please try again.</p>';
-  }
-}
-
-// Opened straight from an appliance card's "Book Now" tap (or a
-// ?appliance=...&type=... link from elsewhere) — see the call sites in
-// renderServicesGrid(), bindFooterApplianceLinks(),
-// bindUrlTriggeredSections() and autoOpenBookingFromUrlParams() above.
-function openCompactBookModal(applianceId, typeId, skuId) {
-  if (BOOKING_PAUSED_STATUS && BOOKING_PAUSED_STATUS.bookingPaused) {
-    if (typeof openBookingForm === 'function') openBookingForm();
-    return;
-  }
-  hbApplianceId = applianceId;
-  const appliance = hbCurrentAppliance();
-  if (!appliance) return;
-  // Remembers whether this exact open already knows the service (see
-  // hbApplyPresetSelection() above) — used again below AND by the city
-  // dropdown's own change handler if someone switches city mid-popup.
-  hbPresetSkuId = skuId || null;
-
-  document.getElementById('hbFormStep').style.display = '';
-  document.getElementById('hbOtpStep').style.display = 'none';
-  document.getElementById('hbSuccess').style.display = 'none';
-  const msg = document.getElementById('hbMsg');
-  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
-  const submitBtn = document.getElementById('hbSubmitBtn');
-  submitBtn.disabled = false;
-  submitBtn.textContent = 'Book Now';
-  document.getElementById('hbTitle').textContent = appliance.name + ' Service';
-
-  // City: reuse whatever's already known (a saved account, the shared
-  // #fCity selector, or the last city picked anywhere on the site) so
-  // this popup doesn't ask again if it's already known — same courtesy
-  // Quick Book already gives.
-  const citySelect = document.getElementById('hbCity');
-  populateSelect(citySelect, CITIES, 'Select city');
-  const acc = getAccount();
-  let lastCity = '';
-  try { lastCity = localStorage.getItem('seerua_last_city') || ''; } catch (e) { /* private browsing etc */ }
-  const fCityEl = document.getElementById('fCity');
-  const existingCity = (acc && acc.cityId) || (fCityEl && fCityEl.value) || lastCity;
-  if (existingCity) citySelect.value = existingCity;
-
-  // Prefill name/phone/address from a saved account, same courtesy the
-  // rest of the site already gives a returning customer.
-  document.getElementById('hbName').value = acc ? (acc.name || '') : '';
-  document.getElementById('hbPhone').value = acc ? (acc.phone || '') : '';
-  document.getElementById('hbAddress').value = acc ? (acc.address || '') : '';
-
-  const dateEl = document.getElementById('hbDate');
-  const today = new Date();
-  const y = today.getFullYear(), m = String(today.getMonth() + 1).padStart(2, '0'), d = String(today.getDate()).padStart(2, '0');
-  dateEl.min = `${y}-${m}-${d}`;
-  if (!dateEl.value || dateEl.value < dateEl.min) dateEl.value = `${y}-${m}-${d}`;
-  document.getElementById('hbSlots').innerHTML = '';
-
-  if (citySelect.value) {
-    if (skuId) {
-      hbApplyPresetSelection(appliance, typeId || (appliance.types[0] && appliance.types[0].id), skuId);
-    } else {
-      hbPopulatePriceTable(appliance, typeId);
-    }
-  } else {
-    hbSetNotAvailable(true);
-  }
-
-  document.getElementById('hbModal').classList.add('open');
-}
-window.openCompactBookModal = openCompactBookModal;
-
-function closeCompactBookModal() {
-  document.getElementById('hbModal').classList.remove('open');
-}
-
-async function hbHandleSubmit(e) {
-  e.preventDefault();
-  const msg = document.getElementById('hbMsg');
-  msg.className = 'form-msg';
-  msg.textContent = '';
-
-  const appliance = hbCurrentAppliance();
-  const type = hbCurrentType();
-  if (!appliance || !type) {
-    msg.className = 'form-msg error';
-    msg.textContent = 'This service is not available here right now.';
-    return;
-  }
-  const cityId = document.getElementById('hbCity').value;
-  const name = document.getElementById('hbName').value.trim();
-  const phone = document.getElementById('hbPhone').value.trim();
-  const address = document.getElementById('hbAddress').value.trim();
-  const serviceType = document.getElementById('hbServiceType').value;
-  const date = document.getElementById('hbDate').value;
-
-  if (!cityId) { msg.className = 'form-msg error'; msg.textContent = 'Please select a city.'; return; }
-  if (!name) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your name.'; return; }
-  if (!/^[0-9]{10}$/.test(phone)) { msg.className = 'form-msg error'; msg.textContent = 'Please enter a valid 10 digit mobile number.'; return; }
-  if (!address) { msg.className = 'form-msg error'; msg.textContent = 'Please enter your full address.'; return; }
-  if (!date) { msg.className = 'form-msg error'; msg.textContent = 'Please select a preferred date.'; return; }
-  if (!hbSelectedSlotId) { msg.className = 'form-msg error'; msg.textContent = 'Please select an available time slot.'; return; }
-
-  const submitBtn = document.getElementById('hbSubmitBtn');
-  submitBtn.disabled = true;
-
-  let phoneAlreadyVerified = false;
-  try {
-    const check = await fetchJSON(`/api/phone-verified?phone=${phone}`);
-    phoneAlreadyVerified = !!check.verified;
-  } catch (e) { /* fall back to normal OTP flow */ }
-
-  let otpEnabled = true;
-  try {
-    const cfg = await ensureOtpConfig();
-    otpEnabled = cfg.enabled !== false;
-  } catch (e) { /* fall back to normal OTP flow */ }
-
-  let accessToken;
-  if (otpEnabled && !phoneAlreadyVerified) {
-    submitBtn.textContent = 'Sending OTP...';
-    msg.className = 'form-msg notice';
-    msg.textContent = 'Please complete the OTP verification that just opened to confirm your booking.';
-    try {
-      // Reuses the exact same inline-OTP-swap function Account Gate
-      // uses (verifyPhoneWithOtp with inline:true) — its own scoped
-      // step-div pair (opts.steps) is exactly what was generalized in
-      // this function for this new caller, so nothing about how OTP
-      // actually gets verified is new or untested here.
-      accessToken = await verifyPhoneWithOtp(phone, {
-        inline: true,
-        ids: {
-          phone: 'hbOtpPhone', code: 'hbOtpCode', msg: 'hbOtpMsg',
-          submit: 'hbOtpSubmit', resend: 'hbOtpResend', close: 'hbOtpBack'
-        },
-        steps: { phoneStep: 'hbFormStep', otpStep: 'hbOtpStep' }
-      });
-    } catch (err) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Book Now';
-      msg.className = 'form-msg error';
-      msg.textContent = err.message || 'OTP verification failed. Please try again.';
-      return;
-    }
-  }
-
-  submitBtn.textContent = 'Booking...';
-  const payload = {
-    name, phone, address, cityId,
-    items: [{ applianceId: appliance.id, typeId: type.id, serviceType, qty: 1, problem: '', photoUrl: '', skuId: hbSelectedSkuId }],
-    bookingDate: date,
-    timeSlotId: hbSelectedSlotId
-  };
-  if (accessToken) payload.accessToken = accessToken;
-
-  try {
-    const data = await fetchJSON('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    // Save/refresh the shared account so a returning visit (or any other
-    // flow on the site) recognizes this customer too — same courtesy
-    // Account Gate and the full booking form already give.
-    const existingAcc = getAccount();
-    saveAccount({ phone, name, address, cityId, accessToken: accessToken || (existingAcc && existingAcc.accessToken) });
-    document.getElementById('hbFormStep').style.display = 'none';
-    document.getElementById('hbOtpStep').style.display = 'none';
-    document.getElementById('hbSuccess').style.display = '';
-    const serviceLabel = `${appliance.name} (${type.name}, ${serviceType === 'repair' ? 'Repair' : 'Service'})`;
-    document.getElementById('hbSuccessId').textContent = data.booking.id;
-    document.getElementById('hbSuccessService').textContent = serviceLabel;
-    document.getElementById('hbSuccessVisit').textContent = `${hbSelectedSlotLabel}, ${formatDateDisplay(date)}`;
-    document.getElementById('hbSuccessCharge').textContent = `₹${data.booking.totalPrice}`;
-    // Same confirmation chime the main booking form already plays on
-    // success (per explicit request: "submit hone ke confirm ki avaz bhi
-    // aye") — reuses the exact same playSuccessChime() defined above,
-    // nothing new to test here.
-    playSuccessChime();
-  } catch (err) {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Book Now';
-    msg.className = 'form-msg error';
-    msg.textContent = err.message || 'Could not complete booking. Please try again or call us.';
-  }
-}
-
-function bindCompactBookModal() {
-  if (hbBound) return;
-  hbBound = true;
-  document.getElementById('hbModalClose').addEventListener('click', closeCompactBookModal);
-  document.getElementById('hbModal').addEventListener('click', (e) => {
-    if (e.target.id === 'hbModal') closeCompactBookModal();
-  });
-  const doneBtn = document.getElementById('hbSuccessDone');
-  if (doneBtn) doneBtn.addEventListener('click', closeCompactBookModal);
-  document.getElementById('hbCity').addEventListener('change', () => {
-    const cityId = document.getElementById('hbCity').value;
-    try { localStorage.setItem('seerua_last_city', cityId); } catch (e) { /* private browsing etc */ }
-    const appliance = hbCurrentAppliance();
-    if (!appliance) return;
-    if (hbPresetSkuId) hbApplyPresetSelection(appliance, hbSelectedTypeId, hbPresetSkuId);
-    else hbPopulatePriceTable(appliance, hbSelectedTypeId);
-  });
-  document.getElementById('hbDate').addEventListener('change', hbRefreshSlots);
-  document.getElementById('hbForm').addEventListener('submit', hbHandleSubmit);
-}
-
-bindCompactBookModal();
