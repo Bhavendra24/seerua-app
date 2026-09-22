@@ -4260,32 +4260,39 @@ async function qbAddService(svc, price, thenBook) {
 // it lands on the same short Name/Address/Date&Time form (phone already
 // verified via the Account Gate) as every other booking path, no
 // separate modal or OTP logic duplicated here.
+function closeApplianceBoxesPanel() {
+  document.getElementById('applianceBoxesPanel')?.classList.remove('open');
+}
+
 async function openApplianceBoxesPanel(applianceId) {
   const panel = document.getElementById('applianceBoxesPanel');
-  if (!panel) { openQuickBookModal(applianceId); return; } // very old cached page without this panel's markup — fall back to the popup rather than do nothing
+  const body = document.getElementById('applianceBoxesPanelBody');
+  if (!panel || !body) { openQuickBookModal(applianceId); return; } // very old cached page without this popup's markup — fall back to the other popup rather than do nothing
   const appliance = (ALL_APPLIANCES.length ? ALL_APPLIANCES : APPLIANCES).find(a => a.id === applianceId);
   if (!appliance) return;
 
   const cityId = document.getElementById('fCity').value;
-  panel.style.display = '';
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // CHANGED (explicit, repeated request): this opens as a real popup
+  // now — directly, on click — instead of an inline panel appended
+  // below the appliance grid that needed a scroll to reach.
+  panel.classList.add('open');
 
   if (!cityId) {
-    panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+    body.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close modal-close" aria-label="Close">&times;</button></div>
       <p class="form-msg">Please choose your city first, then tap this appliance again.</p>
       <button type="button" class="btn btn-primary btn-sm" id="applianceBoxesChooseCity">Choose City</button>
     `;
-    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
-    document.getElementById('applianceBoxesChooseCity')?.addEventListener('click', () => (document.getElementById('navCityBtn') || document.getElementById('bottomNavCityBtn'))?.click());
+    body.querySelector('.appliance-boxes-panel-close').addEventListener('click', closeApplianceBoxesPanel);
+    document.getElementById('applianceBoxesChooseCity')?.addEventListener('click', () => { closeApplianceBoxesPanel(); (document.getElementById('navCityBtn') || document.getElementById('bottomNavCityBtn'))?.click(); });
     return;
   }
 
-  panel.innerHTML = `
-    <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+  body.innerHTML = `
+    <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close modal-close" aria-label="Close">&times;</button></div>
     <p class="form-msg">Loading prices…</p>
   `;
-  panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+  body.querySelector('.appliance-boxes-panel-close').addEventListener('click', closeApplianceBoxesPanel);
 
   try {
     const rows = await Promise.all((appliance.types || []).map(async (t) => {
@@ -4324,35 +4331,36 @@ async function openApplianceBoxesPanel(applianceId) {
     }).join('');
 
     if (!cardsHtml) {
-      panel.innerHTML = `
-        <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+      body.innerHTML = `
+        <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close modal-close" aria-label="Close">&times;</button></div>
         <p class="form-msg">This appliance is not available in your city right now.</p>
       `;
-      panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+      body.querySelector('.appliance-boxes-panel-close').addEventListener('click', closeApplianceBoxesPanel);
       return;
     }
 
-    panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+    body.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)} — choose a service</h3><button type="button" class="appliance-boxes-panel-close modal-close" aria-label="Close">&times;</button></div>
       <div class="appliance-boxes-grid">${cardsHtml}</div>
     `;
-    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
-    panel.querySelectorAll('.qb-btn-book[data-sku-id]').forEach(btn => {
+    body.querySelector('.appliance-boxes-panel-close').addEventListener('click', closeApplianceBoxesPanel);
+    body.querySelectorAll('.qb-btn-book[data-sku-id]').forEach(btn => {
       btn.addEventListener('click', () => {
         const type = (appliance.types || []).find(t => t.id === btn.dataset.typeId);
         const services = (type && type.services && type.services.length) ? type.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
         const svc = services.find(s => s.id === btn.dataset.skuId) || { id: btn.dataset.skuId, name: 'Service' };
         qbApplianceId = applianceId;
         qbSelectedTypeId = btn.dataset.typeId;
+        closeApplianceBoxesPanel();
         qbAddService(svc, Number(btn.dataset.price), true);
       });
     });
   } catch (e) {
-    panel.innerHTML = `
-      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close" aria-label="Close">&times;</button></div>
+    body.innerHTML = `
+      <div class="appliance-boxes-panel-head"><h3>${escapeHtml(appliance.name)}</h3><button type="button" class="appliance-boxes-panel-close modal-close" aria-label="Close">&times;</button></div>
       <p class="form-msg error">Could not load prices. Please try again.</p>
     `;
-    panel.querySelector('.appliance-boxes-panel-close').addEventListener('click', () => { panel.style.display = 'none'; });
+    body.querySelector('.appliance-boxes-panel-close').addEventListener('click', closeApplianceBoxesPanel);
   }
 }
 window.openApplianceBoxesPanel = openApplianceBoxesPanel;
@@ -4426,6 +4434,12 @@ function bindQuickBookModal() {
   document.getElementById('quickBookModalClose').addEventListener('click', closeQuickBookModal);
   document.getElementById('quickBookModal').addEventListener('click', (e) => {
     if (e.target.id === 'quickBookModal') closeQuickBookModal();
+  });
+
+  // Tapping outside the appliance-boxes popup (on the dark backdrop)
+  // closes it, same as the main Quick Book modal above.
+  document.getElementById('applianceBoxesPanel')?.addEventListener('click', (e) => {
+    if (e.target.id === 'applianceBoxesPanel') closeApplianceBoxesPanel();
   });
 
   // Sets up the hidden main-form fields to match what was chosen here,
