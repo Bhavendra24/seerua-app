@@ -222,3 +222,18 @@ body.sp-sheet-open { overflow: hidden; }
 .sp-select { appearance: none; -webkit-appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center; padding-right: 34px; font-weight: 600; cursor: pointer; }
 .sp-success, .sp-success p { text-align: center !important; }
 .sp-sheet-head:has(#spSheetTitle:empty) { border-bottom: none; padding-bottom: 0; }
+
+.sp-pick-head { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 10px; }
+.sp-pick-sum { flex: 1; min-width: 0; font-size: 0.9rem; line-height: 1.4; }
+.sp-pick-sum b { color: #15803d; }
+.sp-pick-sum small { display: block; color: var(--slate); font-size: 0.78rem; margin-top: 2px; }
+#spPickEditor { margin-top: 6px; }
+
+/* ---------- Type step (homepage: appliance -> type -> filled form) ---------- */
+.sp-type-q { font-weight: 700; font-size: 1.05rem; margin: 4px 0 12px; text-align: center; }
+.sp-type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.sp-type-btn { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #cfd8e1; border-radius: 14px; padding: 10px; cursor: pointer; font-family: var(--font-body); font-weight: 700; font-size: 0.95rem; color: var(--ink); transition: border-color .15s, transform .12s; }
+.sp-type-btn img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+.sp-type-btn:hover { border-color: var(--accent-500); }
+.sp-type-btn:active { transform: scale(0.97); border-color: #1f8a3b; background: #f0fdf4; }
+.sp-pick-head + .sp-label { margin-top: 10px; }

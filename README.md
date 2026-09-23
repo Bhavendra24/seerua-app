@@ -41,12 +41,18 @@ git push -u origin main
 
 Replace the URL with the one GitHub shows you after creating a new (empty) repository on github.com. Keep the repo **Private** — even with `.gitignore` protecting the most sensitive files, this is still your live business's source code.
 
+## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
+
+- Homepage par chalti photo (appliance) par tap → pehle **"Kaunsa type hai?"** (Window AC / Split AC / Cassette AC, photo ke saath). Type chunte hi booking form khulta hai jisme appliance, type aur **sirf usi ki price** bhari hoti hai. Form mein ab services/prices ki list nahi hai. Jis appliance ka ek hi type hai (Chimney), wo seedha form kholta hai. "Change" se type badal sakte hain.
+- **Time slots ab: 9:00 AM–12:00 PM, 1:00 PM–4:00 PM, 5:00 PM–8:00 PM** (server, Admin/Sub-Admin panel, chatbot sab jagah). Purani bookings ka slot ID wahi hai, bas naam naya.
+
 ## 🆕 Update 3 (Sep 2026) — Homepage popup booking, auto-scroll, success tick
 
 - **Homepage par appliance tap karo → seedha booking popup** (alag window, laal ✕ se band). Us appliance ka pehla type aur pehli service pehle se chuni hoti hai, city pichhli baar wali. Customer chahe to type/service badle ya ek se zyada services chune; naam/mobile/address purane customer ke liye khud bhar jaate hain; date aur pehla khaali slot pehle se chuna. Ek button — "Confirm Booking".
 - Service pages ka booking form bhi ab isi tarah beech mein khulne wala popup hai.
 - **Booking ke baad** bada bhara hua hara gola + safed tick ✓ (animation ke saath), neeche "Thank you!" aur Booking ID, ek "Done" button; "ding-ding" awaaz aur phone vibrate.
-- Homepage popup mein **City aur Type ab dropdown** hain — kitni bhi cities jodo, popup bigdega nahi.
+- Homepage popup mein appliance, type, service aur city **apne aap bhare hote hain** — upar ek hari patti mein sirf dikhte hain (jaise "Window AC Service — ₹440 · Moradabad"). Badalna ho to "Change" dabao, tab hi City/Type dropdown aur service list khulti hai.
+- Popup mein **City aur Type dropdown** hain — kitni bhi cities jodo, popup bigdega nahi.
 - **Horizontal photo line apne aap right se left chalti hai** (homepage aur service pages dono). Customer chhue/scroll kare to ruk jaati hai, 2.5 second baad phir chalti hai. Jinke phone mein "reduce motion" on hai unke liye nahi chalti. SEO par asar nahi — asli links aur photo alt-text HTML mein waise hi hain.
 
 ## 🆕 Update 2 (Sep 2026) — Service photos + homepage cards

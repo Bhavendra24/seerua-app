@@ -478,9 +478,9 @@
   // slot IDs/labels (see TIME_SLOTS in server.js) — kept here rather than
   // fetched from an API since these 3 windows are fixed, not admin-editable.
   const TIME_SLOT_MAP = {
-    morning: { id: 'slot1', label: '8:00 AM - 11:00 AM' },
-    afternoon: { id: 'slot2', label: '12:00 PM - 3:00 PM' },
-    evening: { id: 'slot3', label: '4:00 PM - 7:00 PM' }
+    morning: { id: 'slot1', label: '9:00 AM - 12:00 PM' },
+    afternoon: { id: 'slot2', label: '1:00 PM - 4:00 PM' },
+    evening: { id: 'slot3', label: '5:00 PM - 8:00 PM' }
   };
 
   async function presentBookingConfirmation(draft) {

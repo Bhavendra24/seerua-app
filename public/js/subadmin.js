@@ -564,9 +564,9 @@ async function openNewBookingModal() {
 
   document.getElementById('nbCity').innerHTML = CITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   document.getElementById('nbSlotId').innerHTML = '<option value="">Select a time slot</option>' +
-    '<option value="slot1">8:00 AM - 11:00 AM</option>' +
-    '<option value="slot2">12:00 PM - 3:00 PM</option>' +
-    '<option value="slot3">4:00 PM - 7:00 PM</option>';
+    '<option value="slot1">9:00 AM - 12:00 PM</option>' +
+    '<option value="slot2">1:00 PM - 4:00 PM</option>' +
+    '<option value="slot3">5:00 PM - 8:00 PM</option>';
   await refreshNbAppliancesForCity(document.getElementById('nbCity').value);
 
   openModal('newBookingModal');

@@ -366,9 +366,9 @@ const {
 // =======================================================
 
 const TIME_SLOTS = [
-  { id: 'slot1', label: '8:00 AM - 11:00 AM', startHour: 8, endHour: 11 },
-  { id: 'slot2', label: '12:00 PM - 3:00 PM', startHour: 12, endHour: 15 },
-  { id: 'slot3', label: '4:00 PM - 7:00 PM', startHour: 16, endHour: 19 }
+  { id: 'slot1', label: '9:00 AM - 12:00 PM', startHour: 9, endHour: 12 },
+  { id: 'slot2', label: '1:00 PM - 4:00 PM', startHour: 13, endHour: 16 },
+  { id: 'slot3', label: '5:00 PM - 8:00 PM', startHour: 17, endHour: 20 }
 ];
 
 // Works out, for a given date + city, which slots are open. A slot is
@@ -2540,6 +2540,9 @@ const SERVICE_PHOTO_ID_RE = /^[a-zA-Z0-9_-]{1,60}$/;
 function servicePhotoKey(applianceId, typeId, svcId) {
   return `${applianceId}_${typeId}_${svcId}`;
 }
+function readServicePhotosCopy() {
+  try { return readData('service-photos') || {}; } catch (e) { return {}; } // key may not exist yet (first run / fresh MySQL)
+}
 function readServicePhotos() {
   try { return readDataReadOnly('service-photos') || {}; } catch (e) { return {}; }
 }
@@ -2575,14 +2578,14 @@ app.put('/api/admin/service-photos/:applianceId/:typeId/:svcId', requireAdmin, a
   const buf = Buffer.from(m[2], 'base64');
   if (buf.length > 700 * 1024) return res.status(400).json({ error: 'Photo is too large even after resizing — please use a smaller image.' });
   if (!FILE_SIGNATURES.some(sig => sig.check(buf))) return res.status(400).json({ error: 'That file does not look like a valid image.' });
-  const photos = readData('service-photos');
+  const photos = readServicePhotosCopy();
   photos[servicePhotoKey(applianceId, typeId, svcId)] = { mime: m[1], data: m[2], updatedAt: Date.now() };
   await writeData('service-photos', photos);
   res.json({ success: true, url: servicePhotoUrl(applianceId, typeId, svcId) });
 });
 
 app.delete('/api/admin/service-photos/:applianceId/:typeId/:svcId', requireAdmin, async (req, res) => {
-  const photos = readData('service-photos');
+  const photos = readServicePhotosCopy();
   delete photos[servicePhotoKey(req.params.applianceId, req.params.typeId, req.params.svcId)];
   await writeData('service-photos', photos);
   res.json({ success: true });
@@ -2599,7 +2602,7 @@ app.delete('/api/admin/appliances/:id', requireAdmin, (req, res) => {
     pricing = pricing.filter(p => p.applianceId !== req.params.id);
     writeData('pricing', pricing);
     // Its service photos go too, and its old pages answer 410 Gone.
-    const photos = readData('service-photos');
+    const photos = readServicePhotosCopy();
     Object.keys(photos).forEach(k => { if (k.startsWith(`${appliance.id}_`)) delete photos[k]; });
     writeData('service-photos', photos);
     markRemovedServiceSlug(applianceSlug(appliance.name), true);
@@ -2651,7 +2654,7 @@ app.delete('/api/admin/appliances/:applianceId/types/:typeId', requireAdmin, (re
   appliance.types = appliance.types.filter(t => t.id !== req.params.typeId);
   writeData('appliances', appliances);
   if (removedType) {
-    const photos = readData('service-photos');
+    const photos = readServicePhotosCopy();
     Object.keys(photos).forEach(k => { if (k.startsWith(`${appliance.id}_${removedType.id}_`)) delete photos[k]; });
     writeData('service-photos', photos);
     markRemovedServiceSlug(`${applianceSlug(appliance.name)}/${slugify(removedType.name)}`, true);
@@ -3186,7 +3189,7 @@ app.post('/api/admin/notification-config/test', requireAdmin, async (req, res) =
     name: 'Test Customer',
     phone,
     bookingDate: istDateStr(), // IST, not server/UTC today
-    timeSlot: '8:00 AM - 11:00 AM',
+    timeSlot: '9:00 AM - 12:00 PM',
     totalPrice: 499
   };
   const results = {};
