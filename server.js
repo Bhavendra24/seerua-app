@@ -2560,6 +2560,14 @@ app.get('/service-photo/:key.jpg', (req, res) => {
   res.send(Buffer.from(rec.data, 'base64'));
 });
 
+// Public: which service cards have their own uploaded photo (URLs only).
+app.get('/api/service-photos', (req, res) => {
+  const all = readServicePhotos();
+  const out = {};
+  Object.keys(all).forEach(k => { out[k] = { url: `/service-photo/${k}.jpg?v=${all[k].updatedAt}` }; });
+  res.json(out);
+});
+
 app.get('/api/admin/service-photos', requireStaff, (req, res) => {
   const all = readServicePhotos();
   const out = {};
@@ -2582,6 +2590,43 @@ app.put('/api/admin/service-photos/:applianceId/:typeId/:svcId', requireAdmin, a
   photos[servicePhotoKey(applianceId, typeId, svcId)] = { mime: m[1], data: m[2], updatedAt: Date.now() };
   await writeData('service-photos', photos);
   res.json({ success: true, url: servicePhotoUrl(applianceId, typeId, svcId) });
+});
+
+// MAIN APPLIANCE PHOTO (homepage tile, "Select a Product" strip, and the
+// default photo on every card of that appliance). Upload replaces it;
+// Remove goes back to the built-in library photo (if one exists) or none.
+// Stored under key "<applianceId>__main" so deleting the appliance also
+// removes it (same prefix clean-up as its service photos).
+app.put('/api/admin/appliance-photo/:applianceId', requireAdmin, async (req, res) => {
+  const appliances = readData('appliances');
+  const appliance = appliances.find(a => a.id === req.params.applianceId);
+  if (!appliance) return res.status(404).json({ error: 'Appliance not found.' });
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String((req.body || {}).dataUrl || ''));
+  if (!m) return res.status(400).json({ error: 'Please upload a JPG, PNG or WEBP image.' });
+  const buf = Buffer.from(m[2], 'base64');
+  if (buf.length > 700 * 1024) return res.status(400).json({ error: 'Photo is too large even after resizing — please use a smaller image.' });
+  if (!FILE_SIGNATURES.some(sig => sig.check(buf))) return res.status(400).json({ error: 'That file does not look like a valid image.' });
+  const key = `${appliance.id}__main`;
+  const photos = readServicePhotosCopy();
+  const updatedAt = Date.now();
+  photos[key] = { mime: m[1], data: m[2], updatedAt };
+  await writeData('service-photos', photos);
+  appliance.photoUrl = `/service-photo/${key}.jpg?v=${updatedAt}`;
+  await writeData('appliances', appliances);
+  res.json({ success: true, url: appliance.photoUrl });
+});
+
+app.delete('/api/admin/appliance-photo/:applianceId', requireAdmin, async (req, res) => {
+  const appliances = readData('appliances');
+  const appliance = appliances.find(a => a.id === req.params.applianceId);
+  if (!appliance) return res.status(404).json({ error: 'Appliance not found.' });
+  const photos = readServicePhotosCopy();
+  delete photos[`${appliance.id}__main`];
+  await writeData('service-photos', photos);
+  const library = findLibraryPhotoForAppliance(appliance.name);
+  if (library) appliance.photoUrl = library; else delete appliance.photoUrl;
+  await writeData('appliances', appliances);
+  res.json({ success: true, url: appliance.photoUrl || null });
 });
 
 app.delete('/api/admin/service-photos/:applianceId/:typeId/:svcId', requireAdmin, async (req, res) => {

@@ -237,3 +237,14 @@ body.sp-sheet-open { overflow: hidden; }
 .sp-type-btn:hover { border-color: var(--accent-500); }
 .sp-type-btn:active { transform: scale(0.97); border-color: #1f8a3b; background: #f0fdf4; }
 .sp-pick-head + .sp-label { margin-top: 10px; }
+
+/* ---------- Homepage popup: cards step (same look as service pages) ---------- */
+.sp-cards-step { padding-bottom: 0; }
+.sp-city-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sp-city-row label { font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
+.sp-city-row .sp-select { padding-top: 8px; padding-bottom: 8px; }
+.sp-cards-step .sp-tabs { margin-bottom: 10px; }
+.sp-cards-step .sp-tab { font-family: var(--font-body); cursor: pointer; }
+.sp-cards-step .sp-panel { padding-bottom: 12px; }
+.sp-cardbar { position: sticky; bottom: 0; margin: 0 -16px; padding: 10px 16px; background: var(--blue-900); color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.9rem; }
+.sp-cardbar[hidden] { display: none !important; }

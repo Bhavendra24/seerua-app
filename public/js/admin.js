@@ -1482,8 +1482,8 @@ function renderAppliances() {
         </div>
       </div>
       <details class="svc-photos" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;" ontoggle="if(this.open) renderServicePhotos('${a.id}')">
-        <summary style="cursor:pointer;font-weight:700;">📷 Service Photos — ${a.name} (har type + service ki alag photo)</summary>
-        <p style="font-size:0.82rem;color:var(--slate);margin:8px 0;">Har service card (jaise "Split AC Gas Filling") ke liye alag photo upload karein. Photo apne aap chhoti (800px) ho jaati hai. Jis service ki photo nahi hogi, wahan ${a.name} ki general photo dikhegi.</p>
+        <summary style="cursor:pointer;font-weight:700;">📷 Photos — ${a.name} (main photo + har service ki photo)</summary>
+        <p style="font-size:0.82rem;color:var(--slate);margin:8px 0;">Yahan ${a.name} ki saari photos add / change / remove karein. <b>Main photo</b> homepage, "Select a Product" line aur har card par default dikhti hai. Neeche har type + service (jaise "Split AC Gas Filling") ki alag photo. Photo apne aap chhoti (800px) ho jaati hai. Jis service ki photo nahi, wahan main photo dikhegi.</p>
         <div id="svcPhotos-${a.id}"><p style="font-size:0.85rem;color:var(--slate);">Loading…</p></div>
       </details>
       <div class="field" style="margin-top:14px;">
@@ -3310,7 +3310,23 @@ async function renderServicePhotos(applianceId) {
   const a = APPLIANCES.find(x => x.id === applianceId);
   if (!a) return;
   const services = t => (Array.isArray(t.services) && t.services.length) ? t.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
-  box.innerHTML = a.types.map(t => `
+  const mainOwn = !!SERVICE_PHOTOS[`${a.id}__main`];
+  const mainHtml = `
+    <div style="display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8fafc;margin-bottom:6px;">
+      ${a.photoUrl ? `<img src="${a.photoUrl}" alt="" style="width:90px;height:90px;object-fit:cover;border-radius:8px;">` : `<div style="width:90px;height:90px;border-radius:8px;background:var(--mist);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--slate);">No photo</div>`}
+      <div style="flex:1;">
+        <div style="font-weight:700;">Main photo — ${a.name}</div>
+        <div style="font-size:0.78rem;color:var(--slate);margin:2px 0 8px;">${mainOwn ? 'Aapki upload ki hui photo' : (a.photoUrl ? 'Default (built-in) photo' : 'Abhi koi photo nahi')}</div>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;">
+          ${a.photoUrl ? 'Change' : 'Upload'}
+          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="uploadAppliancePhoto('${a.id}', this)">
+        </label>
+        ${mainOwn ? `<button class="btn btn-danger btn-sm" onclick="removeAppliancePhoto('${a.id}')">Remove</button>` : ''}
+        <div class="msg-inline" id="applPhotoMsg-${a.id}" style="font-size:0.75rem;margin-top:4px;"></div>
+      </div>
+    </div>`;
+  if (!a.types.length) { box.innerHTML = mainHtml + '<p style="font-size:0.85rem;color:var(--slate);">Is appliance mein abhi koi type nahi hai — "+ Add Type" se type jodne par yahan uski services ke photo box aa jayenge.</p>'; return; }
+  box.innerHTML = mainHtml + a.types.map(t => `
     <div style="margin:10px 0 4px;font-weight:700;font-size:0.9rem;">${t.name}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
       ${services(t).map(svc => {
@@ -3381,6 +3397,33 @@ async function removeServicePhoto(applianceId, typeId, svcId) {
   if (!confirm('Remove this photo? The default appliance photo will show instead.')) return;
   try {
     await api(`/api/admin/service-photos/${applianceId}/${typeId}/${svcId}`, { method: 'DELETE' });
+    SERVICE_PHOTOS = null;
+    await renderServicePhotos(applianceId);
+  } catch (e) { alert(e.message); }
+}
+
+
+async function uploadAppliancePhoto(applianceId, input) {
+  const file = input.files && input.files[0];
+  const msg = document.getElementById(`applPhotoMsg-${applianceId}`);
+  if (!file) return;
+  try {
+    if (msg) { msg.className = 'msg-inline'; msg.textContent = 'Uploading…'; }
+    const dataUrl = await shrinkImageToDataUrl(file);
+    const r = await api(`/api/admin/appliance-photo/${applianceId}`, { method: 'PUT', body: JSON.stringify({ dataUrl }) });
+    const a = APPLIANCES.find(x => x.id === applianceId); if (a) a.photoUrl = r.url;
+    SERVICE_PHOTOS = null;
+    await renderServicePhotos(applianceId);
+  } catch (e) {
+    if (msg) { msg.className = 'msg-inline error'; msg.textContent = e.message; }
+  } finally { input.value = ''; }
+}
+
+async function removeAppliancePhoto(applianceId) {
+  if (!confirm('Remove this main photo? The built-in photo (if any) will show instead.')) return;
+  try {
+    const r = await api(`/api/admin/appliance-photo/${applianceId}`, { method: 'DELETE' });
+    const a = APPLIANCES.find(x => x.id === applianceId); if (a) { if (r.url) a.photoUrl = r.url; else delete a.photoUrl; }
     SERVICE_PHOTOS = null;
     await renderServicePhotos(applianceId);
   } catch (e) { alert(e.message); }

@@ -89,7 +89,6 @@
       '   <div id="spPicker" hidden>' +
       '    <div class="sp-pick-head"><img id="spPickImg" alt="" hidden><div class="sp-pick-sum"><strong id="spPickName"></strong><span id="spPickSummary"></span></div>' +
       '     <button type="button" class="sp-link-btn" id="spPickChange">Change</button></div>' +
-      '    <label class="sp-label" for="spPickCity">City</label><select class="sp-input sp-select" id="spPickCity"></select>' +
       '   </div>' +
       '   <div class="sp-items" id="spItems"></div>' +
       '   <button type="button" class="sp-add-more" id="spAddMore">+ Add another service</button>' +
@@ -112,9 +111,11 @@
       '   <button type="button" class="sp-confirm" id="spConfirm">Confirm Booking</button>' +
       '   <p class="sp-fine">Pay after the work is done. Spare parts, if needed, only with your approval.</p>' +
       '  </div>' +
-      '  <div class="sp-sheet-body" id="spStepType" hidden>' +
-      '   <p class="sp-type-q">Kaunsa type hai?</p>' +
-      '   <div class="sp-type-grid" id="spTypeGrid"></div>' +
+      '  <div class="sp-sheet-body sp-cards-step" id="spStepType" hidden>' +
+      '   <div class="sp-city-row"><label for="spPickCity">📍 City</label><select class="sp-input sp-select" id="spPickCity"></select></div>' +
+      '   <div class="sp-tabs" id="spCardTabs"></div>' +
+      '   <div class="sp-panel" id="spCardList"></div>' +
+      '   <div class="sp-cardbar" id="spCardBar" hidden><span id="spCardBarText"></span><button type="button" class="sp-cartbar-btn" id="spCardBarBtn">Book Now →</button></div>' +
       '  </div>' +
       '  <div class="sp-sheet-body" id="spStepOtp" hidden>' +
       '   <p>We sent a code to <strong>+91 <span id="spOtpPhone"></span></strong>. Enter it to confirm your booking (only needed on your first booking).</p>' +
@@ -241,79 +242,131 @@
     return ids[0] || null;
   }
 
-  // Homepage flow: tap appliance -> choose its type (only if it has more
-  // than one) -> booking form opens already filled with that appliance +
-  // type, showing ONLY that one service's price. No list of all prices.
+  // Homepage flow (same look as the service pages): tap appliance ->
+  // popup with its type tabs and one card per service (photo, price,
+  // checklist, Add / Book — no Review). "Book" opens the booking form with
+  // ONLY the chosen service(s) and their price.
+  var photoMapPromise = null;
+  function loadPhotoMap() {
+    if (!photoMapPromise) photoMapPromise = fetchJSON('/api/service-photos').catch(function () { return {}; });
+    return photoMapPromise;
+  }
+
   function openForAppliance(applianceId, typeId) {
     ensureMarkup(); bindOnce();
-    Promise.all([loadCities(), loadAppliances()]).then(function (r) {
+    Promise.all([loadCities(), loadAppliances(), loadPhotoMap()]).then(function (r) {
       pick.cities = r[0];
+      pick.photos = r[2] || {};
       var appl = r[1].find(function (a) { return a.id === applianceId; });
       if (!appl || !appl.types.length) { toast('This service is not available right now.'); return; }
       pick.appliance = appl;
       var cid = guessCityId(pick.cities);
       var c = pick.cities.find(function (x) { return x.id === cid; }) || {};
       setCity(c.id || null, c.name || '');
+      cart = { cityId: city.id, items: [] };
       $('spPickName').textContent = appl.name;
       var img = $('spPickImg');
       if (appl.photoUrl) { img.src = appl.photoUrl; img.alt = appl.name; img.hidden = false; } else img.hidden = true;
+      pick.typeId = (typeId && appl.types.some(function (t) { return t.id === typeId; })) ? typeId : appl.types[0].id;
       renderPickCities();
-      var preset = typeId && appl.types.some(function (t) { return t.id === typeId; });
-      if (preset || appl.types.length === 1) chooseType(preset ? typeId : appl.types[0].id);
-      else showTypeStep();
+      showTypeStep();
     }).catch(function (e) { toast(e.message || 'Could not load. Please try again.'); });
   }
 
   function showTypeStep() {
     var appl = pick.appliance;
-    var grid = $('spTypeGrid');
-    grid.innerHTML = appl.types.map(function (t) {
-      return '<button type="button" class="sp-type-btn" data-type="' + escapeHtml(t.id) + '">' +
-        (appl.photoUrl ? '<img src="' + escapeHtml(appl.photoUrl) + '" alt="">' : '') +
-        '<span>' + escapeHtml(t.name) + '</span></button>';
+    var tabs = $('spCardTabs');
+    tabs.hidden = appl.types.length < 2;
+    tabs.innerHTML = appl.types.map(function (t) {
+      return '<button type="button" class="sp-tab' + (t.id === pick.typeId ? ' active' : '') + '" data-type="' + escapeHtml(t.id) + '">' + escapeHtml(t.name) + '</button>';
     }).join('');
-    grid.querySelectorAll('.sp-type-btn').forEach(function (b) {
-      b.addEventListener('click', function () { chooseType(b.getAttribute('data-type')); });
+    tabs.querySelectorAll('.sp-tab').forEach(function (b) {
+      b.addEventListener('click', function () {
+        pick.typeId = b.getAttribute('data-type');
+        tabs.querySelectorAll('.sp-tab').forEach(function (x) { x.classList.toggle('active', x === b); });
+        renderCards();
+      });
     });
     openSheet('spStepType');
+    renderCards();
   }
 
-  function chooseType(typeId) {
-    pick.typeId = typeId;
-    cart = { cityId: city.id, items: [] };
-    appliedCoupon = null; setMsg($('spCouponMsg'), '');
-    $('spPickChange').hidden = pick.appliance.types.length < 2;
-    openSheet('spStepForm');
-    loadChosenService();
+  function cardItem(appl, type, svc, price) {
+    return {
+      key: appl.id + '|' + type.id + '|' + svc.id, applianceId: appl.id, applianceName: appl.name,
+      typeId: type.id, typeName: type.name, skuId: svc.id, skuName: svc.name,
+      serviceType: bookingServiceType(svc.id), price: price,
+      title: typeDisplayName(type.name, appl.name) + ' ' + svc.name
+    };
   }
 
-  // Fills the form with the chosen type's main service (first one Admin
-  // listed, e.g. "Service") at this city's price.
-  function loadChosenService() {
+  var CHECK = '<svg class="sp-check" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10"/><path d="M5.5 10.3l3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var TAG = '<svg class="sp-tag" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4a1 1 0 011-1h8l9 9-9 9-9-9z"/><circle cx="7.5" cy="7.5" r="1.6" fill="#fff"/></svg>';
+  var CART_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM5.2 4l.4 2H21l-2 8H7.4l-.3 1.5H19v2H4.7L6.2 11 4.4 4H2V2h3.9z"/></svg>';
+
+  function renderCards() {
     var appl = pick.appliance;
     var type = appl.types.find(function (t) { return t.id === pick.typeId; });
-    var sum = $('spPickSummary');
-    cart = { cityId: city.id, items: [] };
-    if (!type || !city.id) { sum.innerHTML = '<span class="sp-muted">Please choose your city.</span>'; afterItemsChange(); return; }
-    sum.innerHTML = '<span class="sp-muted">Loading…</span>';
+    var list = $('spCardList');
+    if (!type || !city.id) { list.innerHTML = '<p class="sp-muted">Please choose your city.</p>'; updateCardBar(); return; }
+    list.innerHTML = '<p class="sp-muted">Loading…</p>';
     var reqCity = city.id, reqType = type.id;
     loadPrice(city.id, appl.id, type.id).then(function (row) {
       if (reqCity !== city.id || reqType !== pick.typeId) return;
-      var first = servicesOf(type).map(function (sv) { return { svc: sv, price: priceForSku(row, sv.id) }; })
-        .filter(function (x) { return typeof x.price === 'number'; })[0];
-      if (first) {
-        addItem({
-          key: appl.id + '|' + type.id + '|' + first.svc.id, applianceId: appl.id, applianceName: appl.name,
-          typeId: type.id, typeName: type.name, skuId: first.svc.id, skuName: first.svc.name,
-          serviceType: bookingServiceType(first.svc.id), price: first.price,
-          title: typeDisplayName(type.name, appl.name) + ' ' + first.svc.name
+      var svcs = servicesOf(type).map(function (sv) { return { svc: sv, price: priceForSku(row, sv.id) }; })
+        .filter(function (x) { return typeof x.price === 'number'; });
+      if (!svcs.length) { list.innerHTML = '<p class="sp-muted">Not available in ' + escapeHtml(city.name) + ' yet.</p>'; updateCardBar(); return; }
+      list.innerHTML = svcs.map(function (x, idx) {
+        var it = cardItem(appl, type, x.svc, x.price);
+        var photo = (pick.photos[appl.id + '_' + type.id + '_' + x.svc.id] || {}).url || appl.photoUrl;
+        var checks = (x.svc.checklist && x.svc.checklist.length ? x.svc.checklist : ['Trained, verified technician', 'Price confirmed before work starts', 'Genuine spare parts', 'Performance checked after work', '30-day service warranty'])
+          .slice(0, 5).map(function (c) { return '<li>' + CHECK + '<span>' + escapeHtml(c) + '</span></li>'; }).join('');
+        var added = inCart(it.key);
+        return '<article class="sp-card" data-idx="' + idx + '">' +
+          '<div class="sp-card-img">' + (photo ? '<img src="' + escapeHtml(photo) + '" alt="' + escapeHtml(it.title) + '" loading="lazy">' : '<span class="sp-strip-fallback">🔧</span>') +
+          '<span class="sp-badge">' + inr(x.price) + '/-</span></div>' +
+          '<div class="sp-card-body"><h3 class="sp-card-title">' + escapeHtml(it.title) + ' In ' + escapeHtml(city.name) + '</h3>' +
+          '<div class="sp-price">' + TAG + '<s>' + inr(Math.round((x.price * 1.2) / 10) * 10) + '</s><strong>' + inr(x.price) + '</strong></div>' +
+          '<ul class="sp-checks">' + checks + '</ul></div>' +
+          '<div class="sp-actions"><button type="button" class="sp-btn sp-btn-add' + (added ? ' added' : '') + '" data-act="add">' + CART_SVG + '<span>' + (added ? 'Added ✓' : 'Add') + '</span></button>' +
+          '<button type="button" class="sp-btn sp-btn-book" data-act="book">Book</button></div></article>';
+      }).join('');
+      list.querySelectorAll('.sp-card').forEach(function (card) {
+        var x = svcs[+card.getAttribute('data-idx')];
+        var it = cardItem(appl, type, x.svc, x.price);
+        card.querySelector('[data-act="add"]').addEventListener('click', function () {
+          if (inCart(it.key)) removeItem(it.key); else { addItem(it); toast('✅ ' + it.title + ' added'); }
+          renderCards();
         });
-      }
-      afterItemsChange();
+        card.querySelector('[data-act="book"]').addEventListener('click', function () {
+          addItem(it);
+          goToForm();
+        });
+      });
+      updateCardBar();
     }).catch(function () {
       if (reqCity !== city.id) return;
-      afterItemsChange();
+      list.innerHTML = '<p class="sp-muted">' + escapeHtml(appl.name) + ' is not available in ' + escapeHtml(city.name) + ' yet.</p>';
+      updateCardBar();
     });
+  }
+
+  function updateCardBar() {
+    var bar = $('spCardBar'); if (!bar) return;
+    var n = cart.items.length;
+    bar.hidden = n === 0;
+    $('spCardBarText').innerHTML = '<strong>' + n + (n === 1 ? ' service' : ' services') + '</strong> · ' + inr(cartTotal());
+  }
+
+  function goToForm() {
+    $('spPickChange').hidden = false;
+    $('spPickChange').textContent = 'Change';
+    showStep('spStepForm');
+    appliedCoupon = null; setMsg($('spCouponMsg'), '');
+    prefillDetails();
+    renderDates();
+    afterItemsChange();
+    var body = $('spStepForm'); if (body) body.scrollTop = 0;
   }
 
   function setCity(id, name) {
@@ -333,19 +386,17 @@
       var c = pick.cities.find(function (x) { return x.id === sel.value; });
       if (!c || c.id === city.id) return;
       setCity(c.id, c.name);
+      cart = { cityId: city.id, items: [] }; // prices differ per city
       appliedCoupon = null; setMsg($('spCouponMsg'), '');
       prefillDetails();
-      loadChosenService();
+      renderCards();
     };
   }
 
   function updatePickSummary() {
     var el = $('spPickSummary'); if (!el) return;
-    if (!cart.items.length) {
-      el.innerHTML = '<span class="sp-muted">' + escapeHtml(pick.appliance ? pick.appliance.name : 'This service') + ' is not available in ' + escapeHtml(city.name || 'this city') + ' yet — please choose another city.</span>';
-      return;
-    }
-    el.innerHTML = cart.items.map(function (i) { return escapeHtml(i.title) + ' — <b>' + inr(i.price) + '</b>'; }).join('<br>');
+    el.innerHTML = cart.items.map(function (i) { return escapeHtml(i.title) + ' — <b>' + inr(i.price) + '</b>'; }).join('<br>') +
+      '<small>📍 ' + escapeHtml(city.name || '') + '</small>';
   }
   function afterItemsChange() {
     updatePickSummary();
@@ -391,7 +442,7 @@
     ['spStepForm', 'spStepType', 'spStepOtp', 'spStepDone'].forEach(function (s) { $(s).hidden = s !== id; });
     if (id === 'spStepOtp') $('spSheetTitle').textContent = 'Verify mobile number';
     else if (id === 'spStepDone') $('spSheetTitle').textContent = '';
-    else if (id === 'spStepType' && pick.appliance) $('spSheetTitle').textContent = pick.appliance.name;
+    else if (id === 'spStepType' && pick.appliance) $('spSheetTitle').textContent = pick.appliance.name + ' Service';
     else if (MODE === 'home' && pick.appliance) $('spSheetTitle').textContent = pick.appliance.name + ' Booking';
     else $('spSheetTitle').textContent = 'Book Service';
   }
@@ -731,7 +782,8 @@
     $('spSheet').addEventListener('click', function (e) { if (e.target === $('spSheet')) closeSheet(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('spSheet').classList.contains('open')) closeSheet(); });
     $('spAddMore').addEventListener('click', function () { closeSheet(); var s = $('services'); if (s) s.scrollIntoView({ behavior: 'smooth' }); });
-    $('spPickChange').addEventListener('click', function () { if (pick.appliance && pick.appliance.types.length > 1) showTypeStep(); });
+    $('spPickChange').addEventListener('click', function () { if (pick.appliance) showTypeStep(); });
+    $('spCardBarBtn').addEventListener('click', function () { if (cart.items.length) goToForm(); });
     $('spEditDetails').addEventListener('click', function () { $('spSaved').hidden = true; $('spDetailFields').hidden = false; $('spName').focus(); });
     $('spConfirm').addEventListener('click', onConfirm);
     $('spPhone').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 10); });

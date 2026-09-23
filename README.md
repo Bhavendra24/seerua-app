@@ -43,7 +43,9 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
-- Homepage par chalti photo (appliance) par tap → pehle **"Kaunsa type hai?"** (Window AC / Split AC / Cassette AC, photo ke saath). Type chunte hi booking form khulta hai jisme appliance, type aur **sirf usi ki price** bhari hoti hai. Form mein ab services/prices ki list nahi hai. Jis appliance ka ek hi type hai (Chimney), wo seedha form kholta hai. "Change" se type badal sakte hain.
+- **(Update 6) Saari photos Admin se:** Super Admin → Appliances → har appliance mein "📷 Photos". Sabse upar **Main photo** (homepage ki chalti line, service page ki "Select a Product" line aur har card ki default photo) — Upload / Change / Remove. Remove karne par built-in photo wapas aa jaati hai. Neeche har type + service ki alag photo. Naya appliance ya type jodne par uske photo box khud aa jaate hain; appliance/type delete karne par uski photos bhi hat jaati hain.
+- **(Update 5)** Homepage par appliance tap karne par ab popup mein service page jaisa hi dikhta hai: City dropdown, type tabs (Window/Split/Cassette) aur har service ka card (photo, price, green tick points, Add / Book — Review nahi). Book dabane par form mein sirf wahi service aur uski price.
+- (purana) Homepage par chalti photo (appliance) par tap → pehle **"Kaunsa type hai?"** (Window AC / Split AC / Cassette AC, photo ke saath). Type chunte hi booking form khulta hai jisme appliance, type aur **sirf usi ki price** bhari hoti hai. Form mein ab services/prices ki list nahi hai. Jis appliance ka ek hi type hai (Chimney), wo seedha form kholta hai. "Change" se type badal sakte hain.
 - **Time slots ab: 9:00 AM–12:00 PM, 1:00 PM–4:00 PM, 5:00 PM–8:00 PM** (server, Admin/Sub-Admin panel, chatbot sab jagah). Purani bookings ka slot ID wahi hai, bas naam naya.
 
 ## 🆕 Update 3 (Sep 2026) — Homepage popup booking, auto-scroll, success tick
