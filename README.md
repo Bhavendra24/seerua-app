@@ -43,6 +43,14 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 10) SEO sudhar:**
+  - Admin → Cities → har city ke aage **"📍 Local info"**: us city ki apni jaankari (mohalle, aas-paas ke gaon, local problems) likhiye — ye us city ke har service page par "… Service Across <City>" section mein aati hai. Har city ka alag, asli text = Google ki nazar mein alag page.
+  - Type page (jaise Split AC) par ab sirf usi type ke cards; baaki types ke tab uske apne page ka link. Appliance page par sab types ke tab pehle jaise.
+  - Nakli kata hua "purana price" (asli × 1.2) har jagah se hata diya (dark-pattern jokhim).
+  - Article mein price ka dohraav hata diya — prices sirf ek table mein; Google schema mein ab har service ka alag Offer (naam + asli price).
+- **(Update 9)** **Add = sirf cart** (form nahi khulta, cart ke badge mein ginti badhti hai). **Book = sirf wahi ek service ka form** (cart ki baaki services usme nahi aati, cart waisa hi bacha rehta hai). Cart icon dabane par cart ki saari services ka form.
+- **(Update 8)** "Add" phir se **cart** mein jaata hai (homepage popup aur service pages dono). Cart icon par badge mein ginti; cart icon dabane par booking form khulta hai jisme cart ki saari services (AC, Washing Machine… ek saath) hoti hain. Homepage aur service pages ka cart ek hi hai. "Book" seedha form kholta hai.
+- **(Update 7)** Customer ki booking/login ke baad header ke gole mein uske naam ka pehla akshar (turant, reload ke bina).
 - **(Update 6) Saari photos Admin se:** Super Admin → Appliances → har appliance mein "📷 Photos". Sabse upar **Main photo** (homepage ki chalti line, service page ki "Select a Product" line aur har card ki default photo) — Upload / Change / Remove. Remove karne par built-in photo wapas aa jaati hai. Neeche har type + service ki alag photo. Naya appliance ya type jodne par uske photo box khud aa jaate hain; appliance/type delete karne par uski photos bhi hat jaati hain.
 - **(Update 5)** Homepage par appliance tap karne par ab popup mein service page jaisa hi dikhta hai: City dropdown, type tabs (Window/Split/Cassette) aur har service ka card (photo, price, green tick points, Add / Book — Review nahi). Book dabane par form mein sirf wahi service aur uski price.
 - (purana) Homepage par chalti photo (appliance) par tap → pehle **"Kaunsa type hai?"** (Window AC / Split AC / Cassette AC, photo ke saath). Type chunte hi booking form khulta hai jisme appliance, type aur **sirf usi ki price** bhari hoti hai. Form mein ab services/prices ki list nahi hai. Jis appliance ka ek hi type hai (Chimney), wo seedha form kholta hai. "Change" se type badal sakte hain.

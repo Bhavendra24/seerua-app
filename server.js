@@ -2246,6 +2246,11 @@ app.put('/api/admin/cities/:id', requireAdmin, (req, res) => {
     city.name = trimmed;
   }
   if (req.body.active !== undefined) city.active = req.body.active;
+  if (req.body.localInfo !== undefined) {
+    const info = String(req.body.localInfo || '').trim();
+    if (info.length > 3000) return res.status(400).json({ error: 'Local info is too long (max 3000 characters).' });
+    city.localInfo = info;
+  }
   writeData('cities', cities);
   res.json({ success: true, city });
 });
@@ -5241,7 +5246,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     const stripHtml = servicePage.buildStripHtml(allAppliances, appliance, city);
     const tabsHtml = servicePage.buildTabsHtml(typeRows, appliance, city, activeTypeId);
     const panelsHtml = typeRows.length
-      ? servicePage.buildPanelsHtml(typeRows, appliance, city, activeTypeId, servicePhotoUrl)
+      ? servicePage.buildPanelsHtml(focusType ? typeRows.filter(r => r.type.id === focusType.id) : typeRows, appliance, city, activeTypeId, servicePhotoUrl)
       : `<p class="form-msg">Pricing for ${escapeHtml(appliance.name)} in ${escapeHtml(city.name)} is being updated. Please call us on ${BUSINESS_PHONE} to book.</p>`;
     const articleHtml = servicePage.buildArticleHtml({
       appliance, city, typeRows, focusType, displayName,
@@ -5326,7 +5331,23 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       '{{FOOTER_SLOGAN}}': escapeHtml(siteContent.footerSlogan || ''),
       '{{FOOTER_DESCRIPTION}}': escapeHtml(siteContent.footerDescription || ''),
       '{{YEAR}}': String(new Date().getFullYear()),
-      '{{SERVICE_SCHEMA_JSON}}': buildApplianceServiceSchemaJson({ ...appliance, name: displayName }, city, canonicalUrl, priceRange),
+      '{{SERVICE_SCHEMA_JSON}}': (() => {
+        // One Offer per bookable service (exact name + price) instead of
+        // only a price range — clearer for Google.
+        const schema = JSON.parse(buildApplianceServiceSchemaJson({ ...appliance, name: displayName }, city, canonicalUrl, priceRange));
+        const offers = scopedRows.flatMap(r => r.services.map(({ svc, price }) => ({
+          '@type': 'Offer',
+          name: `${servicePage.typeDisplayName(r.type, appliance)} ${svc.name} in ${city.name}`,
+          price: String(price),
+          priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
+          url: canonicalUrl
+        })));
+        if (offers.length) {
+          schema.hasOfferCatalog = { '@type': 'OfferCatalog', name: `${displayName} services in ${city.name}`, itemListElement: offers };
+        }
+        return JSON.stringify(schema, null, 2);
+      })(),
       '{{BREADCRUMB_SCHEMA_JSON}}': breadcrumbSchemaHtml,
       '{{PAGE_CONFIG_JSON}}': pageConfig
     };

@@ -74,7 +74,18 @@
     return null;
   }
   function getAccount() { try { return JSON.parse(localStorage.getItem(ACCOUNT_KEY) || 'null'); } catch (e) { return null; } }
-  function saveAccount(acc) { try { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(acc)); } catch (e) { /* ignore */ } }
+  function saveAccount(acc) { try { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(acc)); } catch (e) { /* ignore */ } updateHeaderInitial(); }
+  // Logged-in customer (saved account) -> header profile icon shows the
+  // first letter of their name instead of the generic person icon.
+  function updateHeaderInitial() {
+    var btn = $('headerAccountBtn'), icon = $('headerAccountIcon'), ini = $('headerAccountInitial');
+    if (!btn) return;
+    var acc = getAccount();
+    var letter = acc && acc.name ? String(acc.name).trim().charAt(0).toUpperCase() : '';
+    btn.classList.toggle('has-account', !!letter);
+    if (icon) icon.style.display = letter ? 'none' : '';
+    if (ini) { ini.style.display = letter ? 'block' : 'none'; ini.textContent = letter; }
+  }
 
   // ------------------------------------------------------------------ popup markup (injected once)
   function ensureMarkup() {
@@ -147,14 +158,31 @@
   // ------------------------------------------------------------------ state
   var city = { id: CFG.cityId || null, name: CFG.cityName || '' };
   function readCart() {
-    if (MODE !== 'page') return { cityId: city.id, items: [] };
+    if (MODE !== 'page') {
+      // Homepage: same cart as the service pages (one cart site-wide).
+      try {
+        var hc = JSON.parse(sessionStorage.getItem(CART_KEY) || 'null');
+        if (hc && hc.cityId && Array.isArray(hc.items)) return hc;
+      } catch (e) { /* ignore */ }
+      return { cityId: null, items: [] };
+    }
     try {
       var c = JSON.parse(sessionStorage.getItem(CART_KEY) || 'null');
       if (c && c.cityId === city.id && Array.isArray(c.items)) return c;
     } catch (e) { /* ignore */ }
     return { cityId: city.id, items: [] };
   }
-  function writeCart() { if (MODE === 'page') { try { sessionStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) { /* ignore */ } } }
+  // "Book" opens the form with ONLY that one service; the real cart is
+  // parked in `stashedCart` meanwhile and comes back untouched when the
+  // form closes. "Add" only ever touches the real cart.
+  var stashedCart = null;
+  function realCart() { return stashedCart || cart; }
+  function writeCart() { try { sessionStorage.setItem(CART_KEY, JSON.stringify(realCart())); } catch (e) { /* ignore */ } }
+  function startDirect(item) { if (!stashedCart) stashedCart = cart; cart = { cityId: stashedCart.cityId || city.id, items: [item] }; }
+  function endDirect() { if (stashedCart) { cart = stashedCart; stashedCart = null; } }
+  function addToRealCart(item) { var c = realCart(); if (c.items.some(function (i) { return i.key === item.key; })) return false; if (!c.cityId) c.cityId = city.id; c.items.push(item); writeCart(); refreshCartUi(); return true; }
+  function removeFromRealCart(key) { var c = realCart(); c.items = c.items.filter(function (i) { return i.key !== key; }); writeCart(); refreshCartUi(); }
+  function inRealCart(key) { return realCart().items.some(function (i) { return i.key === key; }); }
   var cart = readCart();
   try {
     var urlRef = new URLSearchParams(location.search).get('ref');
@@ -163,23 +191,27 @@
 
   function inCart(key) { return cart.items.some(function (i) { return i.key === key; }); }
   function cartTotal() { return cart.items.reduce(function (s, i) { return s + i.price; }, 0); }
-  function addItem(item) { if (inCart(item.key)) return false; cart.items.push(item); writeCart(); refreshCartUi(); return true; }
-  function removeItem(key) { cart.items = cart.items.filter(function (i) { return i.key !== key; }); writeCart(); refreshCartUi(); }
+  function addItem(item) { if (inCart(item.key)) return false; cart.items.push(item); if (!stashedCart) writeCart(); refreshCartUi(); return true; }
+  function removeItem(key) { cart.items = cart.items.filter(function (i) { return i.key !== key; }); if (!stashedCart) writeCart(); refreshCartUi(); }
 
   function refreshCartUi() {
-    if (MODE !== 'page') return;
-    var n = cart.items.length;
+    var n = realCart().items.length;
+    if (MODE !== 'page') {
+      var hbb = $('bottomNavCartBadge'); if (hbb) { hbb.textContent = String(n); hbb.hidden = n === 0; }
+      var hdb = $('headerCartBadge'); if (hdb) { hdb.textContent = String(n); hdb.hidden = n === 0; }
+      return;
+    }
     var hb = $('spHeaderCartBadge'); if (hb) { hb.textContent = String(n); hb.hidden = n === 0; }
     var bb = $('bottomNavCartBadge'); if (bb) { bb.textContent = String(n); bb.hidden = n === 0; }
     var bar = $('spCartBar');
     if (bar) {
       bar.hidden = n === 0 || ($('spSheet') && $('spSheet').classList.contains('open'));
-      $('spCartBarCount').textContent = n + (n === 1 ? ' service' : ' services') + ' added';
-      $('spCartBarTotal').textContent = 'Total ' + inr(cartTotal());
+      $('spCartBarCount').textContent = n + (n === 1 ? ' service' : ' services') + ' in cart';
+      $('spCartBarTotal').textContent = 'Total ' + inr(realCart().items.reduce(function (t, i) { return t + i.price; }, 0));
     }
     document.querySelectorAll('.sp-card').forEach(function (card) {
       var btn = card.querySelector('.sp-btn-add'); if (!btn) return;
-      var added = inCart(itemFromCard(card).key);
+      var added = inRealCart(itemFromCard(card).key);
       btn.classList.toggle('added', added);
       var label = btn.querySelector('span'); if (label) label.textContent = added ? 'Added ✓' : 'Add';
     });
@@ -210,11 +242,13 @@
       var btn = e.target.closest && e.target.closest('.sp-card .sp-btn');
       if (!btn) return;
       var item = itemFromCard(btn.closest('.sp-card'));
+      // Add -> into the cart (header cart icon + badge, bar at the bottom).
+      // Book -> straight to the booking form.
       if (btn.getAttribute('data-action') === 'add') {
-        if (inCart(item.key)) { removeItem(item.key); toast('Removed from cart'); }
-        else { addItem(item); toast('✅ ' + item.title + ' added'); }
+        if (inRealCart(item.key)) { removeFromRealCart(item.key); toast('Removed from cart'); }
+        else { addToRealCart(item); toast('🛒 ' + item.title + ' added to cart'); }
       } else {
-        addItem(item);
+        startDirect(item);
         openSheet();
       }
     });
@@ -260,10 +294,10 @@
       var appl = r[1].find(function (a) { return a.id === applianceId; });
       if (!appl || !appl.types.length) { toast('This service is not available right now.'); return; }
       pick.appliance = appl;
-      var cid = guessCityId(pick.cities);
+      var cid = (cart.items.length && cart.cityId && pick.cities.some(function (x) { return x.id === cart.cityId; })) ? cart.cityId : guessCityId(pick.cities);
       var c = pick.cities.find(function (x) { return x.id === cid; }) || {};
       setCity(c.id || null, c.name || '');
-      cart = { cityId: city.id, items: [] };
+      if (cart.cityId !== city.id) { cart = { cityId: city.id, items: [] }; writeCart(); refreshCartUi(); }
       $('spPickName').textContent = appl.name;
       var img = $('spPickImg');
       if (appl.photoUrl) { img.src = appl.photoUrl; img.alt = appl.name; img.hidden = false; } else img.hidden = true;
@@ -321,12 +355,12 @@
         var photo = (pick.photos[appl.id + '_' + type.id + '_' + x.svc.id] || {}).url || appl.photoUrl;
         var checks = (x.svc.checklist && x.svc.checklist.length ? x.svc.checklist : ['Trained, verified technician', 'Price confirmed before work starts', 'Genuine spare parts', 'Performance checked after work', '30-day service warranty'])
           .slice(0, 5).map(function (c) { return '<li>' + CHECK + '<span>' + escapeHtml(c) + '</span></li>'; }).join('');
-        var added = inCart(it.key);
+        var added = inRealCart(it.key);
         return '<article class="sp-card" data-idx="' + idx + '">' +
           '<div class="sp-card-img">' + (photo ? '<img src="' + escapeHtml(photo) + '" alt="' + escapeHtml(it.title) + '" loading="lazy">' : '<span class="sp-strip-fallback">🔧</span>') +
           '<span class="sp-badge">' + inr(x.price) + '/-</span></div>' +
           '<div class="sp-card-body"><h3 class="sp-card-title">' + escapeHtml(it.title) + ' In ' + escapeHtml(city.name) + '</h3>' +
-          '<div class="sp-price">' + TAG + '<s>' + inr(Math.round((x.price * 1.2) / 10) * 10) + '</s><strong>' + inr(x.price) + '</strong></div>' +
+          '<div class="sp-price">' + TAG + '<strong>' + inr(x.price) + '</strong></div>' +
           '<ul class="sp-checks">' + checks + '</ul></div>' +
           '<div class="sp-actions"><button type="button" class="sp-btn sp-btn-add' + (added ? ' added' : '') + '" data-act="add">' + CART_SVG + '<span>' + (added ? 'Added ✓' : 'Add') + '</span></button>' +
           '<button type="button" class="sp-btn sp-btn-book" data-act="book">Book</button></div></article>';
@@ -335,11 +369,11 @@
         var x = svcs[+card.getAttribute('data-idx')];
         var it = cardItem(appl, type, x.svc, x.price);
         card.querySelector('[data-act="add"]').addEventListener('click', function () {
-          if (inCart(it.key)) removeItem(it.key); else { addItem(it); toast('✅ ' + it.title + ' added'); }
+          if (inRealCart(it.key)) removeFromRealCart(it.key); else { addToRealCart(it); toast('🛒 ' + it.title + ' added to cart'); }
           renderCards();
         });
         card.querySelector('[data-act="book"]').addEventListener('click', function () {
-          addItem(it);
+          startDirect(it);
           goToForm();
         });
       });
@@ -353,14 +387,15 @@
 
   function updateCardBar() {
     var bar = $('spCardBar'); if (!bar) return;
-    var n = cart.items.length;
+    var rc = realCart();
+    var n = rc.items.length;
     bar.hidden = n === 0;
-    $('spCardBarText').innerHTML = '<strong>' + n + (n === 1 ? ' service' : ' services') + '</strong> · ' + inr(cartTotal());
+    $('spCardBarText').innerHTML = '🛒 <strong>' + n + (n === 1 ? ' service' : ' services') + ' in cart</strong> · ' + inr(rc.items.reduce(function (t, i) { return t + i.price; }, 0));
   }
 
   function goToForm() {
-    $('spPickChange').hidden = false;
-    $('spPickChange').textContent = 'Change';
+    $('spPickChange').hidden = true;
+    $('spAddMore').hidden = !!stashedCart;
     showStep('spStepForm');
     appliedCoupon = null; setMsg($('spCouponMsg'), '');
     prefillDetails();
@@ -386,7 +421,8 @@
       var c = pick.cities.find(function (x) { return x.id === sel.value; });
       if (!c || c.id === city.id) return;
       setCity(c.id, c.name);
-      cart = { cityId: city.id, items: [] }; // prices differ per city
+      if (stashedCart) { endDirect(); } else { cart = { cityId: city.id, items: [] }; }
+      writeCart(); refreshCartUi(); // prices differ per city
       appliedCoupon = null; setMsg($('spCouponMsg'), '');
       prefillDetails();
       renderCards();
@@ -395,8 +431,7 @@
 
   function updatePickSummary() {
     var el = $('spPickSummary'); if (!el) return;
-    el.innerHTML = cart.items.map(function (i) { return escapeHtml(i.title) + ' — <b>' + inr(i.price) + '</b>'; }).join('<br>') +
-      '<small>📍 ' + escapeHtml(city.name || '') + '</small>';
+    el.innerHTML = '<small>📍 ' + escapeHtml(city.name || '') + '</small>';
   }
   function afterItemsChange() {
     updatePickSummary();
@@ -415,8 +450,8 @@
     step = typeof step === 'string' ? step : 'spStepForm';
     if (MODE === 'page' && !cart.items.length) { toast('Pick a service first'); var s = $('services'); if (s) s.scrollIntoView({ behavior: 'smooth' }); return; }
     $('spPicker').hidden = MODE !== 'home';
-    $('spItems').hidden = MODE === 'home';
-    $('spAddMore').hidden = MODE === 'home';
+    $('spItems').hidden = false;
+    $('spAddMore').hidden = !!stashedCart;
     if (MODE === 'page') { setCity(city.id, city.name); $('spSheetTitle').textContent = 'Book Service'; }
     showStep(step);
     renderItems();
@@ -436,6 +471,7 @@
     sheet.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('sp-sheet-open');
     if (otpSession) otpSession.cancel();
+    endDirect();
     refreshCartUi();
   }
   function showStep(id) {
@@ -443,6 +479,7 @@
     if (id === 'spStepOtp') $('spSheetTitle').textContent = 'Verify mobile number';
     else if (id === 'spStepDone') $('spSheetTitle').textContent = '';
     else if (id === 'spStepType' && pick.appliance) $('spSheetTitle').textContent = pick.appliance.name + ' Service';
+    else if (MODE === 'home' && cart.items.some(function (i) { return cart.items[0] && i.applianceId !== cart.items[0].applianceId; })) $('spSheetTitle').textContent = 'Book Services';
     else if (MODE === 'home' && pick.appliance) $('spSheetTitle').textContent = pick.appliance.name + ' Booking';
     else $('spSheetTitle').textContent = 'Book Service';
   }
@@ -457,7 +494,7 @@
     list.querySelectorAll('.sp-item-remove').forEach(function (b) {
       b.addEventListener('click', function () {
         removeItem(b.getAttribute('data-key'));
-        if (!cart.items.length) { closeSheet(); return; }
+        if (!cart.items.length) { if (stashedCart) { endDirect(); } if (MODE === 'home' && pick.appliance) showTypeStep(); else closeSheet(); return; }
         appliedCoupon = null; setMsg($('spCouponMsg'), '');
         renderItems(); loadSlots(false);
       });
@@ -781,9 +818,12 @@
     $('spDoneClose').addEventListener('click', closeSheet);
     $('spSheet').addEventListener('click', function (e) { if (e.target === $('spSheet')) closeSheet(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('spSheet').classList.contains('open')) closeSheet(); });
-    $('spAddMore').addEventListener('click', function () { closeSheet(); var s = $('services'); if (s) s.scrollIntoView({ behavior: 'smooth' }); });
+    $('spAddMore').addEventListener('click', function () {
+      if (MODE === 'home' && pick.appliance) { showTypeStep(); return; }
+      closeSheet(); var s = $('services'); if (s) s.scrollIntoView({ behavior: 'smooth' });
+    });
     $('spPickChange').addEventListener('click', function () { if (pick.appliance) showTypeStep(); });
-    $('spCardBarBtn').addEventListener('click', function () { if (cart.items.length) goToForm(); });
+    $('spCardBarBtn').addEventListener('click', function () { endDirect(); if (cart.items.length) goToForm(); });
     $('spEditDetails').addEventListener('click', function () { $('spSaved').hidden = true; $('spDetailFields').hidden = false; $('spName').focus(); });
     $('spConfirm').addEventListener('click', onConfirm);
     $('spPhone').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 10); });
@@ -801,15 +841,43 @@
 
   if (MODE === 'page') {
     ensureMarkup(); bindOnce();
-    var cb = $('spCartBarBtn'); if (cb) cb.addEventListener('click', openSheet);
-    var hc = $('spHeaderCart'); if (hc) hc.addEventListener('click', openSheet);
-    var nc = $('bottomNavCartBtn'); if (nc) nc.addEventListener('click', openSheet);
+    var openCart = function () { endDirect(); openSheet('spStepForm'); };
+    var cb = $('spCartBarBtn'); if (cb) cb.addEventListener('click', openCart);
+    var hc = $('spHeaderCart'); if (hc) hc.addEventListener('click', openCart);
+    var nc = $('bottomNavCartBtn'); if (nc) nc.addEventListener('click', openCart);
     refreshCartUi();
   } else {
     // Homepage: every appliance tile (photo, name or "Book Now") opens the
     // popup with that appliance pre-selected, instead of the old multi-step
     // flow. The tile's <a href> stays in the HTML for Google.
     window.openApplianceBoxesPanel = function (id) { openForAppliance(id); };
+    // Cart icon (bottom nav / desktop header) -> booking form with every
+    // service in the cart. Runs before the old homepage cart handler.
+    var openCartForm = function (e) {
+      endDirect();
+      if (!cart.items.length) return; // empty -> leave the old behaviour alone
+      e.preventDefault(); e.stopImmediatePropagation();
+      ensureMarkup(); bindOnce();
+      Promise.all([loadCities(), loadAppliances()]).then(function (r) {
+        pick.cities = r[0];
+        var c = pick.cities.find(function (x) { return x.id === cart.cityId; }) || {};
+        setCity(c.id || null, c.name || '');
+        var ids = cart.items.map(function (i) { return i.applianceId; });
+        pick.appliance = r[1].find(function (a) { return a.id === ids[ids.length - 1]; }) || pick.appliance;
+        if (pick.appliance) {
+          if (!pick.typeId || !pick.appliance.types.some(function (t) { return t.id === pick.typeId; })) pick.typeId = pick.appliance.types[0].id;
+          renderPickCities();
+        }
+        var multi = ids.some(function (x) { return x !== ids[0]; });
+        $('spPickName').textContent = multi ? 'Your cart' : (pick.appliance ? pick.appliance.name : 'Your cart');
+        var img = $('spPickImg');
+        if (!multi && pick.appliance && pick.appliance.photoUrl) { img.src = pick.appliance.photoUrl; img.hidden = false; } else img.hidden = true;
+        openSheet('spStepForm');
+        goToForm();
+      }).catch(function (err) { toast(err.message || 'Could not open cart.'); });
+    };
+    ['bottomNavCartBtn', 'headerCartBtn'].forEach(function (id) { var el = $(id); if (el) el.addEventListener('click', openCartForm, true); });
+    window.addEventListener('load', function () { refreshCartUi(); setTimeout(refreshCartUi, 800); });
     document.addEventListener('click', function (e) {
       var link = e.target.closest && e.target.closest('#servicesGrid .service-card-link');
       if (!link) return;
@@ -820,6 +888,7 @@
       openForAppliance(id);
     });
   }
+  updateHeaderInitial();
   window.SeeruaBooking = { openForAppliance: openForAppliance, open: openSheet, close: closeSheet };
 
   // ------------------------------------------------------------------ auto-scrolling photo strips

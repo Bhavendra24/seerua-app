@@ -4114,7 +4114,7 @@ async function qbRenderServicesList(type) {
   listEl.innerHTML = type.services.map(svc => {
     const price = servicePrices[svc.id];
     const priceDisplay = typeof price === 'number'
-      ? (() => { const mrp = Math.round((price * 1.2) / 10) * 10; return `<span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span>`; })()
+      ? `<span class="qb-price-tag">🏷️</span><span class="qb-price-now">₹${price}</span>`
       : '<span class="qb-price-now">Contact us for price</span>';
     return `
       <div class="qb-service-card" data-service-id="${svc.id}">
@@ -4311,14 +4311,13 @@ async function openApplianceBoxesPanel(applianceId) {
           ? row.servicePrices[svc.id]
           : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
         if (typeof price !== 'number') return '';
-        const mrp = Math.round((price * 1.2) / 10) * 10;
         const checklistHtml = (svc.checklist || []).map(item => `<li>${item}</li>`).join('');
         return `
         <div class="qb-service-card">
           <div class="qb-price-card qb-price-card-nophoto">
             <div>
               <div class="qb-price-title">${escapeHtml(type.name)} ${escapeHtml(svc.name)}</div>
-              <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
+              <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-now">₹${price}</span></div>
               <div class="qb-price-trust">✔ Most Trusted Service</div>
             </div>
           </div>
@@ -4378,8 +4377,7 @@ async function qbUpdatePrice() {
     // A visual "was" price above the real one, purely for the discount-
     // badge look in the reference layout — the real, actual price
     // charged is always the one from pricing data (actual), never this.
-    const shownMrp = Math.round((actual * 1.2) / 10) * 10;
-    priceStrikeEl.textContent = `₹${shownMrp}`;
+    priceStrikeEl.textContent = '';
     priceNowEl.textContent = `₹${actual}`;
     qbSetNotAvailable(false);
   } catch (e) {

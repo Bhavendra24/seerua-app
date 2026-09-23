@@ -1400,7 +1400,19 @@ function renderCities() {
       <td><span class="pill ${c.active ? 'pill-completed' : 'pill-rejected'}">${c.active ? 'Active' : 'Inactive'}</span></td>
       <td>
         <button class="btn btn-outline btn-sm" onclick="toggleCity('${c.id}', ${!c.active})">${c.active ? 'Deactivate' : 'Activate'}</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleCityInfo('${c.id}')">📍 Local info${c.localInfo ? ' ✓' : ''}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCity('${c.id}')">Delete</button>
+      </td>
+    </tr>
+    <tr id="cityInfoRow-${c.id}" style="display:none;">
+      <td colspan="3">
+        <label style="font-size:0.85rem;font-weight:600;">${esc(c.name)} — local jaankari (SEO ke liye, is city ke har service page par dikhegi)</label>
+        <textarea id="cityInfo-${c.id}" rows="5" maxlength="3000" style="width:100%;margin-top:6px;" placeholder="Jaise: Hum ${esc(c.name)} ke Civil Lines, Station Road, Rampur Road aur aas-paas ke gaon mein roz service dete hain. Yahan ka paani khaara hai, isliye RO filter jaldi badalne padte hain. Garmi mein AC service ki maang sabse zyada hoti hai...">${esc(c.localInfo || '')}</textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="saveCityInfo('${c.id}')">Save</button>
+          <span class="msg-inline" id="cityInfoMsg-${c.id}"></span>
+        </div>
+        <p style="font-size:0.78rem;color:var(--slate);margin:6px 0 0;">Tip: asli, apne shabdon mein likhiye — mohalle/area, aas-paas ke gaon, wahan ki aam problems. Har city ka alag text Google ko sabse zyada pasand aata hai. Khaali chhodne par ye hissa page par nahi dikhega.</p>
       </td>
     </tr>
   `).join('') : `<tr class="empty-row"><td colspan="3">No cities found.</td></tr>`;
@@ -3427,4 +3439,18 @@ async function removeAppliancePhoto(applianceId) {
     SERVICE_PHOTOS = null;
     await renderServicePhotos(applianceId);
   } catch (e) { alert(e.message); }
+}
+
+
+function toggleCityInfo(id) {
+  const row = document.getElementById(`cityInfoRow-${id}`);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+async function saveCityInfo(id) {
+  const msg = document.getElementById(`cityInfoMsg-${id}`);
+  try {
+    await api(`/api/admin/cities/${id}`, { method: 'PUT', body: JSON.stringify({ localInfo: document.getElementById(`cityInfo-${id}`).value }) });
+    const c = CITIES.find(x => x.id === id); if (c) c.localInfo = document.getElementById(`cityInfo-${id}`).value.trim();
+    if (msg) { msg.className = 'msg-inline success'; msg.textContent = 'Saved — city pages updated.'; }
+  } catch (e) { if (msg) { msg.className = 'msg-inline error'; msg.textContent = e.message; } }
 }
