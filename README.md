@@ -41,6 +41,35 @@ git push -u origin main
 
 Replace the URL with the one GitHub shows you after creating a new (empty) repository on github.com. Keep the repo **Private** — even with `.gitignore` protecting the most sensitive files, this is still your live business's source code.
 
+## 🆕 Update 3 (Sep 2026) — Homepage popup booking, auto-scroll, success tick
+
+- **Homepage par appliance tap karo → seedha booking popup** (alag window, laal ✕ se band). Us appliance ka pehla type aur pehli service pehle se chuni hoti hai, city pichhli baar wali. Customer chahe to type/service badle ya ek se zyada services chune; naam/mobile/address purane customer ke liye khud bhar jaate hain; date aur pehla khaali slot pehle se chuna. Ek button — "Confirm Booking".
+- Service pages ka booking form bhi ab isi tarah beech mein khulne wala popup hai.
+- **Booking ke baad** bada bhara hua hara gola + safed tick ✓ (animation ke saath), neeche "Thank you!" aur Booking ID, ek "Done" button; "ding-ding" awaaz aur phone vibrate.
+- Homepage popup mein **City aur Type ab dropdown** hain — kitni bhi cities jodo, popup bigdega nahi.
+- **Horizontal photo line apne aap right se left chalti hai** (homepage aur service pages dono). Customer chhue/scroll kare to ruk jaati hai, 2.5 second baad phir chalti hai. Jinke phone mein "reduce motion" on hai unke liye nahi chalti. SEO par asar nahi — asli links aur photo alt-text HTML mein waise hi hain.
+
+## 🆕 Update 2 (Sep 2026) — Service photos + homepage cards
+
+- **Alag photo har service ke liye:** Super Admin → Appliances → har appliance ke neeche "📷 Service Photos" kholiye. Har type + service (jaise Split AC · Gas Filling) ke liye Upload / Change / Remove. Photo browser mein hi 800px tak chhoti ho jaati hai. Jis service ki photo nahi, wahan appliance ki general photo dikhti hai. Photos data store mein save hoti hain (`data/service-photos.json` / MySQL), isliye redeploy par bhi bani rehti hain.
+- **Homepage "Our Services":** bade photo cards ki jagah ek horizontal line mein chhote photo tiles (side mein swipe karke baaki appliances) — photo wahi, bas chhoti.
+- **Appliance / type add-delete bhi automatic:** naya appliance tabhi pages, strip, links aur sitemap mein aata hai jab uska kam se kam ek type (price ke saath) ho — khaali page kabhi nahi dikhta. Type add karo → uska page + tab + sitemap turant. Type ya appliance delete karo → uske pages 410 Gone, sitemap/links se hat jaate hain, aur uski service photos bhi saaf ho jaati hain. Same naam dobara add karne par pages wapas.
+
+## 🆕 Update (Sep 2026) — Appliance booking pages redesigned
+
+Every `/appliance-repair/<city>/<appliance>` and `/appliance-repair/<city>/<appliance>/<type>` page now follows the reference layout:
+
+- **"Select a Product to Book Repair Service" strip** — photo of every appliance served in that city; one tap opens that appliance's page for the same city.
+- **Type tabs** (Window AC / Split AC / Cassette AC, Single Door / Double Door …) — switch instantly, no page reload. All types are still in the HTML so Google reads every price.
+- **Service cards** — photo with price badge, strike/real price, 5-point checklist with green ticks, "Know more" (jumps to that type's details), and **Add** / **Book** buttons. **Review button removed.**
+- **Long SEO article under the cards**, generated per city + appliance (+ type): intro, services & price table, common problems, how the service works, maintenance tips, "near me" guide, why choose Seerua, call-to-action, and 6 FAQs with FAQPage schema. Title/description now include the starting price (e.g. "AC Service in Moradabad @ ₹350").
+- **Booking in one screen, on the same page** (no more jumping to the homepage): Book → sheet with the service, name/mobile/address (auto-filled for returning customers), date chips and time slots (first free slot pre-selected) → **Confirm Booking**. OTP appears inside the same sheet only for a number's first booking. "Add" collects several services; a cart bar shows the total. Coupon code optional.
+- **City add / rename / delete is fully automatic**: add a city in Admin → all its appliance and type pages + sitemap entries exist instantly (prices auto-seeded as before). Rename → old URLs 301-redirect to the new name. Delete or deactivate → old URLs answer **410 Gone** (Google drops them quickly) and they leave the sitemap. Re-adding the city brings the pages back.
+- Single-type appliances (e.g. Chimney) no longer have a duplicate `/chimney-service/chimney` page — it 301s to `/chimney-service`.
+- **Security fix:** removed stale copies of `server.js` and page templates from `public/` — they were being served publicly (anyone could download your server code at `/server.js`).
+
+New files: `lib/service-page.js` (page/article builder), `public/css/service-page.css`, `public/js/service-page.js`. Changed: `server.js`, `views/appliance-city.template.html`.
+
 ## 🆕 Latest update — fixes & additions
 
 - **Warranty mention reduced to one place per page** — it used to repeat ("30-day warranty/guarantee") in 5 different spots on the homepage alone with inconsistent wording. Now it's stated once — in the homepage FAQ, and once in each city page's "Why choose us" section — with consistent "30-day warranty" wording. (Full policy detail still lives on the Terms & Conditions page, as before.)

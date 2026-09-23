@@ -1481,6 +1481,11 @@ function renderAppliances() {
           `).join('')}
         </div>
       </div>
+      <details class="svc-photos" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;" ontoggle="if(this.open) renderServicePhotos('${a.id}')">
+        <summary style="cursor:pointer;font-weight:700;">📷 Service Photos — ${a.name} (har type + service ki alag photo)</summary>
+        <p style="font-size:0.82rem;color:var(--slate);margin:8px 0;">Har service card (jaise "Split AC Gas Filling") ke liye alag photo upload karein. Photo apne aap chhoti (800px) ho jaati hai. Jis service ki photo nahi hogi, wahan ${a.name} ki general photo dikhegi.</p>
+        <div id="svcPhotos-${a.id}"><p style="font-size:0.85rem;color:var(--slate);">Loading…</p></div>
+      </details>
       <div class="field" style="margin-top:14px;">
         <label>About This Service (shown in the "Appliance care, explained" section on the homepage — leave blank to hide this appliance from that section)</label>
         <textarea id="about-${a.id}" rows="4" placeholder="A short, customer-facing paragraph about this appliance's service — why it matters, common issues, what Seerua offers. Shown automatically on the homepage; leave blank and no block appears for this appliance.">${a.aboutText || ''}</textarea>
@@ -3292,3 +3297,91 @@ document.getElementById('faqForm').addEventListener('submit', async (e) => {
 });
 
 checkLogin();
+
+
+// ---------------- SERVICE PHOTOS (per type + service) ----------------
+let SERVICE_PHOTOS = null;
+async function renderServicePhotos(applianceId) {
+  const box = document.getElementById(`svcPhotos-${applianceId}`);
+  if (!box) return;
+  try {
+    if (!SERVICE_PHOTOS) SERVICE_PHOTOS = await api('/api/admin/service-photos');
+  } catch (e) { box.innerHTML = `<p class="msg-inline error">${e.message}</p>`; return; }
+  const a = APPLIANCES.find(x => x.id === applianceId);
+  if (!a) return;
+  const services = t => (Array.isArray(t.services) && t.services.length) ? t.services : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
+  box.innerHTML = a.types.map(t => `
+    <div style="margin:10px 0 4px;font-weight:700;font-size:0.9rem;">${t.name}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
+      ${services(t).map(svc => {
+        const key = `${a.id}_${t.id}_${svc.id}`;
+        const own = SERVICE_PHOTOS[key];
+        const src = own ? own.url : (a.photoUrl || '');
+        return `
+        <div style="border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;">
+          <div style="position:relative;">
+            ${src ? `<img src="${src}" alt="" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;${own ? '' : 'opacity:0.45;'}">` : `<div style="width:100%;aspect-ratio:1/1;background:var(--mist);border-radius:6px;"></div>`}
+            <span style="position:absolute;top:4px;left:4px;font-size:0.68rem;font-weight:700;padding:2px 6px;border-radius:999px;background:${own ? '#dcfce7;color:#166534' : '#fef3c7;color:#92400e'};">${own ? 'Own photo' : 'Default'}</span>
+          </div>
+          <div style="font-size:0.82rem;font-weight:600;margin:6px 0;">${svc.name}</div>
+          <label class="btn btn-outline btn-sm" style="display:block;text-align:center;cursor:pointer;">
+            ${own ? 'Change' : 'Upload'}
+            <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="uploadServicePhoto('${a.id}','${t.id}','${svc.id}', this)">
+          </label>
+          ${own ? `<button class="btn btn-danger btn-sm" style="width:100%;margin-top:6px;" onclick="removeServicePhoto('${a.id}','${t.id}','${svc.id}')">Remove</button>` : ''}
+          <div class="msg-inline" id="svcPhotoMsg-${key}" style="font-size:0.75rem;margin-top:4px;"></div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+// Shrinks the chosen image in the browser (max 800px, JPEG) before
+// sending, so uploads are fast on mobile data and small to store.
+function shrinkImageToDataUrl(file, maxSide = 800, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not a readable image.'));
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadServicePhoto(applianceId, typeId, svcId, input) {
+  const file = input.files && input.files[0];
+  const msg = document.getElementById(`svcPhotoMsg-${applianceId}_${typeId}_${svcId}`);
+  if (!file) return;
+  try {
+    if (msg) { msg.className = 'msg-inline'; msg.textContent = 'Uploading…'; }
+    const dataUrl = await shrinkImageToDataUrl(file);
+    await api(`/api/admin/service-photos/${applianceId}/${typeId}/${svcId}`, { method: 'PUT', body: JSON.stringify({ dataUrl }) });
+    SERVICE_PHOTOS = null;
+    await renderServicePhotos(applianceId);
+  } catch (e) {
+    if (msg) { msg.className = 'msg-inline error'; msg.textContent = e.message; }
+  } finally {
+    input.value = '';
+  }
+}
+
+async function removeServicePhoto(applianceId, typeId, svcId) {
+  if (!confirm('Remove this photo? The default appliance photo will show instead.')) return;
+  try {
+    await api(`/api/admin/service-photos/${applianceId}/${typeId}/${svcId}`, { method: 'DELETE' });
+    SERVICE_PHOTOS = null;
+    await renderServicePhotos(applianceId);
+  } catch (e) { alert(e.message); }
+}

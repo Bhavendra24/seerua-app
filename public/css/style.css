@@ -2156,3 +2156,26 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
   .chat-panel-input { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
   body.chat-open-lock { position: fixed; left: 0; right: 0; overflow: hidden; }
 }
+
+
+/* Homepage "Our Services": one horizontal row of small photo tiles
+   (swipe sideways) instead of big photo cards — same style as the
+   "Select a Product" strip on the service pages. */
+.services-grid {
+  display: flex; flex-wrap: nowrap; gap: 10px; overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 2px 8px; scrollbar-width: none;
+}
+.services-grid > :first-child { margin-left: auto; }
+.services-grid > :last-child { margin-right: auto; }
+.services-grid::-webkit-scrollbar { display: none; }
+.service-card {
+  flex: 0 0 104px; width: 104px; padding: 6px; text-align: center; align-items: center;
+}
+.service-card-photo, .service-icon-wrap {
+  width: 100%; max-width: 100%; margin: 0 0 5px; aspect-ratio: 1 / 1; border-radius: 10px;
+}
+.service-card h3 { font-size: 0.76rem; margin: 0 0 5px; line-height: 1.25; min-height: 2.5em; display: flex; align-items: center; justify-content: center; }
+.service-card .btn-sm { padding: 4px 6px; font-size: 0.7rem; width: 100%; justify-content: center; }
+.service-card .btn-outline::after { display: none; }
+@media (min-width: 900px) { .service-card { flex-basis: 120px; width: 120px; } }

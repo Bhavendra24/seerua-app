@@ -17,6 +17,7 @@ const { readData, readDataReadOnly, writeData, genId, withLock, initDb, getAllDa
 const { istDateStr, istCurrentHour } = require('./lib/date');
 const { hashPassword, verifyAndUpgrade, isBcryptHash } = require('./lib/password');
 const { askAiAssistant } = require('./lib/ai-assistant');
+const servicePage = require('./lib/service-page');
 
 // Node only ships a built-in global `fetch` from v18 onward. This project
 // is used to run on a range of environments (a laptop for local testing,
@@ -2166,6 +2167,12 @@ app.post('/api/admin/cities', requireAdmin, (req, res) => {
   const city = { id: genId('c'), name: name.trim(), active: true };
   cities.push(city);
   writeData('cities', cities);
+  // Re-adding a previously deleted city brings its pages straight back.
+  const adminForSlugs = readData('admin');
+  if ((adminForSlugs.removedCitySlugs || []).includes(slugify(city.name))) {
+    adminForSlugs.removedCitySlugs = adminForSlugs.removedCitySlugs.filter(sl => sl !== slugify(city.name));
+    writeData('admin', adminForSlugs);
+  }
 
   // Auto-create pricing rows for the new city using average of existing prices (or defaults)
   const appliances = readData('appliances');
@@ -2231,6 +2238,11 @@ app.put('/api/admin/cities/:id', requireAdmin, (req, res) => {
     if (cities.some(c => c.id !== city.id && c.name.trim().toLowerCase() === trimmed.toLowerCase())) {
       return res.status(400).json({ error: `"${trimmed}" is already in your cities list.` });
     }
+    const oldSlug = slugify(city.name);
+    if (slugify(trimmed) !== oldSlug) {
+      // Old URLs keep working: they 301 to the new name's pages.
+      city.previousSlugs = [...new Set([...(city.previousSlugs || []), oldSlug])].filter(sl => sl !== slugify(trimmed));
+    }
     city.name = trimmed;
   }
   if (req.body.active !== undefined) city.active = req.body.active;
@@ -2240,7 +2252,17 @@ app.put('/api/admin/cities/:id', requireAdmin, (req, res) => {
 
 app.delete('/api/admin/cities/:id', requireAdmin, (req, res) => {
   let cities = readData('cities');
+  const deletedCity = cities.find(c => c.id === req.params.id);
   cities = cities.filter(c => c.id !== req.params.id);
+  // Remember the deleted city's URL slugs so its old pages answer
+  // "410 Gone" (Google removes them quickly) instead of a vague 404.
+  if (deletedCity) {
+    const admin = readData('admin');
+    const gone = new Set(admin.removedCitySlugs || []);
+    [slugify(deletedCity.name), ...(deletedCity.previousSlugs || [])].forEach(sl => gone.add(sl));
+    admin.removedCitySlugs = [...gone].slice(-500);
+    writeData('admin', admin);
+  }
   writeData('cities', cities);
 
   let pricing = readData('pricing');
@@ -2445,6 +2467,7 @@ app.post('/api/admin/appliances', requireAdmin, (req, res) => {
   if (libraryPhoto) appliance.photoUrl = libraryPhoto;
   appliances.push(appliance);
   writeData('appliances', appliances);
+  if (isRemovedServiceSlug(applianceSlug(appliance.name))) markRemovedServiceSlug(applianceSlug(appliance.name), false);
   res.json({ success: true, appliance });
 });
 
@@ -2505,6 +2528,66 @@ app.put('/api/admin/appliances/:applianceId/types/:typeId/services/:serviceId', 
   res.json({ success: true, service });
 });
 
+// =======================================================
+// SERVICE PHOTOS — one optional photo per appliance type + service
+// (e.g. "Split AC · Gas Filling"), uploaded from Admin → Appliances.
+// Stored inside the data store itself (not public/uploads) so photos
+// survive redeploys exactly like the rest of the site's data (MySQL or
+// DATA_DIR). The browser shrinks each image to ~800px JPEG before
+// upload, so each one is only ~60-150 KB.
+// =======================================================
+const SERVICE_PHOTO_ID_RE = /^[a-zA-Z0-9_-]{1,60}$/;
+function servicePhotoKey(applianceId, typeId, svcId) {
+  return `${applianceId}_${typeId}_${svcId}`;
+}
+function readServicePhotos() {
+  try { return readDataReadOnly('service-photos') || {}; } catch (e) { return {}; }
+}
+// Public URL for a service's photo, or null if none was uploaded.
+function servicePhotoUrl(applianceId, typeId, svcId) {
+  const rec = readServicePhotos()[servicePhotoKey(applianceId, typeId, svcId)];
+  return rec ? `/service-photo/${servicePhotoKey(applianceId, typeId, svcId)}.jpg?v=${rec.updatedAt}` : null;
+}
+
+app.get('/service-photo/:key.jpg', (req, res) => {
+  const rec = readServicePhotos()[req.params.key];
+  if (!rec || !rec.data) return res.status(404).end();
+  res.setHeader('Content-Type', rec.mime || 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(Buffer.from(rec.data, 'base64'));
+});
+
+app.get('/api/admin/service-photos', requireStaff, (req, res) => {
+  const all = readServicePhotos();
+  const out = {};
+  Object.keys(all).forEach(k => { out[k] = { url: `/service-photo/${k}.jpg?v=${all[k].updatedAt}`, updatedAt: all[k].updatedAt }; });
+  res.json(out);
+});
+
+app.put('/api/admin/service-photos/:applianceId/:typeId/:svcId', requireAdmin, async (req, res) => {
+  const { applianceId, typeId, svcId } = req.params;
+  if (![applianceId, typeId, svcId].every(x => SERVICE_PHOTO_ID_RE.test(x))) return res.status(400).json({ error: 'Invalid service.' });
+  const appliance = readData('appliances').find(a => a.id === applianceId);
+  const type = appliance && appliance.types.find(t => t.id === typeId);
+  if (!type) return res.status(404).json({ error: 'Appliance type not found.' });
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String((req.body || {}).dataUrl || ''));
+  if (!m) return res.status(400).json({ error: 'Please upload a JPG, PNG or WEBP image.' });
+  const buf = Buffer.from(m[2], 'base64');
+  if (buf.length > 700 * 1024) return res.status(400).json({ error: 'Photo is too large even after resizing — please use a smaller image.' });
+  if (!FILE_SIGNATURES.some(sig => sig.check(buf))) return res.status(400).json({ error: 'That file does not look like a valid image.' });
+  const photos = readData('service-photos');
+  photos[servicePhotoKey(applianceId, typeId, svcId)] = { mime: m[1], data: m[2], updatedAt: Date.now() };
+  await writeData('service-photos', photos);
+  res.json({ success: true, url: servicePhotoUrl(applianceId, typeId, svcId) });
+});
+
+app.delete('/api/admin/service-photos/:applianceId/:typeId/:svcId', requireAdmin, async (req, res) => {
+  const photos = readData('service-photos');
+  delete photos[servicePhotoKey(req.params.applianceId, req.params.typeId, req.params.svcId)];
+  await writeData('service-photos', photos);
+  res.json({ success: true });
+});
+
 app.delete('/api/admin/appliances/:id', requireAdmin, (req, res) => {
   let appliances = readData('appliances');
   const appliance = appliances.find(a => a.id === req.params.id);
@@ -2515,6 +2598,11 @@ app.delete('/api/admin/appliances/:id', requireAdmin, (req, res) => {
     let pricing = readData('pricing');
     pricing = pricing.filter(p => p.applianceId !== req.params.id);
     writeData('pricing', pricing);
+    // Its service photos go too, and its old pages answer 410 Gone.
+    const photos = readData('service-photos');
+    Object.keys(photos).forEach(k => { if (k.startsWith(`${appliance.id}_`)) delete photos[k]; });
+    writeData('service-photos', photos);
+    markRemovedServiceSlug(applianceSlug(appliance.name), true);
   }
   res.json({ success: true });
 });
@@ -2535,6 +2623,7 @@ app.post('/api/admin/appliances/:id/types', requireAdmin, (req, res) => {
   const type = { id: genId('t'), name: name.trim() };
   appliance.types.push(type);
   writeData('appliances', appliances);
+  if (isRemovedServiceSlug(`${applianceSlug(appliance.name)}/${slugify(type.name)}`)) markRemovedServiceSlug(`${applianceSlug(appliance.name)}/${slugify(type.name)}`, false);
 
   // Create pricing rows for all cities for this new type
   const cities = readData('cities');
@@ -2558,8 +2647,15 @@ app.delete('/api/admin/appliances/:applianceId/types/:typeId', requireAdmin, (re
   const appliances = readData('appliances');
   const appliance = appliances.find(a => a.id === req.params.applianceId);
   if (!appliance) return res.status(404).json({ error: 'Appliance not found' });
+  const removedType = appliance.types.find(t => t.id === req.params.typeId);
   appliance.types = appliance.types.filter(t => t.id !== req.params.typeId);
   writeData('appliances', appliances);
+  if (removedType) {
+    const photos = readData('service-photos');
+    Object.keys(photos).forEach(k => { if (k.startsWith(`${appliance.id}_${removedType.id}_`)) delete photos[k]; });
+    writeData('service-photos', photos);
+    markRemovedServiceSlug(`${applianceSlug(appliance.name)}/${slugify(removedType.name)}`, true);
+  }
 
   let pricing = readData('pricing');
   pricing = pricing.filter(p => p.typeId !== req.params.typeId);
@@ -4880,6 +4976,56 @@ function buildOfferCatalogJson(city, appliances) {
 // automatically.
 const APPLIANCE_CITY_TEMPLATE_PATH = path.join(__dirname, 'views', 'appliance-city.template.html');
 
+// Business phone shown on the service pages (display format, no +91).
+const BUSINESS_PHONE = '9389585479';
+
+// One place that turns a URL city-slug into a city, so every SEO page
+// follows Admin's city list automatically:
+//   - active city            -> { city }
+//   - renamed city (old slug) -> { redirectSlug }  (301 keeps Google ranking)
+//   - deleted / deactivated   -> { gone: true }    (410 tells Google to drop it fast)
+//   - never existed           -> {}                (plain 404)
+function resolveCityForSlug(slug) {
+  const all = readData('cities');
+  const active = all.filter(c => c.active);
+  const city = active.find(c => slugify(c.name) === slug);
+  if (city) return { city };
+  const renamed = active.find(c => Array.isArray(c.previousSlugs) && c.previousSlugs.includes(slug));
+  if (renamed) return { redirectSlug: slugify(renamed.name) };
+  if (all.some(c => !c.active && slugify(c.name) === slug)) return { gone: true };
+  let removed = [];
+  try { removed = readData('admin').removedCitySlugs || []; } catch (e) { /* no admin data yet */ }
+  if (removed.includes(slug)) return { gone: true };
+  return {};
+}
+
+// Appliance/type pages that Admin deleted answer 410 Gone (Google drops
+// them fast). Keys: "ac-service" for an appliance, "ac-service/split-ac"
+// for a type. Re-adding the same name removes it from this list.
+function markRemovedServiceSlug(slug, removed) {
+  const admin = readData('admin');
+  const set = new Set(admin.removedServiceSlugs || []);
+  if (removed) set.add(slug); else set.delete(slug);
+  admin.removedServiceSlugs = [...set].slice(-500);
+  writeData('admin', admin);
+}
+function isRemovedServiceSlug(slug) {
+  try { return (readData('admin').removedServiceSlugs || []).includes(slug); } catch (e) { return false; }
+}
+// An appliance only gets a public page / link / sitemap entry in a city
+// once at least one of its types has a price there — a freshly added
+// appliance with no types yet stays invisible instead of showing an
+// empty page to customers and Google.
+function applianceHasPricing(appliance, cityId, pricing) {
+  return (appliance.types || []).some(t => pricing.some(p => p.cityId === cityId && p.applianceId === appliance.id && p.typeId === t.id));
+}
+
+function sendCityGonePage(res, gone) {
+  res.status(gone ? 410 : 404);
+  res.setHeader('X-Robots-Tag', 'noindex');
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>City not served | Seerua</title></head><body style="font-family:sans-serif;padding:32px;max-width:560px;margin:auto;"><h1>We don't serve this city right now</h1><p>This location isn't available at the moment. <a href="/">Go back home</a> to see all cities we currently serve.</p></body></html>`);
+}
+
 // Matches the appliance's own dedicated URL scheme: "AC" -> "ac-service",
 // "Washing Machine" -> "washing-machine-service". Kept as a function (not
 // stored on the appliance record) so renaming an appliance in Admin
@@ -4958,13 +5104,10 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
   // just 404ing it away. Redirects to this city's FIRST available
   // appliance's own page — not a perfect substitute for every possible
   // search intent, but a reasonable, always-valid default landing spot.
-  const cities = readData('cities').filter(c => c.active);
-  const city = cities.find(c => slugify(c.name) === req.params.citySlug);
-  if (!city) {
-    return res.status(404).send(
-      `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
-    );
-  }
+  const cityResult = resolveCityForSlug(req.params.citySlug);
+  if (cityResult.redirectSlug) return res.redirect(301, `/appliance-repair/${cityResult.redirectSlug}`);
+  if (!cityResult.city) return sendCityGonePage(res, cityResult.gone);
+  const city = cityResult.city;
   const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
   if (!appliances.length) {
     // No appliances configured for this city at all — nothing sensible
@@ -4983,9 +5126,7 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
 // is a static/cached file that could drift out of date.
 function renderApplianceCityPage(req, res, next, focusTypeSlug) {
   // "/blog" and "/blog/:articleSlug" are also nested under
-  // "/appliance-repair/:citySlug/..." (see below) — let those fall
-  // through to their own routes instead of being treated as an
-  // (invalid) appliance slug here.
+  // "/appliance-repair/:citySlug/..." — let those fall through.
   if (req.params.applianceSlug === 'blog') return next();
   try {
     const maintenance = maintenancePageIfEnabled();
@@ -4994,288 +5135,155 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       res.setHeader('Retry-After', String(maintenance.retryAfterSeconds));
       return res.status(503).send(maintenance.html);
     }
-    const cities = readData('cities').filter(c => c.active);
-    const city = cities.find(c => slugify(c.name) === req.params.citySlug);
-    // Same siteContent read the city page needs — see the BUG FIX note
-    // on the /appliance-repair/:citySlug route above (footer text).
-    const siteContent = readData('site-content');
-    if (!city) {
-      return res.status(404).send(
-        `<h1>City not found</h1><p>We may not serve this location yet. <a href="/">Go back home</a> to see all cities we currently serve.</p>`
-      );
+    // City lookup handles all three Admin actions automatically:
+    // live city -> page renders; renamed city -> 301 to the new URL;
+    // deleted/deactivated city -> 410 Gone (see resolveCityForSlug).
+    const cityResult = resolveCityForSlug(req.params.citySlug);
+    if (cityResult.redirectSlug) {
+      const rest = req.originalUrl.split('?')[0].split('/').slice(3).join('/');
+      return res.redirect(301, `/appliance-repair/${cityResult.redirectSlug}${rest ? '/' + rest : ''}`);
     }
+    if (!cityResult.city) return sendCityGonePage(res, cityResult.gone);
+    const city = cityResult.city;
+    const cities = readData('cities').filter(c => c.active);
+    const siteContent = readData('site-content');
 
-    const allAppliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
+    const pricingAll = readData('pricing');
+    const allAppliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id) && applianceHasPricing(a, city.id, pricingAll));
     const appliance = allAppliances.find(a => applianceSlug(a.name) === req.params.applianceSlug);
+    if (!appliance && isRemovedServiceSlug(req.params.applianceSlug)) return sendCityGonePage(res, true);
     if (!appliance) {
       return res.status(404).send(
         `<h1>Service not found in ${escapeHtml(city.name)}</h1><p>This service may not be available here yet. <a href="/appliance-repair/${slugify(city.name)}">See everything we offer in ${escapeHtml(city.name)}</a>.</p>`
       );
     }
-    // TYPE-SPECIFIC PAGE (per competitor research — Vijay Home Services
-    // has separate pages per appliance TYPE, not just per appliance):
-    // when this was reached via /appliance-repair/:city/:appliance/:type,
-    // find that specific type now. A slug that doesn't match any of this
-    // appliance's types 404s rather than silently falling back to the
-    // generic appliance page — a broken/guessed URL shouldn't quietly
-    // "work" and confuse whoever's checking it.
+    const pricing = readData('pricing');
+    const typeRows = servicePage.resolveTypeRows(appliance, city, pricing);
+
     let focusType = null;
     if (focusTypeSlug) {
       focusType = appliance.types.find(t => slugify(t.name) === focusTypeSlug);
+      if (!focusType && isRemovedServiceSlug(`${req.params.applianceSlug}/${focusTypeSlug}`)) return sendCityGonePage(res, true);
       if (!focusType) {
         return res.status(404).send(
           `<h1>Service not found in ${escapeHtml(city.name)}</h1><p>This specific service type may not be available here yet. <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}">See all ${escapeHtml(appliance.name)} services in ${escapeHtml(city.name)}</a>.</p>`
         );
       }
-    }
-    // The name used everywhere on the page — "Split AC" on a
-    // type-specific page, just "AC" on the general appliance page.
-    // Type names aren't consistent about whether they already include
-    // the appliance name (data check: "Split AC" already has "AC" in
-    // it, but "Top Load" doesn't have "Washing Machine", and "Chimney"
-    // as a type name for the Chimney appliance is identical to it) — so
-    // this only appends the appliance name when the type name doesn't
-    // already contain it, rather than always concatenating and risking
-    // "Chimney Chimney" or "Split AC AC".
-    const displayName = focusType
-      ? (focusType.name.toLowerCase().includes(appliance.name.toLowerCase()) ? focusType.name : `${focusType.name} ${appliance.name}`)
-      : appliance.name;
-
-    const pricing = readData('pricing');
-    // BUG FIX: same stale-price issue as the city page — read the
-    // per-service SKU price Admin's Pricing tab actually writes to (the
-    // type's first defined service for "Service/AMC", 'svc-repair' for
-    // Repair), falling back to the legacy field only for rows that
-    // predate the SKU system.
-    const resolvedPrice = (row, sku, legacyField) =>
-      (sku && row.servicePrices && typeof row.servicePrices[sku] === 'number') ? row.servicePrices[sku] : row[legacyField];
-    // On a type-specific page, the table only shows that one type's row
-    // — showing all types here again would undercut the whole point of
-    // a dedicated page (and just duplicate the general appliance page).
-    const relevantTypes = focusType ? [focusType] : appliance.types;
-    // REBUILT (explicit request — "ek baar me select ho jay aur appliance
-    // ki details bhi ho jisase se seo jordar bane"): the old 3-column
-    // table only ever named a price, never showed what was actually
-    // included — a customer had to open the booking popup just to see
-    // the checklist, and none of that detail was ever visible/crawlable
-    // text for Google either. This replaces it with one real, full card
-    // per priced service (Service, Repair, Installation, Uninstallation,
-    // Gas Filling, ...) — photo, price, and its COMPLETE checklist, all
-    // server-rendered so it's on the page from the first load, no popup
-    // needed to see it. "Add"/"Book" both go straight to the Quick Book
-    // popup already scoped to this exact type (see bookHref below) — one
-    // tap, not a separate page. (Explicitly no "Review" button here, and
-    // wording throughout is Seerua's own, not copied from any
-    // competitor's site.)
-    // FIX (explicit request — the general appliance page's full list was
-    // "lambi lag rahi hai": every type's every service stacked as a full
-    // card, 15 long cards deep for AC). On a page with more than one
-    // type, that full detail now lives ONLY on each type's own dedicated
-    // page (already built, already short — 5 cards for just that one
-    // type). This page instead shows one compact box per type (Window
-    // AC / Split AC / Cassette AC, "window split ke upar box hi bana
-    // do"), each just naming the type and its lowest price, linking
-    // straight to that type's full page. A single-type page (focusType
-    // set, or an appliance with only one type) skips the boxes entirely
-    // and shows that one type's full cards directly, same as before —
-    // nothing to choose between there.
-    const isMultiTypeOverview = !focusType && relevantTypes.length > 1;
-    const pricingCardsHtml = isMultiTypeOverview
-      ? `<div class="type-box-row">` + relevantTypes.map(t => {
-          const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
-          if (!row) return '';
-          const services = (Array.isArray(t.services) && t.services.length)
-            ? t.services
-            : [{ id: 'svc-service' }, { id: 'svc-repair' }];
-          const prices = services.map(svc => (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
-            ? row.servicePrices[svc.id]
-            : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null))
-          ).filter(p => typeof p === 'number');
-          if (!prices.length) return '';
-          const typeLink = `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}/${slugify(t.name)}`;
-          return `<a href="${typeLink}" class="type-box"><span class="type-box-name">${escapeHtml(t.name)}</span><span class="type-box-price">From ₹${Math.min(...prices)}</span></a>`;
-        }).join('') + `</div>`
-      : relevantTypes.map(t => {
-          const row = pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id);
-          if (!row) return '';
-          const services = (Array.isArray(t.services) && t.services.length)
-            ? t.services
-            : [{ id: 'svc-service', name: 'Service', checklist: [] }, { id: 'svc-repair', name: 'Repair', checklist: [] }];
-          const bookHref = `/?city=${city.id}&amp;appliance=${appliance.id}&amp;type=${encodeURIComponent(t.id)}#quickbook`;
-          const photoHtml = appliance.photoUrl
-            ? buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(t.name)} technician at work" class="qb-price-img" loading="lazy"`)
-            : `<div class="qb-price-img" style="display:flex;align-items:center;justify-content:center;">${SERVER_SERVICE_ICONS[appliance.icon] || SERVER_SERVICE_ICONS.wrench}</div>`;
-          return services.map(svc => {
-            const price = (row.servicePrices && typeof row.servicePrices[svc.id] === 'number')
-              ? row.servicePrices[svc.id]
-              : (svc.id === 'svc-service' ? row.servicePrice : (svc.id === 'svc-repair' ? row.repairPrice : null));
-            if (typeof price !== 'number') return '';
-            const mrp = Math.round((price * 1.2) / 10) * 10;
-            const checklistHtml = (svc.checklist || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
-            return `
-              <div class="qb-service-card">
-                <div class="qb-price-card">
-                  <div class="qb-price-photo-wrap">
-                    ${photoHtml}
-                    <span class="qb-price-badge">₹${price}/-</span>
-                  </div>
-                  <div>
-                    <div class="qb-price-title">${escapeHtml(t.name)} ${escapeHtml(svc.name)} In ${escapeHtml(city.name)}</div>
-                    <div class="qb-price-row"><span class="qb-price-tag">🏷️</span><span class="qb-price-strike">₹${mrp}</span><span class="qb-price-now">₹${price}</span></div>
-                  </div>
-                </div>
-                ${checklistHtml ? `<details class="qb-checklist-details"><summary>What's included</summary><ul class="qb-checklist">${checklistHtml}</ul></details>` : ''}
-                <div class="qb-actions">
-                  <a href="${bookHref}" class="qb-btn qb-btn-add">🛒 Add</a>
-                  <a href="${bookHref}" class="qb-btn qb-btn-book">Book</a>
-                </div>
-              </div>`;
-          }).join('');
-        }).join('\n');
-    // Used for the Service schema's price hint — the overall low-to-high
-    // range across this appliance's own types in this city only (not
-    // every appliance), so it stays an honest, specific number. Narrows
-    // to just the focus type's own service/repair prices on a
-    // type-specific page, for the same reason as the pricing table above.
-    const applianceServicePrices = relevantTypes
-      .map(t => ({ t, row: pricing.find(p => p.cityId === city.id && p.applianceId === appliance.id && p.typeId === t.id) }))
-      .filter(x => x.row)
-      .flatMap(({ t, row }) => {
-        const services = Array.isArray(t.services) ? t.services : [];
-        const primarySkuId = services[0] ? services[0].id : null;
-        return [resolvedPrice(row, primarySkuId, 'servicePrice'), resolvedPrice(row, 'svc-repair', 'repairPrice')];
-      });
-    const priceRange = applianceServicePrices.length
-      ? `₹${Math.min(...applianceServicePrices)}-₹${Math.max(...applianceServicePrices)}`
-      : '';
-
-    // allServicesListHtml (the old separate "extra SKUs" chip list) is
-    // gone — every priced SKU (Installation, Uninstallation, Gas Filling,
-    // same as Service/Repair) now gets its own full card above in
-    // pricingCardsHtml, so there's nothing left for a second list to add.
-    // {{ALL_SERVICES_LIST_HTML}} itself always resolves to '' below, kept
-    // only so a stray reference to it elsewhere doesn't break.
-    const allServicesListHtml = '';
-
-    const otherAppliancesHtml = allAppliances.filter(a => a.id !== appliance.id)
-      .map(a => `<a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}" class="city-chip">${a.name} Service in ${city.name}</a>`)
-      .join('\n      ');
-
-    const otherCitiesHtml = cities.filter(c => c.id !== city.id)
-      // Only link to cities where this appliance is actually offered —
-      // never send a searcher to a page that would just 404 for them.
-      .filter(c => {
-        const cityAppliances = readData('appliances').filter(a => !(a.disabledCities || []).includes(c.id));
-        return cityAppliances.some(a => a.id === appliance.id);
-      })
-      .map(c => `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(appliance.name)}${focusType ? '/' + slugify(focusType.name) : ''}" class="city-chip">${displayName} Service in ${c.name}</a>`)
-      .join('\n      ');
-
-    const footerServicesHtml = allAppliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
-
-    const cityUrl = `${SITE_URL}/appliance-repair/${slugify(city.name)}`;
-    const canonicalUrl = `${cityUrl}/${applianceSlug(appliance.name)}${focusType ? '/' + slugify(focusType.name) : ''}`;
-    // BUG FIX: on a type-specific page (e.g. "Split AC Service in
-    // Jalesar"), the Book links used to send the customer to
-    // /?city=..&appliance=..#quickbook with no mention of which type they
-    // came for — so the Quick Book modal always opened on the appliance's
-    // first type (Window AC) instead of the Split AC they actually clicked
-    // through for. Threading the type id through as its own query param
-    // lets main.js open the modal on the right tab. Empty string (not the
-    // param at all) on the general, not-type-specific appliance page,
-    // where defaulting to the first type is correct as before.
-    const typeQuery = focusType ? `&amp;type=${encodeURIComponent(focusType.id)}` : '';
-    // SUGGESTION IMPLEMENTED: real photos of technicians actually doing
-    // this work (AI-generated by Admin, not stock/stolen images — see
-    // public/images/appliances/) make the page feel far less like a bare
-    // pricing table. Optional: appliances without a photoUrl yet (e.g.
-    // Fridge) simply get the original single-column hero instead of a
-    // broken image.
-    // BUG FIX: on mobile the hero-grid collapses to a single column, so
-    // whichever element comes first in the HTML (the text block, with
-    // the "Book" button) rendered visually ABOVE the photo — reading as
-    // "button, then picture" instead of the picture leading with the
-    // Book button right under it. Wrapped in its own class (only when a
-    // photo actually exists — appliances with no photoUrl yet, like
-    // Fridge, keep the original single-column, full-width hero) so a
-    // mobile-only CSS rule can flip the visual order without touching
-    // desktop's two-column layout or the source order screen readers see.
-    const appliancePhotoHtml = appliance.photoUrl
-      ? `<div class="hero-photo">${buildPictureHtml(appliance.photoUrl, `alt="${escapeHtml(appliance.name)} service technician at work" style="width:100%;aspect-ratio:4/3.3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);"`)}</div>`
-      : '';
-
-    // NEW: FAQ section, per-appliance-per-city — competitor research
-    // (Vijay Home Services) showed FAQ blocks with FAQPage schema on
-    // their equivalent pages, useful both for actually answering common
-    // pre-booking questions AND for Google's FAQ rich-result snippets.
-    // Kept genuinely specific to THIS appliance+city (not the site-wide
-    // Admin-managed FAQ list used on the homepage) so the answers can
-    // reference this page's own real price range instead of staying
-    // generic.
-    const applianceFaqs = [
-      {
-        q: `How much does ${displayName} service cost in ${city.name}?`,
-        a: priceRange
-          ? `${displayName} service in ${city.name} starts at ${priceRange} — see the exact pricing above for a full breakdown. The technician always confirms the final price with you before starting any work, so there are never surprise charges.`
-          : `Pricing depends on the specific issue. The technician gives you an exact quote after inspecting it, before any work begins — nothing is charged without your approval first.`
-      },
-      {
-        q: `How soon can a technician visit for ${displayName} service in ${city.name}?`,
-        a: `Most ${city.name} bookings get a same-day visit, with a time slot you pick yourself when booking. You'll get a confirmation with the technician's details ahead of the visit.`
-      },
-      {
-        q: `Do you repair all ${displayName} brands in ${city.name}?`,
-        a: `Yes — our ${city.name} technicians service all major brands. If a specific spare part needs to be ordered for an older or less common model, we'll let you know the expected timeline upfront.`
-      },
-      {
-        q: `Is there a warranty on ${displayName} repairs in ${city.name}?`,
-        a: `Yes, every repair includes a 30-day service warranty — if the same issue comes back within that period, we'll send a technician again at no extra visit charge.`
+      // A single-type appliance (Chimney -> "Chimney") would otherwise
+      // have two URLs with identical content — the type URL permanently
+      // points to the one real page instead (no duplicate content).
+      if (appliance.types.length < 2) {
+        return res.redirect(301, `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}`);
       }
-    ];
-    const applianceFaqListHtml = applianceFaqs.map((f, i) => `
+    }
+    const displayName = servicePage.typeDisplayName(focusType, appliance);
+    const activeTypeId = (focusType && typeRows.some(r => r.type.id === focusType.id))
+      ? focusType.id
+      : (typeRows[0] ? typeRows[0].type.id : null);
+
+    const citySlug = slugify(city.name);
+    const applianceUrl = `${SITE_URL}/appliance-repair/${citySlug}/${applianceSlug(appliance.name)}`;
+    const canonicalUrl = focusType ? `${applianceUrl}/${slugify(focusType.name)}` : applianceUrl;
+
+    const scopedRows = focusType ? typeRows.filter(r => r.type.id === focusType.id) : typeRows;
+    const scopedPrices = scopedRows.flatMap(r => r.services.map(s => s.price));
+    const minPrice = scopedPrices.length ? Math.min(...scopedPrices) : null;
+    const priceRange = scopedPrices.length ? `₹${Math.min(...scopedPrices)}-₹${Math.max(...scopedPrices)}` : '';
+
+    const stripHtml = servicePage.buildStripHtml(allAppliances, appliance, city);
+    const tabsHtml = servicePage.buildTabsHtml(typeRows, appliance, city, activeTypeId);
+    const panelsHtml = typeRows.length
+      ? servicePage.buildPanelsHtml(typeRows, appliance, city, activeTypeId, servicePhotoUrl)
+      : `<p class="form-msg">Pricing for ${escapeHtml(appliance.name)} in ${escapeHtml(city.name)} is being updated. Please call us on ${BUSINESS_PHONE} to book.</p>`;
+    const articleHtml = servicePage.buildArticleHtml({
+      appliance, city, typeRows, focusType, displayName,
+      phoneDisplay: BUSINESS_PHONE,
+      serviceProcessHtml: formatServiceProcessHtml(appliance.serviceProcess),
+      aboutText: appliance.aboutText || ''
+    });
+
+    const faqs = servicePage.buildFaqs({ appliance, city, displayName, typeRows: scopedRows });
+    const faqHtml = faqs.map((f, i) => `
       <div class="faq-item${i === 0 ? ' open' : ''}">
         <div class="faq-q">${escapeHtml(f.q)} <span class="plus">+</span></div>
         <div class="faq-a"><p>${escapeHtml(f.a)}</p></div>
       </div>`).join('');
-    const applianceFaqSchemaHtml = `<script type="application/ld+json">
-${JSON.stringify({
+    const faqSchemaHtml = `<script type="application/ld+json">\n${JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
-      mainEntity: applianceFaqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
-    }, null, 2)}
-</script>`;
+      mainEntity: faqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
+    }, null, 2)}\n</script>`;
+
+    const breadcrumbItems = [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL + '/' },
+      { '@type': 'ListItem', position: 2, name: `${appliance.name} Service in ${city.name}`, item: applianceUrl }
+    ];
+    if (focusType) breadcrumbItems.push({ '@type': 'ListItem', position: 3, name: `${displayName} Service in ${city.name}`, item: canonicalUrl });
+    const breadcrumbSchemaHtml = `<script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: breadcrumbItems }, null, 2)}\n</script>`;
+    const breadcrumbHtml = `<a href="/">Home</a> <span>/</span> ` + (focusType
+      ? `<a href="/appliance-repair/${citySlug}/${applianceSlug(appliance.name)}">${escapeHtml(appliance.name)} Service in ${escapeHtml(city.name)}</a> <span>/</span> <strong>${escapeHtml(displayName)}</strong>`
+      : `<strong>${escapeHtml(appliance.name)} Service in ${escapeHtml(city.name)}</strong>`);
+
+    const otherAppliancesHtml = allAppliances.filter(a => a.id !== appliance.id)
+      .map(a => `<a href="/appliance-repair/${citySlug}/${applianceSlug(a.name)}" class="city-chip">${escapeHtml(a.name)} Service in ${escapeHtml(city.name)}</a>`)
+      .join('\n      ');
+    const otherTypesHtml = typeRows.length > 1
+      ? typeRows.filter(r => !focusType || r.type.id !== focusType.id)
+          .map(r => `<a href="/appliance-repair/${citySlug}/${applianceSlug(appliance.name)}/${slugify(r.type.name)}" class="city-chip">${escapeHtml(servicePage.typeDisplayName(r.type, appliance))} Service in ${escapeHtml(city.name)}</a>`)
+          .join('\n      ')
+      : '';
+    const allAppliancesRaw = readData('appliances');
+    const otherCitiesHtml = cities.filter(c => c.id !== city.id)
+      .filter(c => allAppliancesRaw.some(a => a.id === appliance.id && !a.hidden && !(a.disabledCities || []).includes(c.id)) && applianceHasPricing(appliance, c.id, pricingAll))
+      .map(c => `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(appliance.name)}${focusType ? '/' + slugify(focusType.name) : ''}" class="city-chip">${escapeHtml(displayName)} Service in ${escapeHtml(c.name)}</a>`)
+      .join('\n      ');
+    // City sheet (bottom nav "City") links to THIS appliance in each city,
+    // not the generic redirecting city URL.
+    const citySheetHtml = cities.map(c =>
+      `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(appliance.name)}"${c.id === city.id ? ' class="active"' : ''}>${escapeHtml(c.name)}</a>`
+    ).join('');
+    const footerServicesHtml = allAppliances.map(a => `<li><a href="/appliance-repair/${citySlug}/${applianceSlug(a.name)}">${escapeHtml(a.name)} Repair &amp; Service</a></li>`).join('\n          ');
+
+    const metaTitle = `${displayName} Service in ${city.name}${minPrice !== null ? ` @ ₹${minPrice}` : ''} | Repair & Service | Seerua`;
+    const metaDescription = `Book ${displayName} service & repair in ${city.name}${minPrice !== null ? ` from ₹${minPrice}` : ''}. Verified technicians, same-day doorstep visit, fixed prices, 30-day warranty. Book online in 1 minute.`;
+    const pageConfig = JSON.stringify({ cityId: city.id, cityName: city.name, applianceId: appliance.id, phone: BUSINESS_PHONE })
+      .replace(/</g, '\\u003c');
 
     const template = fs.readFileSync(APPLIANCE_CITY_TEMPLATE_PATH, 'utf-8');
-    const html = template
-      .split('{{CITY_NAME}}').join(city.name)
-      .split('{{CITY_ID}}').join(city.id)
-      .split('{{CITY_SLUG}}').join(slugify(city.name))
-      .split('{{APPLIANCE_NAME}}').join(displayName)
-      .split('{{APPLIANCE_ID}}').join(appliance.id)
-      .split('{{APPLIANCE_PHOTO_HTML}}').join(appliancePhotoHtml)
-      .split('{{APPLIANCE_FAQ_HTML}}').join(applianceFaqListHtml)
-      .split('{{APPLIANCE_FAQ_SCHEMA}}').join(applianceFaqSchemaHtml)
-      .split('{{CANONICAL_URL}}').join(canonicalUrl)
-      .split('{{TYPE_QUERY}}').join(typeQuery)
-      // Both merged into ONE table's rows (not a separate box below it in
-      // a different pill/chip style) — Service/Repair rows first, then
-      // Full price-card list — see pricingCardsHtml above.
-      .split('{{PRICING_ROWS_HTML}}').join(
-        pricingCardsHtml || `<p class="form-msg">Pricing coming soon for ${escapeHtml(appliance.name)} in ${escapeHtml(city.name)}.</p>`
-      )
-      .split('{{ALL_SERVICES_LIST_HTML}}').join('')
-      .split('{{SERVICE_PROCESS_HTML}}').join(formatServiceProcessHtml(appliance.serviceProcess) || `<p>Our technician inspects your ${appliance.name} in front of you, explains the issue clearly, and only proceeds once you approve the price.</p>`)
-      .split('{{ABOUT_TEXT}}').join(
-        escapeHtml(appliance.aboutText || '').replace(/Foam Jet Service/g, '<strong style="text-decoration:underline;">Foam Jet Service</strong>')
-      )
-      .split('{{OTHER_APPLIANCES_HTML}}').join(otherAppliancesHtml || '<span class="city-chip">More services coming soon</span>')
-      .split('{{OTHER_CITIES_HTML}}').join(otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>')
-      .split('{{FOOTER_SERVICES_HTML}}').join(footerServicesHtml)
-      .split('{{FOOTER_SLOGAN}}').join(escapeHtml(siteContent.footerSlogan || ''))
-      .split('{{FOOTER_DESCRIPTION}}').join(escapeHtml(siteContent.footerDescription || ''))
-      .split('{{YEAR}}').join(String(new Date().getFullYear()))
-      .split('{{SERVICE_SCHEMA_JSON}}').join(buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRange))
-      .split('{{BREADCRUMB_SCHEMA_JSON}}').join(buildApplianceBreadcrumbSchemaHtml(city.name, cityUrl, appliance.name, canonicalUrl));
+    const replacements = {
+      '{{META_TITLE}}': escapeHtml(metaTitle),
+      '{{META_DESCRIPTION}}': escapeHtml(metaDescription),
+      '{{CITY_NAME}}': escapeHtml(city.name),
+      '{{CITY_ID}}': escapeHtml(city.id),
+      '{{CITY_SLUG}}': citySlug,
+      '{{APPLIANCE_NAME}}': escapeHtml(displayName),
+      '{{BASE_APPLIANCE_NAME}}': escapeHtml(appliance.name),
+      '{{APPLIANCE_ID}}': escapeHtml(appliance.id),
+      '{{OG_IMAGE}}': SITE_URL + (appliance.photoUrl || '/images/logo.png'),
+      '{{CANONICAL_URL}}': canonicalUrl,
+      '{{BREADCRUMB_HTML}}': breadcrumbHtml,
+      '{{MIN_PRICE_TEXT}}': minPrice !== null ? `Starting at <strong>₹${minPrice}</strong>` : '',
+      '{{STRIP_HTML}}': stripHtml,
+      '{{TABS_HTML}}': tabsHtml,
+      '{{PANELS_HTML}}': panelsHtml,
+      '{{ARTICLE_HTML}}': articleHtml,
+      '{{APPLIANCE_FAQ_HTML}}': faqHtml,
+      '{{APPLIANCE_FAQ_SCHEMA}}': faqSchemaHtml,
+      '{{OTHER_APPLIANCES_HTML}}': otherAppliancesHtml || '<span class="city-chip">More services coming soon</span>',
+      '{{OTHER_TYPES_HTML}}': otherTypesHtml,
+      '{{OTHER_TYPES_DISPLAY}}': otherTypesHtml ? '' : 'display:none;',
+      '{{OTHER_CITIES_HTML}}': otherCitiesHtml || '<span class="city-chip">More cities coming soon</span>',
+      '{{CITY_SHEET_HTML}}': citySheetHtml,
+      '{{FOOTER_SERVICES_HTML}}': footerServicesHtml,
+      '{{FOOTER_SLOGAN}}': escapeHtml(siteContent.footerSlogan || ''),
+      '{{FOOTER_DESCRIPTION}}': escapeHtml(siteContent.footerDescription || ''),
+      '{{YEAR}}': String(new Date().getFullYear()),
+      '{{SERVICE_SCHEMA_JSON}}': buildApplianceServiceSchemaJson({ ...appliance, name: displayName }, city, canonicalUrl, priceRange),
+      '{{BREADCRUMB_SCHEMA_JSON}}': breadcrumbSchemaHtml,
+      '{{PAGE_CONFIG_JSON}}': pageConfig
+    };
+    let html = template;
+    for (const [k, v] of Object.entries(replacements)) html = html.split(k).join(v);
 
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
@@ -5329,14 +5337,13 @@ app.get('/appliance-repair/:citySlug/blog', (req, res) => {
       res.setHeader('Retry-After', String(maintenance.retryAfterSeconds));
       return res.status(503).send(maintenance.html);
     }
-    const cities = readData('cities').filter(c => c.active);
-    const city = cities.find(c => slugify(c.name) === req.params.citySlug);
-    // Same siteContent read the city page needs — see the BUG FIX note
-    // on the /appliance-repair/:citySlug route above (footer text).
-    const siteContent = readData('site-content');
-    if (!city) {
-      return res.status(404).send(`<h1>City not found</h1><p><a href="/">Go back home</a>.</p>`);
+    const cityResult = resolveCityForSlug(req.params.citySlug);
+    if (cityResult.redirectSlug) {
+      return res.redirect(301, req.originalUrl.split('?')[0].replace(`/appliance-repair/${req.params.citySlug}`, `/appliance-repair/${cityResult.redirectSlug}`));
     }
+    if (!cityResult.city) return sendCityGonePage(res, cityResult.gone);
+    const city = cityResult.city;
+    const siteContent = readData('site-content');
     const articles = readData('blog-articles');
     const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
     const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
@@ -5372,14 +5379,13 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
       res.setHeader('Retry-After', String(maintenance.retryAfterSeconds));
       return res.status(503).send(maintenance.html);
     }
-    const cities = readData('cities').filter(c => c.active);
-    const city = cities.find(c => slugify(c.name) === req.params.citySlug);
-    // Same siteContent read the city page needs — see the BUG FIX note
-    // on the /appliance-repair/:citySlug route above (footer text).
-    const siteContent = readData('site-content');
-    if (!city) {
-      return res.status(404).send(`<h1>City not found</h1><p><a href="/">Go back home</a>.</p>`);
+    const cityResult = resolveCityForSlug(req.params.citySlug);
+    if (cityResult.redirectSlug) {
+      return res.redirect(301, req.originalUrl.split('?')[0].replace(`/appliance-repair/${req.params.citySlug}`, `/appliance-repair/${cityResult.redirectSlug}`));
     }
+    if (!cityResult.city) return sendCityGonePage(res, cityResult.gone);
+    const city = cityResult.city;
+    const siteContent = readData('site-content');
     const articles = readData('blog-articles');
     const article = articles.find(a => a.slug === req.params.articleSlug);
     if (!article) {
@@ -5458,7 +5464,8 @@ app.get('/sitemap.xml', (req, res) => {
     // instead of relying on Google to discover them purely by following
     // links from the city page.
     ...cities.flatMap(c => {
-      const cityAppliances = allAppliancesRaw.filter(a => !(a.disabledCities || []).includes(c.id));
+      const sitemapPricing = readData('pricing');
+      const cityAppliances = allAppliancesRaw.filter(a => !(a.disabledCities || []).includes(c.id) && applianceHasPricing(a, c.id, sitemapPricing));
       return cityAppliances.map(a => ({
         loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}`,
         changefreq: 'weekly',
@@ -5471,7 +5478,10 @@ app.get('/sitemap.xml', (req, res) => {
     // reasoning as the appliance+city pages just above.
     ...cities.flatMap(c => {
       const cityAppliances = allAppliancesRaw.filter(a => !(a.disabledCities || []).includes(c.id));
-      return cityAppliances.flatMap(a => a.types.map(t => ({
+      const pricingRows = readData('pricing');
+      return cityAppliances.filter(a => a.types.length > 1).flatMap(a => a.types
+        .filter(t => pricingRows.some(p => p.cityId === c.id && p.applianceId === a.id && p.typeId === t.id))
+        .map(t => ({
         loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}/${slugify(t.name)}`,
         changefreq: 'weekly',
         priority: '0.8',

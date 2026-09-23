@@ -11,30 +11,30 @@
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-<!-- Tells browsers this site is light-themed only, so Android Chrome's
-     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
-     thing than just following prefers-color-scheme) leaves logos, photos,
-     and brand colors alone instead of algorithmically recoloring them. -->
 <meta name="color-scheme" content="light">
-<title>{{APPLIANCE_NAME}} Service in {{CITY_NAME}} - Repair & Service | Seerua</title>
-<meta name="description" content="{{APPLIANCE_NAME}} repair and service in {{CITY_NAME}}. Verified technicians, transparent pricing, same-day doorstep visit. Book online or call.">
-<meta name="keywords" content="{{APPLIANCE_NAME}} service {{CITY_NAME}}, {{APPLIANCE_NAME}} repair {{CITY_NAME}}, {{APPLIANCE_NAME}} service near me, {{APPLIANCE_NAME}} technician {{CITY_NAME}}, doorstep {{APPLIANCE_NAME}} service {{CITY_NAME}}">
+<title>{{META_TITLE}}</title>
+<meta name="description" content="{{META_DESCRIPTION}}">
 <link rel="canonical" href="{{CANONICAL_URL}}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Seerua Appliance Care">
+<meta name="geo.region" content="IN">
+<meta name="geo.placename" content="{{CITY_NAME}}">
 
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Seerua Appliance Care">
 <meta property="og:url" content="{{CANONICAL_URL}}">
-<meta property="og:title" content="{{APPLIANCE_NAME}} Service in {{CITY_NAME}} | Seerua Appliance Care">
-<meta property="og:description" content="Verified technicians, transparent {{CITY_NAME}} pricing, same day doorstep {{APPLIANCE_NAME}} repair and service.">
-<meta property="og:image" content="/images/logo.png">
+<meta property="og:title" content="{{META_TITLE}}">
+<meta property="og:description" content="{{META_DESCRIPTION}}">
+<meta property="og:image" content="{{OG_IMAGE}}">
 <meta property="og:locale" content="en_IN">
+<meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" href="/images/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609208">
+<link rel="stylesheet" href="/css/style.css?v=202609235">
+<link rel="stylesheet" href="/css/service-page.css?v=202609237">
 
 <script type="application/ld+json">
 {{SERVICE_SCHEMA_JSON}}
@@ -42,7 +42,7 @@
 {{BREADCRUMB_SCHEMA_JSON}}
 {{APPLIANCE_FAQ_SCHEMA}}
 </head>
-<body>
+<body class="sp-page">
 
 <header class="site-header">
   <div class="container">
@@ -63,16 +63,14 @@
       <a class="call-link" href="tel:+919389585479">
         📞 <span class="call-text">9389585479</span>
       </a>
-      <!-- Full OTP/registration flow only lives in main.js on the
-           homepage — rather than duplicating that whole system here,
-           this just shows the same icon (reading the same saved account
-           from localStorage so it still shows the right initial) and
-           sends taps through to the homepage's Account Gate. -->
       <a href="/#track" class="header-account-btn" id="headerAccountBtn" aria-label="My Account">
         <svg id="headerAccountIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         <span id="headerAccountInitial" class="header-account-initial" style="display:none;"></span>
       </a>
-      <a class="btn btn-primary btn-sm" href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook">Book Now</a>
+      <button type="button" class="sp-header-cart" id="spHeaderCart" aria-label="Cart">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        <span class="sp-header-cart-badge" id="spHeaderCartBadge" hidden>0</span>
+      </button>
     </div>
   </div>
 </header>
@@ -89,199 +87,62 @@
       if (icon) icon.style.display = 'none';
       if (initialEl) { initialEl.style.display = 'block'; initialEl.textContent = acc.name.trim().charAt(0).toUpperCase(); }
     }
-  } catch (e) { /* private/incognito mode, etc. — default icon is fine */ }
+  } catch (e) { /* private mode — default icon is fine */ }
 })();
 </script>
 
-<nav aria-label="Breadcrumb" class="container" style="padding-top:18px;font-size:0.85rem;color:var(--slate);">
-  <a href="/" style="color:var(--slate);">Home</a> /
-  <a href="/appliance-repair/{{CITY_SLUG}}" style="color:var(--slate);">{{CITY_NAME}}</a> /
-  <span style="color:var(--blue-900);font-weight:600;">{{APPLIANCE_NAME}} Service</span>
-</nav>
+<main class="sp-main">
+  <div class="sp-wrap">
+    <nav aria-label="Breadcrumb" class="sp-breadcrumb">{{BREADCRUMB_HTML}}</nav>
 
-<section class="hero" style="padding-bottom:6px;">
-  <div class="container">
-    <div class="hero-grid" style="max-width:1300px;">
-      <div class="hero-copy">
-        <span class="eyebrow">Doorstep {{APPLIANCE_NAME}} service in {{CITY_NAME}}</span>
-        <h1 style="max-width:760px;">{{APPLIANCE_NAME}} Service &amp; Repair in <span class="highlight">{{CITY_NAME}}</span></h1>
-        <p class="hero-sub" style="max-width:640px;">Verified {{CITY_NAME}} technicians, transparent pricing, and same day doorstep {{APPLIANCE_NAME}} visits — no guesswork on price, no waiting around.</p>
-        <!-- CHANGED (explicit, repeated request): the old "Book AC Service
-             in Moradabad" button and the separate "Call Now" button next
-             to it are both gone — replaced with this one line of plain
-             text, not a link/button, right where they used to be, with
-             almost no space around it. The actual tap targets are the
-             Add/Book buttons on the price cards right below. -->
-        <p class="hero-cta-text" style="margin:6px 0 0;font-weight:700;color:var(--blue-900);">Choose Your {{APPLIANCE_NAME}} Service</p>
-      </div>
-      {{APPLIANCE_PHOTO_HTML}}
+    <div class="sp-hero">
+      <h1>{{APPLIANCE_NAME}} Service &amp; Repair in {{CITY_NAME}}</h1>
+      <p class="sp-hero-sub">{{MIN_PRICE_TEXT}} <span class="sp-dot">•</span> Same-day visit <span class="sp-dot">•</span> 30-day warranty</p>
     </div>
-  </div>
-</section>
 
-<section class="bg-mist" style="padding-top:4px;">
-  <div class="container">
-    <!-- CHANGED (explicit, repeated request): the "{{CITY_NAME}} pricing"
-         eyebrow label ("MORADABAD PRICING") is removed — it was the exact
-         redundant label the user kept pointing at, since the H2 right
-         below it already says "Choose Your ... Service in ...". Section's
-         top padding + margin-bottom further trimmed to close the gap. -->
-    <div class="section-head reveal" style="margin-bottom:4px;">
-      <h2>Choose Your {{APPLIANCE_NAME}} Service in {{CITY_NAME}}</h2>
-      <p>Exact visit charges for {{APPLIANCE_NAME}} in {{CITY_NAME}} — no surprises, no hidden fees.</p>
-    </div>
-    <!-- REBUILT (explicit request — full, real detail on the page itself,
-         not hidden behind a popup, both for a customer to pick in one tap
-         and for Google to actually see what we do): one full card per
-         priced service — photo, price, complete checklist — built
-         server-side in server.js (see pricingCardsHtml). No "Review"
-         button here, only Add/Book, per that same request.
-         {{ALL_SERVICES_LIST_HTML}} always resolves to '' now; kept only
-         so a stray reference to it elsewhere doesn't break. -->
-    <div class="pricing-cards-wrap reveal" style="max-width:820px;margin:0 auto;">
-      {{PRICING_ROWS_HTML}}
-    </div>
-    {{ALL_SERVICES_LIST_HTML}}
-  </div>
-</section>
+    <p class="sp-strip-label">Select a Product to Book Repair Service</p>
+    <nav class="sp-strip" aria-label="Appliances we service in {{CITY_NAME}}">
+      {{STRIP_HTML}}
+    </nav>
 
-<section>
-  <div class="container">
-    <div class="section-head reveal" style="max-width:820px;">
-      <span class="eyebrow">How it works</span>
-      <h2>Booking {{APPLIANCE_NAME}} Service in {{CITY_NAME}} — 4 Simple Steps</h2>
-    </div>
-    <div class="steps reveal" style="grid-template-columns:repeat(4,1fr);">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Book Online</h3>
-        <p>Pick your {{APPLIANCE_NAME}} type and a visit time slot that works for you — takes under a minute.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h3>Free Diagnosis</h3>
-        <p>Our {{CITY_NAME}} technician inspects the appliance in front of you and explains exactly what's wrong.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>Upfront Repair</h3>
-        <p>You approve the price first — then genuine parts and expert work, no surprise charges after.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <h3>Quality Check</h3>
-        <p>The appliance is tested in front of you before the technician leaves, backed by a 30-day warranty.</p>
-      </div>
-    </div>
-  </div>
-</section>
+    <section id="services" class="sp-services" aria-label="{{APPLIANCE_NAME}} services and prices in {{CITY_NAME}}">
+      {{TABS_HTML}}
+      {{PANELS_HTML}}
+    </section>
 
-<section>
-  <div class="container">
-    <div class="section-head reveal" style="max-width:820px;">
-      <span class="eyebrow">How it works</span>
-      <h2>How Our {{APPLIANCE_NAME}} Service Works in {{CITY_NAME}}</h2>
-    </div>
-    <div class="reveal" style="max-width:820px;margin:0 auto;">
-      {{SERVICE_PROCESS_HTML}}
-    </div>
-  </div>
-</section>
+    <article class="sp-article">
+      {{ARTICLE_HTML}}
+    </article>
 
-<section class="bg-mist">
-  <div class="container">
-    <div class="section-head reveal" style="max-width:820px;">
-      <span class="eyebrow">About this service</span>
-      <h2>{{APPLIANCE_NAME}} Service in {{CITY_NAME}} — What To Expect</h2>
-    </div>
-    <div class="reveal" style="max-width:820px;margin:0 auto;">
-      <p>{{ABOUT_TEXT}}</p>
-      <p>Looking for "{{APPLIANCE_NAME}} service near me" in {{CITY_NAME}}? Seerua's verified technicians already work across {{CITY_NAME}}, so a real technician — not a call centre — can be at your door the same day. Every job includes an upfront price, genuine parts billed at market rate with no hidden markup, and a 30-day warranty on the work done.</p>
-    </div>
-  </div>
-</section>
+    <section class="sp-faq" id="faq">
+      <h2 class="sp-center-h">Frequently Asked Questions</h2>
+      <div class="faq-list">
+        {{APPLIANCE_FAQ_HTML}}
+      </div>
+    </section>
 
-<section>
-  <div class="container">
-    <div class="section-head reveal" style="max-width:820px;">
-      <span class="eyebrow">Common questions</span>
-      <h2>{{APPLIANCE_NAME}} Service in {{CITY_NAME}} — FAQs</h2>
-    </div>
-    <div class="faq-list reveal" style="max-width:820px;margin:0 auto;">
-      {{APPLIANCE_FAQ_HTML}}
-    </div>
-  </div>
-</section>
+    <section class="sp-links" style="{{OTHER_TYPES_DISPLAY}}">
+      <h2>More {{BASE_APPLIANCE_NAME}} Services in {{CITY_NAME}}</h2>
+      <div class="city-chip-row">
+        {{OTHER_TYPES_HTML}}
+      </div>
+    </section>
 
-<section>
-  <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow">Why {{CITY_NAME}} chooses us</span>
-      <h2>Trusted {{APPLIANCE_NAME}} Repair in {{CITY_NAME}}</h2>
-    </div>
-    <div class="why-grid reveal">
-      <div class="why-item">
-        <div class="why-icon">✔</div>
-        <h4>Verified {{CITY_NAME}} Technicians</h4>
-        <p>Every technician servicing {{APPLIANCE_NAME}}s in {{CITY_NAME}} is trained and background verified.</p>
-      </div>
-      <div class="why-item">
-        <div class="why-icon">₹</div>
-        <h4>Fixed {{CITY_NAME}} Pricing</h4>
-        <p>See the exact {{APPLIANCE_NAME}} service price for {{CITY_NAME}} before you book — no hidden charges.</p>
-      </div>
-      <div class="why-item">
-        <div class="why-icon">⏱</div>
-        <h4>Same Day Visit</h4>
-        <p>Most {{APPLIANCE_NAME}} bookings in {{CITY_NAME}} are completed the same day or the next.</p>
-      </div>
-      <div class="why-item">
-        <div class="why-icon">🛡</div>
-        <h4>30-Day Warranty</h4>
-        <p>Every {{APPLIANCE_NAME}} repair and service in {{CITY_NAME}} is covered for 30 days.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="bg-mist">
-  <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow">More in {{CITY_NAME}}</span>
+    <section class="sp-links">
       <h2>Other Appliances We Service in {{CITY_NAME}}</h2>
-    </div>
-    <div class="city-chip-row reveal">
-      {{OTHER_APPLIANCES_HTML}}
-    </div>
-  </div>
-</section>
+      <div class="city-chip-row">
+        {{OTHER_APPLIANCES_HTML}}
+      </div>
+    </section>
 
-<section>
-  <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow">Other locations</span>
+    <section class="sp-links">
       <h2>{{APPLIANCE_NAME}} Service in Other Cities</h2>
-    </div>
-    <div class="city-chip-row reveal">
-      {{OTHER_CITIES_HTML}}
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="container">
-    <div class="cta-banner reveal">
-      <div>
-        <h2>{{APPLIANCE_NAME}} not working in {{CITY_NAME}}?</h2>
-        <p>Book now, or message us on WhatsApp for a quick response.</p>
+      <div class="city-chip-row">
+        {{OTHER_CITIES_HTML}}
       </div>
-      <div class="hero-cta-row" style="margin:0;">
-        <a href="/?city={{CITY_ID}}&amp;appliance={{APPLIANCE_ID}}{{TYPE_QUERY}}#quickbook" class="btn btn-white">Book Service</a>
-        <a href="https://wa.me/919389585479" target="_blank" rel="noopener" class="btn btn-primary">WhatsApp Us</a>
-      </div>
-    </div>
+    </section>
   </div>
-</section>
+</main>
 
 <footer class="site-footer">
   <div class="container">
@@ -304,6 +165,12 @@
         </a>
       </div>
     </div>
+    <div class="sp-footer-services">
+      <h4>Our Services in {{CITY_NAME}}</h4>
+      <ul>
+          {{FOOTER_SERVICES_HTML}}
+      </ul>
+    </div>
     <div class="footer-bottom">
       <span>© {{YEAR}} Seerua Appliance Care. All rights reserved.</span>
       <span><a href="/terms">Terms &amp; Conditions</a></span>
@@ -322,7 +189,8 @@
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
     <span>City</span>
   </button>
-  <button type="button" class="bottom-nav-item" id="bottomNavCartBtn">
+  <button type="button" class="bottom-nav-item" id="bottomNavCartBtn" data-has-cart="true" style="position:relative;">
+    <span class="bottom-nav-badge" id="bottomNavCartBadge" hidden>0</span>
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
     <span>Cart</span>
   </button>
@@ -391,7 +259,7 @@
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
     <h3>Apna Shehar Chunein</h3>
-    <div class="bottom-sheet-city-grid" id="bottomSheetCityGrid"></div>
+    <div class="bottom-sheet-city-grid" id="bottomSheetCityGrid" data-filled="1">{{CITY_SHEET_HTML}}</div>
   </div>
 </div>
 
@@ -440,33 +308,17 @@
   </div>
 </div>
 
+<!-- Floating cart bar: appears after "Add" -->
+<div class="sp-cartbar" id="spCartBar" hidden>
+  <div class="sp-cartbar-info"><strong id="spCartBarCount">0 services</strong><span id="spCartBarTotal">₹0</span></div>
+  <button type="button" class="sp-cartbar-btn" id="spCartBarBtn">Book Now →</button>
+</div>
+
+<div class="sp-toast" id="spToast" role="status" aria-live="polite"></div>
+<script type="application/json" id="spConfig">{{PAGE_CONFIG_JSON}}</script>
+
 <script>
-function openBottomSheet(id) {
-  document.querySelectorAll('.bottom-sheet-backdrop.open').forEach(el => el.classList.remove('open'));
-  const sheet = document.getElementById(id);
-  if (sheet) sheet.classList.add('open');
-}
-function closeBottomSheet(id) {
-  const sheet = document.getElementById(id);
-  if (sheet) sheet.classList.remove('open');
-}
-function bindBottomSheet(id) {
-  const backdrop = document.getElementById(id);
-  if (!backdrop) return;
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) closeBottomSheet(id);
-  });
-  backdrop.querySelectorAll('a, button').forEach(el => {
-    el.addEventListener('click', () => closeBottomSheet(id));
-  });
-}
-['menuSheetBackdrop', 'citySheetBackdrop'].forEach(bindBottomSheet);
-document.getElementById('navCityBtn')?.addEventListener('click', () => openBottomSheet('citySheetBackdrop'));
-document.getElementById('bottomNavCityBtn')?.addEventListener('click', () => openBottomSheet('citySheetBackdrop'));
-document.getElementById('bottomNavMenuBtn')?.addEventListener('click', () => openBottomSheet('menuSheetBackdrop'));
-// FAQ accordion — this page doesn't load main.js (its own small script
-// covers just what's needed here), so the toggle behavior needs its own
-// copy rather than relying on the homepage's version.
+// FAQ accordion (this page doesn't load the homepage's main script).
 document.querySelectorAll('.faq-item').forEach(item => {
   const q = item.querySelector('.faq-q');
   if (!q) return;
@@ -476,24 +328,9 @@ document.querySelectorAll('.faq-item').forEach(item => {
     if (!wasOpen) item.classList.add('open');
   });
 });
-(function () {
-  var targets = document.querySelectorAll('.reveal');
-  if (!targets.length) return;
-  if (!('IntersectionObserver' in window)) {
-    targets.forEach(function (el) { el.classList.add('in-view'); });
-    return;
-  }
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view');
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-  targets.forEach(function (el) { observer.observe(el); });
-})();
+document.getElementById('navCityBtn')?.addEventListener('click', () => document.getElementById('bottomNavCityBtn')?.click());
 </script>
+<script src="/js/service-page.js?v=202609236"></script>
 <script src="/js/chatbot.js?v=202609080a"></script>
 </body>
 </html>
