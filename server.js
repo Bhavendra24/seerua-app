@@ -5076,16 +5076,36 @@ const SERVER_SERVICE_ICONS = {
   fridge: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.2"/><line x1="5" y1="9.5" x2="19" y2="9.5"/><line x1="8.2" y1="4.8" x2="8.2" y2="7.2"/><line x1="8.2" y1="12" x2="8.2" y2="15"/></svg>',
   wrench: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 4.9L3 17.5 6.5 21l6.3-6.3a4 4 0 0 0 4.9-5.4l-2.8 2.8-2.4-2.4 2.8-2.8Z"/></svg>'
 };
-function buildServicesGridHtml(appliances) {
-  return appliances.map(a => `
-    <div class="service-card" data-appliance="${a.id}">
-      ${a.photoUrl
+// SEO: every homepage appliance tile is a real, server-rendered link to
+// that appliance's page (first city where it's priced). These links used
+// to be added only by JavaScript, so Google often never followed them —
+// one reason service pages sat in "Discovered – currently not indexed".
+function buildServicesGridHtml(appliances, cities, pricing) {
+  return appliances.map(a => {
+    const c = (cities || []).find(ct => !(a.disabledCities || []).includes(ct.id) && applianceHasPricing(a, ct.id, pricing || []));
+    const inner = `${a.photoUrl
         ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${escapeHtml(a.name)} service technician at work" loading="lazy"`)
         : `<div class="service-icon-wrap"><div class="service-icon">${SERVER_SERVICE_ICONS[a.icon] || SERVER_SERVICE_ICONS.wrench}</div></div>`}
-      <h3>${escapeHtml(a.name)}</h3>
+      <h3>${escapeHtml(a.name)}</h3>`;
+    return `
+    <div class="service-card" data-appliance="${a.id}">
+      ${c ? `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}" class="service-card-link" aria-label="${escapeHtml(a.name)} repair and service" style="display:block;color:inherit;text-decoration:none;">${inner}</a>` : inner}
       <button type="button" class="btn btn-outline btn-sm" onclick="openApplianceBoxesPanel('${a.id}')">Book Now</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+// Homepage "Service areas": city chips + every city x appliance link,
+// server-rendered so Google sees them without running JavaScript.
+function buildHomeCityLinksHtml(cities, appliances, pricing) {
+  const perCity = cities.map(c => ({ c, list: appliances.filter(a => !(a.disabledCities || []).includes(c.id) && applianceHasPricing(a, c.id, pricing)) })).filter(x => x.list.length);
+  const chips = perCity.map(x => `<a href="/appliance-repair/${slugify(x.c.name)}/${applianceSlug(x.list[0].name)}" class="city-chip">${escapeHtml(x.c.name)}</a>`).join('');
+  const all = perCity.map(x => `<details style="max-width:640px;margin:0 auto 8px;text-align:left;border:1px solid var(--mist);border-radius:var(--radius-sm);padding:10px 14px;">
+          <summary style="cursor:pointer;font-weight:700;color:var(--blue-900);">${escapeHtml(x.c.name)} — all services</summary>
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;">${x.list.map(a => `<a href="/appliance-repair/${slugify(x.c.name)}/${applianceSlug(a.name)}" class="city-chip">${escapeHtml(a.name)} Service in ${escapeHtml(x.c.name)}</a>`).join(' ')}</div>
+        </details>`).join('');
+  return { chips, all };
 }
 
 function fillContentPlaceholders(text, cityListText, applianceListText) {
@@ -5139,7 +5159,9 @@ app.get('/', (req, res) => {
     const cityListText = joinWithAnd(cityNames);
     const appliances = readData('appliances').filter(a => !a.hidden);
     const applianceListText = joinWithAnd(appliances.map(a => a.name));
-    const servicesGridHtml = buildServicesGridHtml(appliances);
+    const homePricing = readData('pricing');
+    const servicesGridHtml = buildServicesGridHtml(appliances, cities, homePricing);
+    const homeCityLinks = buildHomeCityLinksHtml(cities, appliances, homePricing);
     const siteContent = readData('site-content');
     const template = fs.readFileSync(INDEX_TEMPLATE_PATH, 'utf-8');
     const html = template
@@ -5154,7 +5176,9 @@ app.get('/', (req, res) => {
       .replace('{{FOOTER_DESCRIPTION}}', () => (escapeHtml(fillContentPlaceholders(siteContent.footerDescription || '', cityListText, applianceListText))))
       .replace('{{FAQ_LIST_HTML}}', () => (buildFaqListHtml(siteContent.faqs || [], cityListText, applianceListText)))
       .replace('{{FAQ_SCHEMA_JSON}}', () => (buildFaqSchemaHtml(siteContent.faqs || [], cityListText, applianceListText)))
-      .replace('{{SERVICES_GRID_HTML}}', () => (servicesGridHtml));
+      .replace('{{SERVICES_GRID_HTML}}', () => (servicesGridHtml))
+      .replace('{{CITY_CHIPS_HTML}}', () => homeCityLinks.chips)
+      .replace('{{ALL_SERVICES_BY_CITY_HTML}}', () => homeCityLinks.all);
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (e) {

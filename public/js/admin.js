@@ -1417,27 +1417,28 @@ document.getElementById('nbSubmitBtn').addEventListener('click', async () => {
 // ---------------- CITIES ----------------
 function renderCities() {
   document.getElementById('citiesTable').innerHTML = CITIES.length ? CITIES.map(c => `
-    <tr>
-      <td>${esc(c.name)}</td>
-      <td><span class="pill ${c.active ? 'pill-completed' : 'pill-rejected'}">${c.active ? 'Active' : 'Inactive'}</span></td>
-      <td>
+    <div style="border-top:1px solid var(--line);padding:12px 0;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <strong style="font-size:1rem;">${esc(c.name)}</strong>
+        <span class="pill ${c.active ? 'pill-completed' : 'pill-rejected'}">${c.active ? 'Active' : 'Inactive'}</span>
+        ${c.localInfo ? '<span style="font-size:0.78rem;color:#1f8a3b;font-weight:600;">✓ Local info likha hai</span>' : '<span style="font-size:0.78rem;color:#b45309;font-weight:600;">⚠️ Local info baaki</span>'}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <button class="btn ${c.localInfo ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="toggleCityInfo('${c.id}')">📍 Local info${c.localInfo ? ' ✓' : ' likhein'}</button>
         <button class="btn btn-outline btn-sm" onclick="toggleCity('${c.id}', ${!c.active})">${c.active ? 'Deactivate' : 'Activate'}</button>
-        <button class="btn btn-outline btn-sm" onclick="toggleCityInfo('${c.id}')">📍 Local info${c.localInfo ? ' ✓' : ''}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCity('${c.id}')">Delete</button>
-      </td>
-    </tr>
-    <tr id="cityInfoRow-${c.id}" style="display:none;">
-      <td colspan="3">
-        <label style="font-size:0.85rem;font-weight:600;">${esc(c.name)} — local jaankari (SEO ke liye, is city ke har service page par dikhegi)</label>
-        <textarea id="cityInfo-${c.id}" rows="5" maxlength="3000" style="width:100%;margin-top:6px;" placeholder="Jaise: Hum ${esc(c.name)} ke Civil Lines, Station Road, Rampur Road aur aas-paas ke gaon mein roz service dete hain. Yahan ka paani khaara hai, isliye RO filter jaldi badalne padte hain. Garmi mein AC service ki maang sabse zyada hoti hai...">${esc(c.localInfo || '')}</textarea>
+      </div>
+      <div id="cityInfoRow-${c.id}" style="display:none;margin-top:10px;">
+        <label style="font-size:0.85rem;font-weight:600;display:block;">${esc(c.name)} — local jaankari (SEO ke liye, is city ke har service page par dikhegi)</label>
+        <textarea id="cityInfo-${c.id}" rows="6" maxlength="3000" style="width:100%;box-sizing:border-box;margin-top:6px;font-size:0.95rem;padding:8px;" placeholder="Jaise: Hum ${esc(c.name)} ke Civil Lines, Station Road, Rampur Road aur aas-paas ke gaon mein roz service dete hain. Yahan ka paani khaara hai, isliye RO filter jaldi badalne padte hain. Garmi mein AC service ki maang sabse zyada hoti hai...">${esc(c.localInfo || '')}</textarea>
         <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
           <button class="btn btn-primary btn-sm" onclick="saveCityInfo('${c.id}')">Save</button>
           <span class="msg-inline" id="cityInfoMsg-${c.id}"></span>
         </div>
         <p style="font-size:0.78rem;color:var(--slate);margin:6px 0 0;">Tip: asli, apne shabdon mein likhiye — mohalle/area, aas-paas ke gaon, wahan ki aam problems. Har city ka alag text Google ko sabse zyada pasand aata hai. Khaali chhodne par ye hissa page par nahi dikhega.</p>
-      </td>
-    </tr>
-  `).join('') : `<tr class="empty-row"><td colspan="3">No cities found.</td></tr>`;
+      </div>
+    </div>
+  `).join('') : `<p style="color:var(--slate);">No cities found.</p>`;
 }
 
 let addingCity = false;

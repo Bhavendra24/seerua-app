@@ -43,6 +43,10 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 14) Homepage links + naye appliances ka content:**
+  - Homepage ke appliance tiles, city chips aur "all services" list ab server se hi asli links ke saath aate hain (pehle sirf JavaScript se bante the, Google aksar nahi padhta tha). Sirf wahi links jinki price set hai.
+  - Aage jodne wale appliances ke liye apna content pehle se taiyaar: TV, Inverter, Cooler, Water Cooler, Dishwasher, Induction. Doosre naam bhi pehchaane jaate hain (Refrigerator→Fridge, Water Purifier→RO, Water Heater→Geyser, Air Conditioner→AC...). Kisi bilkul naye appliance ko behtar aam content milta hai.
+  - Admin → Cities mobile par saaf list; har city par "⚠️ Local info baaki / ✓ likha hai".
 - **(Update 13) Google Search Console sudhar:**
   - Sitemap ki `lastmod` ab asli taareekh (jab city/appliance/price/photo/blog sach mein badle) — pehle har page roz "aaj badla" dikhata tha.
   - Blog: har article har city mein lagbhag same copy tha (duplicate). Ab sabka canonical ek (pehli city) version par, aur sitemap mein sirf wahi — baaki city wale page chalte rehte hain.

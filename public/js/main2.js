@@ -919,8 +919,9 @@ async function init() {
   // (the combined city-only page now just redirects there anyway; going
   // straight there avoids the extra redirect hop for the common case).
   const chipRow = document.getElementById('cityChipRow');
+  const serverRenderedCities = chipRow && chipRow.children.length > 0; // server HTML is correct (priced pages only) — don't redraw
   const firstApplianceSlug = APPLIANCES.length ? `/${applianceSlug(APPLIANCES[0].name)}` : '';
-  chipRow.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}${firstApplianceSlug}" class="city-chip">${c.name}</a>`).join('');
+  if (!serverRenderedCities) chipRow.innerHTML = CITIES.map(c => `<a href="/appliance-repair/${slugify(c.name)}${firstApplianceSlug}" class="city-chip">${c.name}</a>`).join('');
 
   // SEO FIX: the chip above only linked each city's FIRST appliance page,
   // so a search like "fridge repair in Noida" had no direct homepage link
@@ -933,7 +934,7 @@ async function init() {
   // used already on /careers) so it stays out of the way visually while
   // remaining fully present and crawlable in the page's HTML.
   const allServicesBox = document.getElementById('allServicesByCity');
-  if (allServicesBox) {
+  if (allServicesBox && !serverRenderedCities) {
     if (CITIES.length && APPLIANCES.length) {
       allServicesBox.innerHTML = CITIES.map(c => {
         const cityApplianceLinks = APPLIANCES
@@ -1488,6 +1489,9 @@ function firstCityUrlForAppliance(a) {
 
 function renderServicesGrid() {
   const grid = document.getElementById('servicesGrid');
+  // Server already rendered the tiles with proper links (and only for
+  // appliances that have prices) — keep those.
+  if (grid && grid.querySelector('.service-card')) return;
   // SEO FIX: each card's photo/title now sits inside a real <a href> to
   // that appliance's own SEO landing page (in addition to the "Book Now"
   // button, which keeps opening the quick-book modal) — previously the
