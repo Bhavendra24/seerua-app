@@ -251,3 +251,10 @@ body.sp-sheet-open { overflow: hidden; }
 .sp-cards-step .sp-panel { padding-bottom: 12px; }
 .sp-cardbar { position: sticky; bottom: 0; margin: 0 -16px; padding: 10px 16px; background: var(--blue-900); color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.9rem; }
 .sp-cardbar[hidden] { display: none !important; }
+
+/* ---------- Customer cancellation ---------- */
+.sp-cancel-link { display: block; margin: 14px auto 0; font-size: 0.85rem; color: #6b7785; text-decoration: underline; }
+.sp-cancel-sum { background: #f5f8fb; border: 1px solid var(--line, #e3e8ee); border-radius: 10px; padding: 12px; font-size: 0.9rem; line-height: 1.5; margin-bottom: 12px; }
+.sp-confirm.sp-confirm-danger { background: #c0392b; }
+.sp-cancel-keep { display: block; margin: 12px auto 0; }
+#spCancelDone { text-align: center; padding: 10px 0; }

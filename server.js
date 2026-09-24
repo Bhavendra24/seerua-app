@@ -1576,6 +1576,7 @@ app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too ma
   // bookings so each one's check-then-write finishes before the next
   // one's check even starts.
   let lockResult;
+  let cancelKey = null;
   try {
     lockResult = await withLock('bookings', async () => {
       const freshAvailability = getSlotAvailability(bookingDate, cityId, itemApplianceIds).find(s => s.id === timeSlotId);
@@ -1591,7 +1592,11 @@ app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too ma
       const dup = bookings.find(b => b.phone === phone && b.bookingDate === bookingDate && b.timeSlotId === timeSlotId &&
         b.source === 'online' && (Date.now() - new Date(b.createdAt).getTime()) < 15 * 60 * 1000 && sig(b.items || []) === mySig);
       if (dup) return { booking: dup, duplicate: true };
+      // Secret "cancel key": kept only in the customer's own browser, so
+      // that device can cancel without OTP. Only its hash is stored.
+      cancelKey = require('crypto').randomBytes(18).toString('hex');
       const booking = {
+        cancelKeyHash: require('crypto').createHash('sha256').update(cancelKey).digest('hex'),
         id: genId('bk'),
         name,
         phone,
@@ -1637,7 +1642,7 @@ app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too ma
   const booking = lockResult.booking;
   if (lockResult.duplicate) {
     await releaseCouponReservation();
-    return res.json({ success: true, booking, duplicate: true });
+    return res.json({ success: true, booking: publicBooking(booking), duplicate: true });
   }
 
   if (appliedReferralCode) {
@@ -1648,7 +1653,7 @@ app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too ma
   // customer wait for it, and without ever failing the booking if it errors.
   sendBookingNotification(booking).catch(e => console.error('sendBookingNotification error:', e));
 
-  res.json({ success: true, booking });
+  res.json({ success: true, booking: { ...publicBooking(booking), canCancel: cancelBlockReason(booking) === null }, cancelKey });
 });
 
 // Track booking status by phone (simple customer lookup)
@@ -1670,6 +1675,95 @@ function readArchivedBookings() {
   }
 }
 
+// ---------- Customer cancellation ----------
+// A booking's secret hash never goes to the browser.
+function publicBooking(b) {
+  if (!b) return b;
+  const { cancelKeyHash, ...rest } = b;
+  return rest;
+}
+const CUSTOMER_CANCELLABLE = ['pending', 'assigned', 'accepted'];
+const CANCEL_CUTOFF_HOURS = 1; // up to 1 hour before the visit slot starts
+// null = can cancel; otherwise the reason (shown to the customer).
+function cancelBlockReason(b) {
+  const open = (b.items || []).filter(it => CUSTOMER_CANCELLABLE.includes(it.itemStatus));
+  if (!open.length) {
+    if ((b.items || []).every(it => it.itemStatus === 'cancelled')) return 'This booking is already cancelled.';
+    return 'Work has already started or finished on this booking. Please call us.';
+  }
+  if ((b.items || []).some(it => it.itemStatus === 'in-progress')) return 'The technician has already started work. Please call us.';
+  // "Booked by mistake": the first 15 minutes are always free to cancel.
+  if (b.createdAt && Date.now() - Date.parse(b.createdAt) < 15 * 60000) return null;
+  const slot = TIME_SLOTS.find(t => t.id === b.timeSlotId);
+  if (b.bookingDate && slot) {
+    const startMs = Date.parse(`${b.bookingDate}T${String(slot.startHour).padStart(2, '0')}:00:00+05:30`);
+    if (Date.now() > startMs - CANCEL_CUTOFF_HOURS * 3600000) return `Online cancellation closes ${CANCEL_CUTOFF_HOURS} hour before the visit time. Please call us.`;
+  }
+  return null;
+}
+const CANCEL_REASONS = ['Plan changed', 'Price too high', 'Problem fixed itself', 'Got it done elsewhere', 'Booked by mistake', 'Other'];
+
+app.post('/api/bookings/:bookingId/cancel', simpleRateLimit('cancel', 15, 10 * 60 * 1000), async (req, res) => {
+  const { phone, cancelKey, accessToken } = req.body || {};
+  const reason = CANCEL_REASONS.includes(req.body && req.body.reason) ? req.body.reason : 'Other';
+  const note = typeof (req.body && req.body.note) === 'string' ? req.body.note.replace(/[<>]/g, '').trim().slice(0, 200) : '';
+  if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Phone number required.' });
+  const peek = readData('bookings').find(b => b.id === req.params.bookingId && b.phone === phone);
+  if (!peek) return res.status(404).json({ error: 'Booking not found for this number.' });
+
+  // Proof it's really the customer: the secret key saved on the device
+  // that booked, OR an OTP on this phone number (any other device).
+  let proven = false;
+  if (typeof cancelKey === 'string' && cancelKey && peek.cancelKeyHash) {
+    const h = require('crypto').createHash('sha256').update(cancelKey).digest('hex');
+    proven = h.length === peek.cancelKeyHash.length && require('crypto').timingSafeEqual(Buffer.from(h), Buffer.from(peek.cancelKeyHash));
+  }
+  if (!proven && typeof accessToken === 'string' && accessToken) {
+    try { proven = await verifyOtpAccessToken(accessToken, phone); } catch (e) { proven = false; }
+  }
+  if (!proven) return res.status(401).json({ error: 'Please verify your mobile number with OTP to cancel from this device.', needOtp: true });
+
+  const result = await withLock('bookings', async () => {
+    const bookings = readData('bookings');
+    const b = bookings.find(x => x.id === req.params.bookingId && x.phone === phone);
+    if (!b) return { status: 404, error: 'Booking not found.' };
+    const block = cancelBlockReason(b);
+    if (block) return { status: 400, error: block };
+    const now = new Date().toISOString();
+    const techIds = [];
+    b.items.forEach(it => {
+      if (!CUSTOMER_CANCELLABLE.includes(it.itemStatus)) return;
+      if (it.technicianId) techIds.push(it.technicianId);
+      it.itemStatus = 'cancelled';
+      it.cancelledBy = 'customer';
+      it.cancelledAt = now;
+      it.updatedAt = now;
+    });
+    b.cancelledByCustomer = true;
+    b.cancelReason = reason + (note ? ` — ${note}` : '');
+    b.cancelledAt = now;
+    b.updatedAt = now;
+    await writeData('bookings', bookings);
+    return { booking: b, techIds };
+  });
+  if (result.error) return res.status(result.status).json({ error: result.error });
+
+  // Give the coupon use back — the service never happened.
+  const bk = result.booking;
+  if (bk.couponCode) {
+    await withLock('coupons', async () => {
+      const coupons = readData('coupons');
+      const c = coupons.find(x => x.code === bk.couponCode);
+      if (c) {
+        c.usedCount = Math.max(0, (c.usedCount || 0) - 1);
+        if (Array.isArray(c.usedByPhones)) { const i = c.usedByPhones.lastIndexOf(bk.phone); if (i !== -1) c.usedByPhones.splice(i, 1); }
+        writeData('coupons', coupons);
+      }
+    }).catch(e => console.error('coupon release on cancel failed:', e.message));
+  }
+  res.json({ success: true, booking: publicBooking(bk) });
+});
+
 app.get('/api/bookings/track', simpleRateLimit('track', 20, 10 * 60 * 1000), async (req, res) => {
   const { phone } = req.query;
   if (!phone) return res.status(400).json({ error: 'Phone number required' });
@@ -1686,7 +1780,7 @@ app.get('/api/bookings/track', simpleRateLimit('track', 20, 10 * 60 * 1000), asy
   // optimization, never something a customer should be able to notice.
   const active = readData('bookings').filter(b => b.phone === phone);
   const archived = readArchivedBookings().filter(b => b.phone === phone);
-  res.json([...active, ...archived]);
+  res.json([...active, ...archived].map(b => ({ ...publicBooking(b), canCancel: cancelBlockReason(b) === null })));
 });
 
 // A review's free-text comment is written by the public (any customer with

@@ -2433,7 +2433,7 @@ function bindFormEvents() {
 function bookingCardHtml(b, showBookAgain) {
   const itemsHtml = (b.items || []).map(it => `
     <div class="row1" style="margin-top:6px;">
-      <span>${it.qty}x ${it.applianceName} (${it.typeName}, ${it.serviceType === 'repair' ? 'Repair' : 'Service'})</span>
+      <span>${it.qty}x ${escapeHtml(it.applianceName)} (${escapeHtml(it.typeName)}, ${it.serviceName ? escapeHtml(it.serviceName) : (it.serviceType === 'repair' ? 'Repair' : 'Service')})</span>
       <span class="status-pill status-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
     </div>
     ${it.technicianName ? `<div class="row2">Technician: ${it.technicianName}</div>` : ''}
@@ -2445,7 +2445,11 @@ function bookingCardHtml(b, showBookAgain) {
         <div class="row2" style="font-weight:700;color:var(--blue-900);">Booking ID: ${b.id} · ${b.cityName} · ₹${b.totalPrice} · ${formatDateDisplay(b.createdAt)}</div>
         ${b.timeSlot ? `<div class="row2">🕐 Visit: ${formatDateDisplay(b.bookingDate)} · ${b.timeSlot}</div>` : ''}
         ${itemsHtml}
-        ${showBookAgain ? `<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="bookAgain('${b.id}')">↻ Book Again</button>` : ''}
+        ${b.cancelledByCustomer ? `<div class="row2" style="color:var(--red);font-weight:600;">❌ You cancelled this booking</div>` : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          ${showBookAgain ? `<button type="button" class="btn btn-outline btn-sm" onclick="bookAgain('${escapeHtml(b.id)}')">↻ Book Again</button>` : ''}
+          ${b.canCancel ? `<button type="button" class="btn btn-outline btn-sm" style="color:var(--red);border-color:#f0b4ad;" onclick="customerCancel('${escapeHtml(b.id)}')">✕ Cancel booking</button>` : ''}
+        </div>
       </div>
     `;
 }
@@ -2702,6 +2706,19 @@ document.getElementById('trackBtn').addEventListener('click', async () => {
   } catch (e) {
     results.innerHTML = `<p style="color:var(--red)">${e.message || 'Something went wrong, please try again.'}</p>`;
   }
+});
+
+// Customer cancels an upcoming booking — same popup as booking. The phone
+// that booked cancels directly; any other device is asked for an OTP.
+function customerCancel(bookingId) {
+  const b = lastTrackedBookings.find(x => x.id === bookingId);
+  if (!b || !window.SeeruaBooking || !window.SeeruaBooking.openCancel) return;
+  closeTrackBookingModal();
+  window.SeeruaBooking.openCancel(b);
+}
+window.addEventListener('seerua:booking-cancelled', (e) => {
+  const b = lastTrackedBookings.find(x => x.id === (e.detail && e.detail.id));
+  if (b) { b.canCancel = false; b.cancelledByCustomer = true; (b.items || []).forEach(it => { if (['pending', 'assigned', 'accepted'].includes(it.itemStatus)) it.itemStatus = 'cancelled'; }); }
 });
 
 // One-click reorder: pre-fill the booking form from a past booking

@@ -136,7 +136,7 @@
       '   <div class="sp-cardbar" id="spCardBar" hidden><span id="spCardBarText"></span><button type="button" class="sp-cartbar-btn" id="spCardBarBtn">Book Now →</button></div>' +
       '  </div>' +
       '  <div class="sp-sheet-body" id="spStepOtp" hidden>' +
-      '   <p>We sent a code to <strong>+91 <span id="spOtpPhone"></span></strong>. Enter it to confirm your booking (only needed on your first booking).</p>' +
+      '   <p>We sent a code to <strong>+91 <span id="spOtpPhone"></span></strong>. <span id="spOtpWhy">Enter it to confirm your booking (only needed on your first booking).</span></p>' +
       '   <input class="sp-input sp-otp-input" id="spOtpCode" type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Enter OTP">' +
       '   <div class="form-msg" id="spOtpMsg" role="alert"></div>' +
       '   <button type="button" class="sp-confirm" id="spOtpVerify">Verify &amp; Book</button>' +
@@ -148,6 +148,21 @@
       '   <p class="sp-thanks-sub">Your booking is confirmed. Our technician will call you before the visit.</p>' +
       '   <p class="sp-thanks-meta">Booking ID: <strong id="spDoneId"></strong><br><span id="spDoneWhen"></span></p>' +
       '   <button type="button" class="sp-confirm sp-confirm-done" id="spDoneClose">Done</button>' +
+      '   <button type="button" class="sp-link-btn sp-cancel-link" id="spDoneCancel">Plans changed? Cancel this booking</button>' +
+      '  </div>' +
+      '  <div class="sp-sheet-body" id="spStepCancel" hidden>' +
+      '   <div class="sp-cancel-sum" id="spCancelSum"></div>' +
+      '   <div id="spCancelForm">' +
+      '    <label class="sp-label" for="spCancelReason">Why are you cancelling?</label>' +
+      '    <select class="sp-input sp-select" id="spCancelReason"><option>Plan changed</option><option>Price too high</option><option>Problem fixed itself</option><option>Got it done elsewhere</option><option>Booked by mistake</option><option>Other</option></select>' +
+      '    <label class="sp-label" for="spCancelNote">Anything else? (optional)</label>' +
+      '    <input class="sp-input" id="spCancelNote" type="text" maxlength="200" placeholder="Optional">' +
+      '    <div class="form-msg" id="spCancelMsg" role="alert"></div>' +
+      '    <button type="button" class="sp-confirm sp-confirm-danger" id="spCancelConfirm">Cancel Booking</button>' +
+      '    <button type="button" class="sp-link-btn sp-cancel-keep" id="spCancelKeep">No, keep my booking</button>' +
+      '   </div>' +
+      '   <div id="spCancelDone" hidden><h3 class="sp-thanks">Booking cancelled</h3><p class="sp-thanks-sub">Your booking has been cancelled. You can book again any time.</p>' +
+      '    <button type="button" class="sp-confirm sp-confirm-done" id="spCancelDoneClose">Done</button></div>' +
       '  </div>' +
       ' </div>' +
       '</div>';
@@ -526,8 +541,9 @@
     refreshCartUi();
   }
   function showStep(id) {
-    ['spStepForm', 'spStepType', 'spStepOtp', 'spStepDone'].forEach(function (s) { $(s).hidden = s !== id; });
+    ['spStepForm', 'spStepType', 'spStepOtp', 'spStepDone', 'spStepCancel'].forEach(function (s) { $(s).hidden = s !== id; });
     if (id === 'spStepOtp') $('spSheetTitle').textContent = 'Verify mobile number';
+    else if (id === 'spStepCancel') $('spSheetTitle').textContent = 'Cancel booking';
     else if (id === 'spStepDone') $('spSheetTitle').textContent = '';
     else if (id === 'spStepType' && pick.appliance) $('spSheetTitle').textContent = pick.appliance.name + ' Service';
     else if (MODE === 'home' && cart.items.some(function (i) { return cart.items[0] && i.applianceId !== cart.items[0].applianceId; })) $('spSheetTitle').textContent = 'Book Services';
@@ -704,8 +720,11 @@
   }
   function errText(e) { return (e && (e.message || e.type || (typeof e === 'string' ? e : ''))) || 'Unknown error'; }
 
-  function verifyWithOtp(phone) {
+  function verifyWithOtp(phone, forCancel) {
     return new Promise(function (resolve, reject) {
+      $('spOtpWhy').textContent = forCancel ? 'Enter it to confirm the cancellation (needed because this is a different phone/computer).' : 'Enter it to confirm your booking (only needed on your first booking).';
+      $('spOtpBack').textContent = forCancel ? '← Back' : '← Change details';
+      var verifyLabel = forCancel ? 'Verify & Cancel' : 'Verify & Book';
       var done = false;
       var msg = $('spOtpMsg');
       function finish(ok, val) {
@@ -723,11 +742,11 @@
         unlockAudio();
         var b = $('spOtpVerify'); b.disabled = true; b.textContent = 'Verifying…';
         window.verifyOtp(code, function (data) {
-          b.disabled = false; b.textContent = 'Verify & Book';
+          b.disabled = false; b.textContent = verifyLabel;
           var token = data && (data.message || data.token || data['access-token']);
           if (token) finish(true, token); else setMsg(msg, 'Verification failed. Please try again.', 'error');
         }, function () {
-          b.disabled = false; b.textContent = 'Verify & Book';
+          b.disabled = false; b.textContent = verifyLabel;
           setMsg(msg, 'Incorrect or expired code. Please try again.', 'error');
         });
       }
@@ -740,7 +759,7 @@
       function onBack() { finish(false, Object.assign(new Error('cancelled'), { cancelled: true })); }
       otpSession = { cancel: onBack };
       ['spOtpVerify', 'spOtpResend'].forEach(function (id) { $(id).disabled = false; });
-      $('spOtpVerify').textContent = 'Verify & Book'; $('spOtpResend').textContent = 'Resend code';
+      $('spOtpVerify').textContent = verifyLabel; $('spOtpResend').textContent = 'Resend code';
       $('spOtpVerify').addEventListener('click', onVerify);
       $('spOtpResend').addEventListener('click', onResend);
       $('spOtpBack').addEventListener('click', onBack);
@@ -871,6 +890,9 @@
     return fetchJSON('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: ctrl ? ctrl.signal : undefined }).then(function (res) {
       done();
       var b = res.booking || {};
+      if (res.cancelKey && b.id) saveCancelKey(b.id, res.cancelKey);
+      lastBooked = b;
+      $('spDoneCancel').hidden = b.canCancel === false;
       saveAccount({ phone: d.phone, name: d.name, address: d.address, cityId: city.id, accessToken: null });
       postJSON('/api/customer-profile', { phone: d.phone, name: d.name, address: d.address, cityId: city.id }).catch(function () {});
       try { sessionStorage.removeItem(REF_KEY); } catch (e) { /* ignore */ }
@@ -902,12 +924,75 @@
     });
   }
 
+  // ------------------------------------------------------------------ customer cancellation
+  // The device that made a booking keeps its secret cancel key and can
+  // cancel directly; any other phone/computer must pass an OTP first.
+  var CANCEL_KEYS = 'seerua_cancel_keys_v1';
+  var lastBooked = null;
+  var cancelTarget = null;
+  function readCancelKeys() { try { return JSON.parse(localStorage.getItem(CANCEL_KEYS) || '{}') || {}; } catch (e) { return {}; } }
+  function saveCancelKey(id, key) {
+    var all = readCancelKeys(); all[id] = { k: key, t: Date.now() };
+    var ids = Object.keys(all).sort(function (a, b) { return all[b].t - all[a].t; });
+    ids.slice(40).forEach(function (x) { delete all[x]; }); // keep the latest 40
+    try { localStorage.setItem(CANCEL_KEYS, JSON.stringify(all)); } catch (e) { /* ignore */ }
+  }
+  function cancelKeyFor(id) { var r = readCancelKeys()[id]; return r ? r.k : null; }
+
+  function openCancel(b) {
+    ensureMarkup(); bindOnce();
+    if (!b || !b.id) return;
+    cancelTarget = b;
+    var items = (b.items || []).map(function (i) { return escapeHtml((i.typeName || '') + ' ' + (i.serviceName || (i.serviceType === 'repair' ? 'Repair' : 'Service'))); }).join(', ');
+    $('spCancelSum').innerHTML = '<strong>Booking ' + escapeHtml(b.id) + '</strong><br>' + items +
+      (b.bookingDate ? '<br>🕐 ' + escapeHtml(b.bookingDate) + (b.timeSlot ? ' · ' + escapeHtml(b.timeSlot) : '') : '') +
+      (b.totalPrice != null ? '<br>Total ' + inr(b.totalPrice) : '');
+    $('spCancelForm').hidden = false; $('spCancelDone').hidden = true;
+    $('spCancelReason').selectedIndex = 0; $('spCancelNote').value = '';
+    setMsg($('spCancelMsg'), '');
+    var sheet = $('spSheet');
+    if (!sheet.classList.contains('open')) {
+      pushSheetState();
+      sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false'); document.body.classList.add('sp-sheet-open');
+    }
+    showStep('spStepCancel');
+  }
+  function doCancel(extra) {
+    var b = cancelTarget;
+    var body = Object.assign({ phone: b.phone, reason: $('spCancelReason').value, note: $('spCancelNote').value.trim(), cancelKey: cancelKeyFor(b.id) || undefined }, extra || {});
+    return postJSON('/api/bookings/' + encodeURIComponent(b.id) + '/cancel', body);
+  }
+  function onCancelConfirm() {
+    if (!cancelTarget) return;
+    var btn = $('spCancelConfirm'); var msg = $('spCancelMsg');
+    btn.disabled = true; btn.textContent = 'Cancelling…'; setMsg(msg, '');
+    doCancel().catch(function (e) {
+      if (e.status !== 401) throw e;
+      // Different device -> OTP on the booking's number.
+      return getOtpConfig().then(function (cfg) {
+        if (!cfg || !cfg.widgetId || !cfg.tokenAuth) throw new Error('To cancel from this phone/computer, please call us on ' + (CFG.phone || '9389585479') + '. (Or cancel from the phone you booked on.)');
+        return verifyWithOtp(cancelTarget.phone, true).then(function (token) { showStep('spStepCancel'); return doCancel({ accessToken: token }); });
+      });
+    }).then(function () {
+      var all = readCancelKeys(); delete all[cancelTarget.id]; try { localStorage.setItem(CANCEL_KEYS, JSON.stringify(all)); } catch (e) { /* ignore */ }
+      $('spCancelForm').hidden = true; $('spCancelDone').hidden = false;
+      try { window.dispatchEvent(new CustomEvent('seerua:booking-cancelled', { detail: { id: cancelTarget.id } })); } catch (e) { /* ignore */ }
+    }).catch(function (e) {
+      showStep('spStepCancel');
+      if (!e || !e.cancelled) setMsg(msg, (e && e.message) || 'Could not cancel. Please call us.', 'error');
+    }).then(function () { btn.disabled = false; btn.textContent = 'Cancel Booking'; });
+  }
+
   // ------------------------------------------------------------------ wiring
   var bound = false;
   function bindOnce() {
     if (bound) return; bound = true;
     $('spSheetClose').addEventListener('click', closeSheet);
     $('spDoneClose').addEventListener('click', closeSheet);
+    $('spDoneCancel').addEventListener('click', function () { if (lastBooked) openCancel(Object.assign({ phone: normalizePhone($('spPhone').value) }, lastBooked)); });
+    $('spCancelConfirm').addEventListener('click', onCancelConfirm);
+    $('spCancelKeep').addEventListener('click', closeSheet);
+    $('spCancelDoneClose').addEventListener('click', closeSheet);
     $('spSheet').addEventListener('click', function (e) { if (e.target === $('spSheet')) closeSheet(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('spSheet').classList.contains('open')) closeSheet(); });
     $('spAddMore').addEventListener('click', function () {
@@ -1051,7 +1136,7 @@
     if (s) s.scrollIntoView({ behavior: 'smooth' });
     toast('👇 Tap the appliance you want to book');
   }
-  window.SeeruaBooking = { openForAppliance: openForAppliance, open: openSheet, close: closeSheet, openWithItems: openWithItems, openFromOldEntry: openFromOldEntry,
+  window.SeeruaBooking = { openForAppliance: openForAppliance, open: openSheet, close: closeSheet, openWithItems: openWithItems, openFromOldEntry: openFromOldEntry, openCancel: openCancel,
     refreshBadges: function () { refreshCartUi(); },
     onLogout: function () {
       detailsEdited = false; detailsFromAccount = false; pendingDetails = null;

@@ -692,6 +692,7 @@ function renderOrders() {
             ${it.completionPhotoUrl ? `<a href="${it.completionPhotoUrl}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--green);">✅ View completion photo</a><br>` : (it.itemStatus === 'completed' && it.completionPhotoExpired ? `<small style="color:var(--slate);">📷 Completion photo auto-removed after 35 days</small><br>` : '')}
             <span class="pill pill-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
             ${it.technicianName ? ` <small style="color:var(--slate)">→ ${esc(it.technicianName)}${it.assignedAt ? ` · assigned ${formatAssignedAt(it.assignedAt)}` : ''}</small>` : ''}
+            ${it.cancelledBy === 'customer' ? `<br><small style="color:var(--red);font-weight:600;">❌ Customer ne cancel kiya${b.cancelReason ? ': ' + esc(b.cancelReason) : ''} (${formatAssignedAt(it.cancelledAt)})</small>` : ''}
             ${it.rejectionHistory && it.rejectionHistory.length ? `<br><small style="color:var(--red);">⚠️ Previously rejected by: ${it.rejectionHistory.map(r => `${esc(r.technicianName)} (${formatAssignedAt(r.rejectedAt)})`).join(', ')}</small>` : ''}
             <br>
             ${it.itemStatus === 'completed' ? `

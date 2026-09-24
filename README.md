@@ -43,6 +43,12 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 15) Customer booking cancel kar sakta hai:**
+  - Booking ke baad Thank-you screen par "Plans changed? Cancel this booking", aur My Bookings / Track mein har aane wali booking par "✕ Cancel booking".
+  - Jis phone/computer se booking hui, wahan se seedha cancel (ek gupt key us browser mein save rehti hai). Doosre phone/computer se cancel par OTP lagta hai (MSG91 set hona chahiye; na ho to "call karein" dikhta hai).
+  - Kab tak: technician ke kaam shuru karne se pehle, aur slot shuru hone se 1 ghanta pehle tak. Booking ke pehle 15 minute hamesha cancel ho sakti hai (galti se booking).
+  - Wajah poochi jaati hai; Admin/Sub-admin ko "❌ Customer ne cancel kiya: <wajah>" dikhta hai. Slot khaali ho jaata hai, coupon wapas.
+  - Title mein "from ₹350"; Repair/Gas filling cards par "+ parts, if needed (with your OK)".
 - **(Update 14) Homepage links + naye appliances ka content:**
   - Homepage ke appliance tiles, city chips aur "all services" list ab server se hi asli links ke saath aate hain (pehle sirf JavaScript se bante the, Google aksar nahi padhta tha). Sirf wahi links jinki price set hai.
   - Aage jodne wale appliances ke liye apna content pehle se taiyaar: TV, Inverter, Cooler, Water Cooler, Dishwasher, Induction. Doosre naam bhi pehchaane jaate hain (Refrigerator→Fridge, Water Purifier→RO, Water Heater→Geyser, Air Conditioner→AC...). Kisi bilkul naye appliance ko behtar aam content milta hai.
