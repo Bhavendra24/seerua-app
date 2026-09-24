@@ -5534,7 +5534,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     ).join('');
     const footerServicesHtml = allAppliances.map(a => `<li><a href="/appliance-repair/${citySlug}/${applianceSlug(a.name)}">${escapeHtml(a.name)} Repair &amp; Service</a></li>`).join('\n          ');
 
-    const metaTitle = `${displayName} Service in ${city.name}${minPrice !== null ? ` @ ₹${minPrice}` : ''} | Repair & Service | Seerua`;
+    const metaTitle = `${displayName} Service in ${city.name}${minPrice !== null ? ` from ₹${minPrice}` : ''} | Repair & Service | Seerua`;
     const metaDescription = `Book ${displayName} service & repair in ${city.name}${minPrice !== null ? ` from ₹${minPrice}` : ''}. Verified technicians, same-day doorstep visit, fixed prices, 30-day warranty. Book online in 1 minute.`;
     const pageConfig = JSON.stringify({ cityId: city.id, cityName: city.name, applianceId: appliance.id, phone: BUSINESS_PHONE })
       .replace(/</g, '\\u003c');

@@ -54,6 +54,8 @@
 .sp-tag { width: 13px; height: 13px; fill: var(--green); flex: 0 0 auto; }
 .sp-price s { color: #7b8794; font-size: 0.8rem; }
 .sp-price strong { font-size: 0.98rem; color: var(--ink); }
+.sp-price { flex-wrap: wrap; }
+.sp-parts { flex-basis: 100%; font-size: 0.72rem; color: #6b7785; margin-top: -2px; }
 .sp-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .sp-checks li { display: flex; gap: 5px; align-items: flex-start; font-size: 0.76rem; line-height: 1.35; color: #2b3138; }
 .sp-check { width: 12px; height: 12px; flex: 0 0 auto; margin-top: 2px; fill: var(--green); }

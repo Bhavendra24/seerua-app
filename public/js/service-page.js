@@ -388,7 +388,8 @@
           '<div class="sp-card-img">' + (photo ? '<img src="' + escapeHtml(photo) + '" alt="' + escapeHtml(it.title) + '" loading="lazy">' : '<span class="sp-strip-fallback">🔧</span>') +
           '<span class="sp-badge">' + inr(x.price) + '/-</span></div>' +
           '<div class="sp-card-body"><h3 class="sp-card-title">' + escapeHtml(it.title) + ' In ' + escapeHtml(city.name) + '</h3>' +
-          '<div class="sp-price">' + TAG + '<strong>' + inr(x.price) + '</strong></div>' +
+          '<div class="sp-price">' + TAG + '<strong>' + inr(x.price) + '</strong>' +
+          ((x.svc.id === 'svc-repair' || x.svc.id === 'svc-gasfill' || /repair|gas/i.test(x.svc.name || '')) ? '<span class="sp-parts">+ parts, if needed (with your OK)</span>' : '') + '</div>' +
           '<ul class="sp-checks">' + checks + '</ul></div>' +
           '<div class="sp-actions"><button type="button" class="sp-btn sp-btn-add' + (added ? ' added' : '') + '" data-act="add">' + CART_SVG + '<span>' + (added ? 'Added ✓' : 'Add') + '</span></button>' +
           '<button type="button" class="sp-btn sp-btn-book" data-act="book">Book</button></div></article>';
