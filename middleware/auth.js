@@ -6,8 +6,25 @@ function requireAdmin(req, res, next) {
   return res.status(401).json({ error: 'Admin login required' });
 }
 
+// A deleted or deactivated staff account loses access on its very next
+// request -- not only when its 12-hour session happens to expire.
+function activeTechnician(req) {
+  if (!req.session || !req.session.technicianId) return null;
+  const t = readData('technicians').find(x => x.id === req.session.technicianId);
+  return t && t.active !== false ? t : null;
+}
+function activeSubAdmin(req) {
+  if (!req.session || !req.session.subAdminId) return null;
+  const s = readData('sub-admins').find(x => x.id === req.session.subAdminId);
+  return s && s.active !== false ? s : null;
+}
+function endStaleSession(req) {
+  if (req.session) { delete req.session.technicianId; delete req.session.subAdminId; }
+}
+
 function requireTechnician(req, res, next) {
-  if (req.session && req.session.technicianId) return next();
+  if (activeTechnician(req)) return next();
+  endStaleSession(req);
   return res.status(401).json({ error: 'Technician login required' });
 }
 
@@ -15,13 +32,16 @@ function requireTechnician(req, res, next) {
 // booking slots, and add new customers, without full Admin access (pricing,
 // coupons, technician management, maintenance mode, etc. stay Admin-only).
 function requireSubAdmin(req, res, next) {
-  if (req.session && req.session.subAdminId) return next();
+  if (activeSubAdmin(req)) return next();
+  if (req.session && req.session.subAdminId) endStaleSession(req);
   return res.status(401).json({ error: 'Sub-Admin login required' });
 }
 
 // Used on the handful of routes both Admin and Sub-Admin are allowed to use.
 function requireStaff(req, res, next) {
-  if (req.session && (req.session.isAdmin || req.session.subAdminId)) return next();
+  if (req.session && req.session.isAdmin) return next();
+  if (activeSubAdmin(req)) return next();
+  if (req.session && req.session.subAdminId) endStaleSession(req);
   return res.status(401).json({ error: 'Login required' });
 }
 
@@ -35,7 +55,8 @@ function getStaffCityScope(req) {
   if (req.session.subAdminId) {
     const subAdmins = readData('sub-admins');
     const me = subAdmins.find(s => s.id === req.session.subAdminId);
-    if (me && Array.isArray(me.cityIds) && me.cityIds.length) return me.cityIds;
+    if (!me || me.active === false) return []; // deleted/disabled -> no access at all (never "everything")
+    if (Array.isArray(me.cityIds) && me.cityIds.length) return me.cityIds;
     return null; // no cities assigned = unrestricted (backward compatible)
   }
   return null;

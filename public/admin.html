@@ -217,6 +217,17 @@
         <div class="msg-inline" id="maintenanceMsg"></div>
       </div>
 
+      <div class="card settings-card" id="adminPwCard" style="border-left:4px solid var(--line);">
+        <div class="card-head"><h3>🔑 Admin Login Password</h3></div>
+        <div id="adminPwWarn" class="form-msg error" style="display:none;margin:0 0 10px;">⚠️ Aap abhi purana default password use kar rahe hain jo code mein likha hai. Ise turant badal dijiye.</div>
+        <div class="field"><label>Current password</label><input type="password" id="adminPwCurrent" autocomplete="current-password"></div>
+        <div class="field"><label>New password (kam se kam 8 akshar)</label><input type="password" id="adminPwNew" autocomplete="new-password"></div>
+        <div class="field"><label>New password dobara</label><input type="password" id="adminPwNew2" autocomplete="new-password"></div>
+        <div class="field"><label>New username (khaali chhodein to wahi rahega)</label><input type="text" id="adminPwUser" autocomplete="username"></div>
+        <button class="btn btn-primary btn-sm" id="adminPwSave" type="button">Password badlein</button>
+        <div id="adminPwMsg" class="form-msg" style="margin-top:8px;"></div>
+      </div>
+
       <div class="card settings-card" id="otpCard" style="border-left:4px solid var(--line);">
         <div class="card-head">
           <h3>🔐 OTP Verification</h3>
@@ -1160,6 +1171,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609245"></script>
+<script src="/js/admin.js?v=202609250"></script>
 </body>
 </html>

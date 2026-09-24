@@ -179,6 +179,7 @@ textarea.sp-input { resize: vertical; min-height: 58px; }
 
 .sp-toast { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 0.9rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 500; max-width: 90vw; text-align: center; }
 .sp-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+body.sp-sheet-open .sp-toast { bottom: auto; top: 14px; z-index: 10001; }
 
 .bottom-sheet-city-grid a.active { background: var(--accent-100); border-color: var(--accent-500); }
 body.sp-sheet-open { overflow: hidden; }

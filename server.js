@@ -84,6 +84,28 @@ const uploadCompletionPhoto = multer({
 const { toCsv, sendCsv } = require('./lib/csv');
 
 const app = express();
+// Errors thrown inside async route handlers used to become unhandled
+// promise rejections -- Node then exits and the whole site goes down
+// from one bad request. Every route handler is now wrapped so such an
+// error goes to the normal error handler (500 JSON) instead.
+// JSON for <script type="application/ld+json"> -- "<" escaped so text like
+// "</script>" in a city/FAQ/appliance name can't break out of the tag.
+function ldJson(obj) { return JSON.stringify(obj, null, 2).replace(/</g, '\\u003c'); }
+function wrapAsyncHandler(fn) {
+  if (typeof fn !== 'function' || fn.length >= 4) return fn;
+  return function (req, res, next) {
+    try {
+      const r = fn(req, res, next);
+      if (r && typeof r.catch === 'function') r.catch(next);
+      return r;
+    } catch (e) { next(e); }
+  };
+}
+['get', 'post', 'put', 'patch', 'delete'].forEach(m => {
+  const orig = app[m].bind(app);
+  app[m] = (...args) => (m === 'get' && args.length === 1) ? orig(...args) : orig(...args.map(wrapAsyncHandler));
+});
+process.on('unhandledRejection', (e) => { console.error('[unhandledRejection]', e && e.stack ? e.stack : e); });
 // Needed so `cookie.secure` (above) works correctly when the app runs
 // behind a reverse proxy / load balancer (Render, Railway, Heroku, Nginx,
 // etc.) that terminates HTTPS — otherwise Express sees every request as
@@ -124,6 +146,15 @@ app.use((req, res, next) => {
 // route's own, separately-applied 10mb parser is the one that actually
 // runs for it, rather than this smaller global one rejecting a big backup
 // file before it even gets there.
+// SEO: /appliance-repair/Moradabad/AC-Service -> 301 to the lowercase URL
+// (used to 404, losing any link typed or shared with capitals).
+app.use((req, res, next) => {
+  if ((req.method === 'GET' || req.method === 'HEAD') && /^\/(appliance-repair|careers)(\/|$)/i.test(req.path) && req.path !== req.path.toLowerCase()) {
+    return res.redirect(301, req.path.toLowerCase() + req.originalUrl.slice(req.path.length));
+  }
+  next();
+});
+
 app.use(bodyParser.json({
   limit: '1mb',
   type: (req) => req.path !== '/api/admin/restore' && (req.headers['content-type'] || '').includes('json')
@@ -315,6 +346,29 @@ function uploadRateLimit(type) {
   };
 }
 
+// Generic per-IP limiter for public endpoints that expose or change a
+// customer's data by phone number, or create bookings -- stops scripted
+// scraping / spam without affecting a real customer.
+const simpleLimitHits = {};
+function simpleRateLimit(type, max, windowMs, message) {
+  return (req, res, next) => {
+    const key = `${type}:${req.ip}`;
+    const now = Date.now();
+    const rec = simpleLimitHits[key];
+    if (rec && now - rec.windowStart < windowMs) {
+      if (rec.count >= max) return res.status(429).json({ error: message || 'Too many requests. Please wait a few minutes and try again.' });
+      rec.count++;
+    } else {
+      simpleLimitHits[key] = { count: 1, windowStart: now };
+    }
+    next();
+  };
+}
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(simpleLimitHits).forEach(k => { if (now - simpleLimitHits[k].windowStart > 3600000) delete simpleLimitHits[k]; });
+}, 30 * 60 * 1000).unref();
+
 // BUG FIX: multer's fileFilter only checked the client-supplied MIME type
 // (req.file.mimetype), which is just a header the browser sends and an
 // attacker can set to anything — a renamed .exe/.php could pass through
@@ -405,7 +459,7 @@ function getSlotAvailability(date, cityId, applianceIds) {
   return TIME_SLOTS.map(s => {
     const booked = countForSlot(s.id);
     const blocked = isBlocked(s.id);
-    const expired = isToday && currentHour >= s.endHour;
+    const expired = isToday && currentHour >= s.endHour - 1; // last hour of a slot is too late to reach the customer
     return {
       id: s.id,
       label: s.label,
@@ -522,7 +576,7 @@ function aggregateRatingJsonFragment(rating) {
 function buildSameAsJson() {
   const google = readData('google-rating');
   const links = (google.enabled && google.profileUrl) ? [google.profileUrl] : [];
-  return JSON.stringify(links);
+  return JSON.stringify(links).replace(/</g, "\\u003c");
 }
 
 app.get('/api/stats/public', (req, res) => {
@@ -717,7 +771,7 @@ app.get('/api/referral/config', (req, res) => {
 // Public — a customer enters their own phone number on the homepage to get
 // (or create) their personal referral link, plus a summary of who they've
 // referred and any reward coupons they've earned so far.
-app.get('/api/referral/my-info', (req, res) => {
+app.get('/api/referral/my-info', simpleRateLimit('refinfo', 20, 10 * 60 * 1000), (req, res) => {
   const { phone } = req.query;
   if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Please enter a valid 10 digit mobile number.' });
   const cfg = readData('referral-config');
@@ -890,7 +944,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
     return res.status(400).json({ error: 'Message is too long — please keep it under 500 characters.' });
   }
   const safeHistory = Array.isArray(history)
-    ? history.filter(h => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string').slice(-50)
+    ? history.filter(h => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string').slice(-30).map(h => ({ role: h.role, content: h.content.slice(0, 1500) }))
     : [];
 
   const admin = readData('admin');
@@ -1249,7 +1303,7 @@ app.post('/api/technician/upload-completion-photo', requireTechnician, uploadRat
   });
 });
 
-app.post('/api/bookings', async (req, res) => {
+app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too many bookings from this network. Please call us to book.'), async (req, res) => {
   const admin = readData('admin');
   if (admin.maintenanceMode) {
     return res.status(503).json({ error: admin.maintenanceMessage || "We're temporarily offline for maintenance. Please try again shortly." });
@@ -1257,7 +1311,18 @@ app.post('/api/bookings', async (req, res) => {
   if (admin.bookingPaused) {
     return res.status(403).json({ error: admin.bookingPausedMessage || "We're not accepting new bookings right now. Please check back soon." });
   }
-  const { name, phone, address, cityId, items, bookingDate, timeSlotId, accessToken, couponCode, referralCode } = req.body;
+  const { phone, cityId, items, bookingDate, timeSlotId, accessToken, couponCode, referralCode } = req.body;
+  if ([req.body.name, phone, req.body.address, cityId, bookingDate, timeSlotId, couponCode, referralCode].some(v => v != null && typeof v !== 'string')) {
+    return res.status(400).json({ error: 'Invalid booking details. Please refresh the page and try again.' });
+  }
+  const name = String(req.body.name || '').trim().slice(0, 80);
+  const address = String(req.body.address || '').trim().slice(0, 300);
+  if (Array.isArray(items) && items.length > 10) {
+    return res.status(400).json({ error: 'Please book at most 10 services at a time.' });
+  }
+  if (Array.isArray(items) && items.some(it => !it || typeof it !== 'object')) {
+    return res.status(400).json({ error: 'Invalid booking details. Please refresh the page and try again.' });
+  }
   if (!name || !phone || !address || !cityId || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Please fill all required fields and add at least one appliance.' });
   }
@@ -1273,8 +1338,18 @@ app.post('/api/bookings', async (req, res) => {
   if (!isValidFutureOrTodayDate(bookingDate)) {
     return res.status(400).json({ error: 'Please choose a valid, upcoming date for the visit.' });
   }
-  if (!/^[0-9]{10}$/.test(phone)) {
-    return res.status(400).json({ error: 'Please enter a valid 10 digit phone number.' });
+  if (bookingDate > istDateStr(new Date(Date.now() + 60 * 86400000))) {
+    return res.status(400).json({ error: 'Bookings can be made up to 60 days ahead.' });
+  }
+  if (!/^[6-9][0-9]{9}$/.test(phone)) {
+    return res.status(400).json({ error: 'Please enter a valid 10 digit mobile number.' });
+  }
+  // Spam guard: with OTP off, anyone could fill every slot using one
+  // number. A real household rarely has more than a few open visits.
+  const openForPhone = readData('bookings').filter(b => b.phone === phone && b.bookingDate >= istDateStr() &&
+    (b.items || []).some(it => !['completed', 'cancelled', 'rejected'].includes(it.itemStatus))).length;
+  if (openForPhone >= 5) {
+    return res.status(429).json({ error: 'This number already has 5 upcoming visits. Please call us to book more.' });
   }
 
   // OTP is only required the FIRST time a phone number ever books (and only
@@ -1319,8 +1394,10 @@ app.post('/api/bookings', async (req, res) => {
 
   const resolvedItems = [];
   for (const item of items) {
-    const { applianceId, typeId, serviceType, problem, photoUrl, skuId } = item;
-    const qty = Math.max(1, parseInt(item.qty, 10) || 1);
+    const { applianceId, typeId, photoUrl, skuId } = item;
+    let { serviceType } = item;
+    const problem = typeof item.problem === 'string' ? item.problem.slice(0, 500) : '';
+    const qty = Math.min(10, Math.max(1, parseInt(item.qty, 10) || 1));
     if (!applianceId || !typeId || !serviceType) {
       return res.status(400).json({ error: 'Each item must have an appliance, type and service selected.' });
     }
@@ -1340,9 +1417,25 @@ app.post('/api/bookings', async (req, res) => {
     if ((appliance.disabledCities || []).includes(cityId)) {
       return res.status(400).json({ error: `${appliance.name} is currently not available in ${city.name}.` });
     }
-    const skuPrice = skuId && priceRow.servicePrices && typeof priceRow.servicePrices[skuId] === 'number'
-      ? priceRow.servicePrices[skuId]
-      : null;
+    // The chosen service card (skuId) must really belong to this type, and
+    // it decides serviceType + price on the server -- a tampered request
+    // can no longer book "Repair" at the cheaper "Uninstall" price.
+    let sku = null;
+    if (skuId) {
+      const typeServices = (Array.isArray(type.services) && type.services.length)
+        ? type.services
+        : [{ id: 'svc-service', name: 'Service' }, { id: 'svc-repair', name: 'Repair' }];
+      sku = typeServices.find(sv => sv.id === skuId) || null;
+      if (!sku) return res.status(400).json({ error: 'One of the selected services is no longer available. Please refresh and try again.' });
+      serviceType = ['svc-repair', 'svc-install', 'svc-uninstall', 'svc-gasfill'].includes(sku.id) ? 'repair' : 'service';
+    }
+    let skuPrice = null;
+    if (sku) {
+      if (priceRow.servicePrices && typeof priceRow.servicePrices[sku.id] === 'number') skuPrice = priceRow.servicePrices[sku.id];
+      else if (sku.id === 'svc-service') skuPrice = priceRow.servicePrice;
+      else if (sku.id === 'svc-repair') skuPrice = priceRow.repairPrice;
+      if (typeof skuPrice !== 'number') return res.status(400).json({ error: `${sku.name} is not available in ${city.name}. Please refresh and try again.` });
+    }
     const unitPrice = skuPrice !== null ? skuPrice : (serviceType === 'repair' ? priceRow.repairPrice : priceRow.servicePrice);
     // Only ever trust a photoUrl that points at our own uploads folder
     // (i.e. one we actually generated via /api/upload-photo) — never an
@@ -1356,6 +1449,8 @@ app.post('/api/bookings', async (req, res) => {
       typeId,
       typeName: type.name,
       serviceType,
+      skuId: sku ? sku.id : '',
+      serviceName: sku ? sku.name : '',
       qty,
       unitPrice,
       lineTotal: unitPrice * qty,
@@ -1443,13 +1538,14 @@ app.post('/api/bookings', async (req, res) => {
   let referrerPhoneForBooking = '';
   if (referralCode) {
     const referralResult = validateReferral(referralCode, phone, subtotal - discountAmount);
-    if (!referralResult.valid) {
-      await releaseCouponReservation();
-      return res.status(400).json({ error: referralResult.error });
+    // An invalid / not-applicable referral code (old link, existing
+    // customer, own code) just means no referral discount -- it must
+    // never block the booking itself.
+    if (referralResult.valid) {
+      referralDiscount = referralResult.discountAmount;
+      appliedReferralCode = referralResult.code;
+      referrerPhoneForBooking = referralResult.referrerPhone;
     }
-    referralDiscount = referralResult.discountAmount;
-    appliedReferralCode = referralResult.code;
-    referrerPhoneForBooking = referralResult.referrerPhone;
   }
 
   const totalPrice = Math.max(0, subtotal - discountAmount - referralDiscount);
@@ -1469,6 +1565,14 @@ app.post('/api/bookings', async (req, res) => {
         return { error: 'Sorry, that time slot just got full or is unavailable. Please pick another slot.' };
       }
       const bookings = readData('bookings');
+      // Same booking sent twice (double tap, network retry, reload and
+      // resubmit) within 15 minutes -> return the first one, don't create
+      // a duplicate visit.
+      const sig = (list) => list.map(it => `${it.applianceId}|${it.typeId}|${it.serviceType}|${it.skuId || ''}`).sort().join(',');
+      const mySig = sig(resolvedItems);
+      const dup = bookings.find(b => b.phone === phone && b.bookingDate === bookingDate && b.timeSlotId === timeSlotId &&
+        b.source === 'online' && (Date.now() - new Date(b.createdAt).getTime()) < 15 * 60 * 1000 && sig(b.items || []) === mySig);
+      if (dup) return { booking: dup, duplicate: true };
       const booking = {
         id: genId('bk'),
         name,
@@ -1513,6 +1617,10 @@ app.post('/api/bookings', async (req, res) => {
     return res.status(409).json({ error: lockResult.error });
   }
   const booking = lockResult.booking;
+  if (lockResult.duplicate) {
+    await releaseCouponReservation();
+    return res.json({ success: true, booking, duplicate: true });
+  }
 
   if (appliedReferralCode) {
     recordReferralUse(appliedReferralCode, referrerPhoneForBooking, phone, booking.id, referralDiscount);
@@ -1544,7 +1652,7 @@ function readArchivedBookings() {
   }
 }
 
-app.get('/api/bookings/track', async (req, res) => {
+app.get('/api/bookings/track', simpleRateLimit('track', 20, 10 * 60 * 1000), async (req, res) => {
   const { phone } = req.query;
   if (!phone) return res.status(400).json({ error: 'Phone number required' });
   // SIMPLIFIED (per explicit request, made with full awareness of the
@@ -1577,7 +1685,7 @@ function sanitizeReviewText(text) {
 // check used for Track Order proves it's their own booking. An optional
 // short text review can go alongside the star rating; this is what powers
 // the real testimonials shown on the homepage once there are enough of them.
-app.put('/api/bookings/:bookingId/items/:itemId/rate', (req, res) => {
+app.put('/api/bookings/:bookingId/items/:itemId/rate', simpleRateLimit('rate', 20, 10 * 60 * 1000), (req, res) => {
   const { rating, phone, reviewText } = req.body;
   const r = Number(rating);
   if (!r || r < 1 || r > 5) return res.status(400).json({ error: 'Rating must be between 1 and 5' });
@@ -1684,12 +1792,18 @@ app.post('/api/admin/lock-date', requireAdmin, (req, res) => {
 // accepts known, already-existing data keys (never arbitrary new ones) as
 // a safety guard against a malformed or tampered file silently creating
 // unexpected new data files.
-app.post('/api/admin/restore', requireAdmin, bodyParser.json({ limit: '10mb' }), (req, res) => {
+app.post('/api/admin/restore', requireAdmin, bodyParser.json({ limit: '40mb' }), (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
     return res.status(400).json({ error: 'Invalid backup file format.' });
   }
-  const existingKeys = Object.keys(getAllData());
+  const current = getAllData();
+  const existingKeys = Object.keys(current);
+  // A damaged backup (e.g. bookings not a list) would break every page
+  // that reads it — check the shape of every key before writing anything.
+  const bad = Object.keys(incoming).filter(k => existingKeys.includes(k) &&
+    (incoming[k] === null || typeof incoming[k] !== 'object' || Array.isArray(incoming[k]) !== Array.isArray(current[k])));
+  if (bad.length) return res.status(400).json({ error: `Backup file looks damaged (${bad.slice(0, 5).join(', ')}). Nothing was restored.` });
   let restoredCount = 0;
   for (const key of Object.keys(incoming)) {
     if (!existingKeys.includes(key)) continue; // ignore unknown keys — safety guard
@@ -1773,7 +1887,7 @@ async function markPhoneVerified(phone) {
 // bookings.json is stored with the newest entries at the front) — that's
 // the freshest, most likely-still-accurate address on file. Only exposes
 // name/address/cityId here, nothing more sensitive.
-app.get('/api/customer-lookup', (req, res) => {
+app.get('/api/customer-lookup', simpleRateLimit('lookup', 20, 10 * 60 * 1000), (req, res) => {
   const { phone } = req.query;
   if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Valid 10 digit phone number required' });
   const bookings = readData('bookings');
@@ -1802,11 +1916,12 @@ app.get('/api/customer-lookup', (req, res) => {
 // even if they haven't booked anything yet. Requires the phone to
 // already be OTP-verified so this can't be used to write profiles for
 // arbitrary numbers nobody actually confirmed.
-app.post('/api/customer-profile', async (req, res) => {
+app.post('/api/customer-profile', simpleRateLimit('profile', 10, 10 * 60 * 1000), async (req, res) => {
   const { phone, name, address, cityId, accessToken } = req.body || {};
   if (!/^[0-9]{10}$/.test(phone || '')) return res.status(400).json({ error: 'Valid 10 digit phone number required' });
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
-  if (!address || !address.trim()) return res.status(400).json({ error: 'Please enter your full address.' });
+  if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
+  if (typeof address !== 'string' || !address.trim()) return res.status(400).json({ error: 'Please enter your full address.' });
+  if (name.length > 80 || address.length > 300) return res.status(400).json({ error: 'Name or address is too long.' });
   const cities = readData('cities');
   if (!cityId || !cities.find(c => c.id === cityId)) return res.status(400).json({ error: 'Please select a valid city.' });
   // FLOW CHANGE: OTP should only ever be asked ONCE per number — the
@@ -1886,7 +2001,42 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 app.get('/api/admin/check', (req, res) => {
-  res.json({ loggedIn: !!(req.session && req.session.isAdmin) });
+  const loggedIn = !!(req.session && req.session.isAdmin);
+  let usingDefaultPassword = false;
+  if (loggedIn) {
+    // The old startup code force-set this well-known password; warn the
+    // admin until it's changed.
+    try { usingDefaultPassword = verifyAndUpgrade('Seerua@2026', readData('admin').password); } catch (e) { /* ignore */ }
+  }
+  res.json({ loggedIn, usingDefaultPassword });
+});
+
+// Super Admin changes their own username/password (current password required).
+app.put('/api/admin/password', requireAdmin, loginRateLimit('admin-pw'), (req, res) => {
+  const { currentPassword, newPassword, newUsername } = req.body || {};
+  const admin = readData('admin');
+  if (typeof currentPassword !== 'string' || !verifyAndUpgrade(currentPassword, admin.password)) {
+    recordLoginFailure('admin-pw', req);
+    return res.status(401).json({ error: 'Current password is wrong.' });
+  }
+  if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 100) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+  }
+  if (newPassword === 'Seerua@2026' || newPassword === currentPassword) {
+    return res.status(400).json({ error: 'Please choose a new, different password.' });
+  }
+  if (newUsername !== undefined && newUsername !== '') {
+    if (typeof newUsername !== 'string' || !/^[A-Za-z0-9_.@-]{3,40}$/.test(newUsername)) {
+      return res.status(400).json({ error: 'Username: 3-40 letters/numbers (no spaces).' });
+    }
+    admin.username = newUsername;
+  }
+  admin.password = hashPassword(newPassword);
+  admin.passwordChangedAt = new Date().toISOString();
+  admin.forceResetApplied = true;
+  writeData('admin', admin);
+  clearLoginFailures('admin-pw', req);
+  res.json({ success: true, username: admin.username });
 });
 
 // =======================================================
@@ -2120,7 +2270,9 @@ app.put('/api/admin/slots-config', requireStaff, (req, res) => {
 app.post('/api/admin/slots-config/blocked', requireStaff, (req, res) => {
   const { date, slotId, cityId, applianceId } = req.body;
   if (!date || !slotId || !cityId) return res.status(400).json({ error: 'Date, slot and city are required' });
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date' });
   if (!TIME_SLOTS.some(s => s.id === slotId)) return res.status(400).json({ error: 'Invalid slot' });
+  if (applianceId && typeof applianceId !== 'string') return res.status(400).json({ error: 'Invalid appliance' });
   const scope = getStaffCityScope(req);
   if (scope && !scope.includes(cityId)) return res.status(403).json({ error: 'You do not have access to this city.' });
   const cfg = readData('slots-config');
@@ -2589,7 +2741,7 @@ app.put('/api/admin/service-photos/:applianceId/:typeId/:svcId', requireAdmin, a
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String((req.body || {}).dataUrl || ''));
   if (!m) return res.status(400).json({ error: 'Please upload a JPG, PNG or WEBP image.' });
   const buf = Buffer.from(m[2], 'base64');
-  if (buf.length > 700 * 1024) return res.status(400).json({ error: 'Photo is too large even after resizing — please use a smaller image.' });
+  if (buf.length > 350 * 1024) return res.status(400).json({ error: 'Photo is too large even after resizing — please use a smaller image.' });
   if (!FILE_SIGNATURES.some(sig => sig.check(buf))) return res.status(400).json({ error: 'That file does not look like a valid image.' });
   const photos = readServicePhotosCopy();
   photos[servicePhotoKey(applianceId, typeId, svcId)] = { mime: m[1], data: m[2], updatedAt: Date.now() };
@@ -2609,7 +2761,7 @@ app.put('/api/admin/appliance-photo/:applianceId', requireAdmin, async (req, res
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String((req.body || {}).dataUrl || ''));
   if (!m) return res.status(400).json({ error: 'Please upload a JPG, PNG or WEBP image.' });
   const buf = Buffer.from(m[2], 'base64');
-  if (buf.length > 700 * 1024) return res.status(400).json({ error: 'Photo is too large even after resizing — please use a smaller image.' });
+  if (buf.length > 350 * 1024) return res.status(400).json({ error: 'Photo is too large even after resizing — please use a smaller image.' });
   if (!FILE_SIGNATURES.some(sig => sig.check(buf))) return res.status(400).json({ error: 'That file does not look like a valid image.' });
   const key = `${appliance.id}__main`;
   const photos = readServicePhotosCopy();
@@ -2854,7 +3006,7 @@ app.get('/api/admin/commission/report', requireAdmin, (req, res) => {
     b.items.forEach(it => {
       if (it.itemStatus !== 'completed') return;
       if (!it.technicianId) return;
-      if (istDateStr(it.updatedAt) !== dateStr) return; // bucket by IST day, not raw UTC timestamp
+      if (istDateStr((it.completedAt || it.updatedAt)) !== dateStr) return; // bucket by IST day, not raw UTC timestamp
       // Same rate-resolution as the Technicians tab's earnings table
       // (getEffectiveCommissionRate) — a technician's own rate if Admin
       // set one, else a per-appliance rate, else the shared default — so
@@ -2889,7 +3041,7 @@ app.get('/api/admin/commission/report', requireAdmin, (req, res) => {
         reviewPendingVerification: !!it.reviewBrought && !it.reviewVerifiedByStaff,
         commission,
         netForTechnician,
-        completedAt: it.updatedAt
+        completedAt: (it.completedAt || it.updatedAt)
       });
       techEntry.totalCommission += commission;
       techEntry.totalNetForTechnician += netForTechnician;
@@ -2924,7 +3076,7 @@ function buildCommissionRows({ technicianId, cityId, fromDate, toDate }) {
       if (it.itemStatus !== 'completed') return;
       if (!it.technicianId) return;
       if (technicianId && it.technicianId !== technicianId) return;
-      const dateStr = istDateStr(it.updatedAt); // IST day this item was actually completed on
+      const dateStr = istDateStr((it.completedAt || it.updatedAt)); // IST day this item was actually completed on
       if (fromDate && dateStr < fromDate) return;
       if (toDate && dateStr > toDate) return;
       const rate = getEffectiveCommissionRate(techById[it.technicianId], commissionCfg, it.applianceId);
@@ -3651,7 +3803,11 @@ app.put('/api/admin/technicians/:id', requireAdmin, (req, res) => {
   // silently skipped by the "!== ''" guard on an empty string. An empty
   // field means "go back to using the global rate" (null), not "₹0".
   if (req.body.variableAmount !== undefined) {
-    tech.variableAmount = (req.body.variableAmount === '' || req.body.variableAmount === null) ? null : Number(req.body.variableAmount);
+    const va = (req.body.variableAmount === '' || req.body.variableAmount === null) ? null : Number(req.body.variableAmount);
+    if (va !== null && (!Number.isFinite(va) || va < 0 || (req.body.variableAmountMode === 'percent' && va > 100))) {
+      return res.status(400).json({ error: 'Commission must be 0 or more (and at most 100 for a percentage).' });
+    }
+    tech.variableAmount = va;
   }
   if (req.body.variableAmountMode !== undefined) {
     tech.variableAmountMode = req.body.variableAmountMode === 'percent' ? 'percent' : 'flat';
@@ -3832,6 +3988,15 @@ app.get('/api/admin/bookings/archived', requireStaff, (req, res) => {
 // the customer's phone number, same as any other booking.
 app.post('/api/admin/bookings', requireStaff, async (req, res) => {
   const { name, phone, address, cityId, items, bookingDate, timeSlotId } = req.body;
+  if ([name, phone, address, cityId, bookingDate, timeSlotId].some(v => v != null && typeof v !== 'string')) {
+    return res.status(400).json({ error: 'Invalid booking details.' });
+  }
+  if (bookingDate && !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate)) {
+    return res.status(400).json({ error: 'Please choose a valid date.' });
+  }
+  if (Array.isArray(items) && items.some(it => !it || typeof it !== 'object')) {
+    return res.status(400).json({ error: 'Invalid items.' });
+  }
   if (!name || !phone || !address || !cityId || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Please fill all required fields and add at least one appliance.' });
   }
@@ -4141,6 +4306,9 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/assign', requireStaff, (re
   if (scope && !scope.includes(booking.cityId)) return res.status(403).json({ error: 'You do not have access to this booking.' });
   const item = booking.items.find(it => it.id === req.params.itemId);
   if (!item) return res.status(404).json({ error: 'Item not found in this booking' });
+  if (['completed', 'in-progress', 'cancelled'].includes(item.itemStatus)) {
+    return res.status(400).json({ error: `This job is already ${item.itemStatus} and cannot be reassigned.` });
+  }
 
   const technicians = readData('technicians');
   const tech = technicians.find(t => t.id === technicianId);
@@ -4370,7 +4538,7 @@ app.get('/api/admin/analytics', requireAdmin, (req, res) => {
       if (it.itemStatus === 'completed') {
         totalRevenue += it.lineTotal;
         revenueByCity[b.cityName] = (revenueByCity[b.cityName] || 0) + it.lineTotal;
-        const day = istDateStr(it.updatedAt); // IST day, matches the 14-day trend keys above
+        const day = istDateStr((it.completedAt || it.updatedAt)); // IST day, matches the 14-day trend keys above
         if (dailyRevenue[day] !== undefined) dailyRevenue[day] += it.lineTotal;
         if (dailyCommission[day] !== undefined) {
           const rate = getEffectiveCommissionRate(techById[it.technicianId], commissionCfg, it.applianceId);
@@ -4424,12 +4592,12 @@ app.get('/api/admin/reports/daily', requireAdmin, (req, res) => {
   const dateStr = req.query.date || istDateStr();
   const bookings = readData('bookings');
 
-  const newBookings = bookings.filter(b => b.createdAt.slice(0, 10) === dateStr);
+  const newBookings = bookings.filter(b => istDateStr(b.createdAt) === dateStr);
 
   const completedItems = [];
   bookings.forEach(b => {
     b.items.forEach(it => {
-      if (it.itemStatus === 'completed' && istDateStr(it.updatedAt) === dateStr) {
+      if (it.itemStatus === 'completed' && istDateStr(it.completedAt || it.updatedAt) === dateStr) {
         completedItems.push({ ...it, bookingId: b.id, name: b.name, cityName: b.cityName });
       }
     });
@@ -4459,7 +4627,7 @@ app.get('/api/admin/reports/daily/export', requireAdmin, (req, res) => {
   const rows = [];
   bookings.forEach(b => {
     b.items.forEach(it => {
-      if (it.itemStatus === 'completed' && istDateStr(it.updatedAt) === dateStr) {
+      if (it.itemStatus === 'completed' && istDateStr(it.completedAt || it.updatedAt) === dateStr) {
         rows.push([
           dateStr, b.id, b.name, b.phone, b.cityName,
           it.applianceName, it.typeName, it.serviceType === 'repair' ? 'Repair' : 'Service',
@@ -4528,7 +4696,7 @@ app.put('/api/technician/heartbeat', requireTechnician, (req, res) => {
 app.get('/api/technician/check', (req, res) => {
   if (!req.session || !req.session.technicianId) return res.json({ loggedIn: false });
   const technicians = readData('technicians');
-  const tech = technicians.find(t => t.id === req.session.technicianId);
+  const tech = technicians.find(t => t.id === req.session.technicianId && t.active !== false);
   if (!tech) return res.json({ loggedIn: false });
   res.json({ loggedIn: true, technician: { ...tech, password: undefined } });
 });
@@ -4607,6 +4775,7 @@ function findOwnItem(bookingId, itemId, technicianId) {
 app.put('/api/technician/orders/:bookingId/items/:itemId/accept', requireTechnician, (req, res) => {
   const { bookings, booking, item } = findOwnItem(req.params.bookingId, req.params.itemId, req.session.technicianId);
   if (!item) return res.status(404).json({ error: 'Task not found' });
+  if (item.itemStatus !== 'assigned') return res.status(400).json({ error: `This job is already ${item.itemStatus}.` });
   item.itemStatus = 'accepted';
   item.updatedAt = new Date().toISOString();
   booking.updatedAt = new Date().toISOString();
@@ -4617,6 +4786,7 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/accept', requireTechnic
 app.put('/api/technician/orders/:bookingId/items/:itemId/reject', requireTechnician, (req, res) => {
   const { bookings, booking, item } = findOwnItem(req.params.bookingId, req.params.itemId, req.session.technicianId);
   if (!item) return res.status(404).json({ error: 'Task not found' });
+  if (!['assigned', 'accepted'].includes(item.itemStatus)) return res.status(400).json({ error: `This job is already ${item.itemStatus} and cannot be rejected.` });
 
   // The item goes straight back to "Pending" (not a separate "Rejected"
   // status) so it can be reassigned to someone else right away — but we
@@ -4694,6 +4864,7 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/progress', requireTechn
       item.completionPhotoUploadedAt = new Date().toISOString();
     }
     item.itemStatus = status; // e.g. 'in-progress', 'completed'
+    if (status === 'completed') item.completedAt = new Date().toISOString(); // fixed completion day for reports/commission
   }
   if (report !== undefined) item.technicianReport = report;
   item.updatedAt = new Date().toISOString();
@@ -4861,7 +5032,7 @@ function maintenancePageIfEnabled() {
   const admin = readData('admin');
   if (!admin.maintenanceMode) return null;
   const template = fs.readFileSync(MAINTENANCE_TEMPLATE_PATH, 'utf-8');
-  const html = template.replace('{{MAINTENANCE_MESSAGE}}', admin.maintenanceMessage || "We're temporarily offline. Please check back soon.");
+  const html = template.replace('{{MAINTENANCE_MESSAGE}}', () => escapeHtml(admin.maintenanceMessage || "We're temporarily offline. Please check back soon."));
   const hours = Number(admin.maintenanceExpectedHours) > 0 ? Number(admin.maintenanceExpectedHours) : 2;
   return { html, retryAfterSeconds: Math.round(hours * 3600) };
 }
@@ -4915,7 +5086,7 @@ function buildFaqSchemaHtml(faqs, cityListText, applianceListText) {
       acceptedAnswer: { '@type': 'Answer', text: fillContentPlaceholders(f.a, cityListText, applianceListText) }
     }))
   };
-  return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>`;
+  return `<script type="application/ld+json">\n${ldJson(schema)}\n</script>`;
 }
 
 // Renders the visible FAQ accordion HTML from the same admin-editable list.
@@ -4954,18 +5125,18 @@ app.get('/', (req, res) => {
     const siteContent = readData('site-content');
     const template = fs.readFileSync(INDEX_TEMPLATE_PATH, 'utf-8');
     const html = template
-      .replace('{{AREA_SERVED_JSON}}', JSON.stringify(cityNames))
-      .replace('{{CITY_LIST_TEXT}}', cityListText)
+      .replace('{{AREA_SERVED_JSON}}', () => (JSON.stringify(cityNames).replace(/</g, '\\u003c')))
+      .replace('{{CITY_LIST_TEXT}}', () => (cityListText))
       .split('{{CITY_COUNT}}').join(String(cityNames.length))
       .split('{{APPLIANCE_COUNT}}').join(String(appliances.length))
       .split('{{APPLIANCE_LIST_TEXT}}').join(applianceListText)
-      .replace('{{SAME_AS_JSON}}', buildSameAsJson())
-      .replace('{{AGGREGATE_RATING_JSON}}', aggregateRatingJsonFragment(computeSiteRating()))
-      .replace('{{FOOTER_SLOGAN}}', escapeHtml(siteContent.footerSlogan || ''))
-      .replace('{{FOOTER_DESCRIPTION}}', escapeHtml(fillContentPlaceholders(siteContent.footerDescription || '', cityListText, applianceListText)))
-      .replace('{{FAQ_LIST_HTML}}', buildFaqListHtml(siteContent.faqs || [], cityListText, applianceListText))
-      .replace('{{FAQ_SCHEMA_JSON}}', buildFaqSchemaHtml(siteContent.faqs || [], cityListText, applianceListText))
-      .replace('{{SERVICES_GRID_HTML}}', servicesGridHtml);
+      .replace('{{SAME_AS_JSON}}', () => (buildSameAsJson()))
+      .replace('{{AGGREGATE_RATING_JSON}}', () => (aggregateRatingJsonFragment(computeSiteRating())))
+      .replace('{{FOOTER_SLOGAN}}', () => (escapeHtml(siteContent.footerSlogan || '')))
+      .replace('{{FOOTER_DESCRIPTION}}', () => (escapeHtml(fillContentPlaceholders(siteContent.footerDescription || '', cityListText, applianceListText))))
+      .replace('{{FAQ_LIST_HTML}}', () => (buildFaqListHtml(siteContent.faqs || [], cityListText, applianceListText)))
+      .replace('{{FAQ_SCHEMA_JSON}}', () => (buildFaqSchemaHtml(siteContent.faqs || [], cityListText, applianceListText)))
+      .replace('{{SERVICES_GRID_HTML}}', () => (servicesGridHtml));
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (e) {
@@ -4996,7 +5167,7 @@ function buildBreadcrumbSchemaHtml(cityName, canonicalUrl) {
       { '@type': 'ListItem', position: 2, name: `${cityName} Appliance Repair`, item: canonicalUrl }
     ]
   };
-  return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>`;
+  return `<script type="application/ld+json">\n${ldJson(schema)}\n</script>`;
 }
 
 // Lists every appliance actually offered in this specific city as a
@@ -5014,7 +5185,7 @@ function buildOfferCatalogJson(city, appliances) {
       provider: { '@type': 'LocalBusiness', name: 'Seerua Appliance Care' }
     }
   }));
-  return JSON.stringify(items);
+  return JSON.stringify(items).replace(/</g, "\\u003c");
 }
 
 // =======================================================
@@ -5101,7 +5272,7 @@ function buildApplianceBreadcrumbSchemaHtml(cityName, cityUrl, applianceName, ca
       { '@type': 'ListItem', position: 3, name: `${applianceName} Service in ${cityName}`, item: canonicalUrl }
     ]
   };
-  return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>`;
+  return `<script type="application/ld+json">\n${ldJson(schema)}\n</script>`;
 }
 
 // A specific schema.org Service entity (rather than the city page's
@@ -5141,7 +5312,7 @@ function buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRan
       }
     } : {})
   };
-  return JSON.stringify(schema, null, 2);
+  return ldJson(schema);
 }
 
 app.get('/appliance-repair/:citySlug', (req, res) => {
@@ -5161,7 +5332,8 @@ app.get('/appliance-repair/:citySlug', (req, res) => {
   if (cityResult.redirectSlug) return res.redirect(301, `/appliance-repair/${cityResult.redirectSlug}`);
   if (!cityResult.city) return sendCityGonePage(res, cityResult.gone);
   const city = cityResult.city;
-  const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id));
+  const cityPricing = readData('pricing');
+  const appliances = readData('appliances').filter(a => !a.hidden && !(a.disabledCities || []).includes(city.id) && applianceHasPricing(a, city.id, cityPricing));
   if (!appliances.length) {
     // No appliances configured for this city at all — nothing sensible
     // to redirect to, so just send them home instead of a broken link.
@@ -5261,18 +5433,18 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
         <div class="faq-q">${escapeHtml(f.q)} <span class="plus">+</span></div>
         <div class="faq-a"><p>${escapeHtml(f.a)}</p></div>
       </div>`).join('');
-    const faqSchemaHtml = `<script type="application/ld+json">\n${JSON.stringify({
+    const faqSchemaHtml = `<script type="application/ld+json">\n${ldJson({
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
       mainEntity: faqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
-    }, null, 2)}\n</script>`;
+    })}\n</script>`;
 
     const breadcrumbItems = [
       { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL + '/' },
       { '@type': 'ListItem', position: 2, name: `${appliance.name} Service in ${city.name}`, item: applianceUrl }
     ];
     if (focusType) breadcrumbItems.push({ '@type': 'ListItem', position: 3, name: `${displayName} Service in ${city.name}`, item: canonicalUrl });
-    const breadcrumbSchemaHtml = `<script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: breadcrumbItems }, null, 2)}\n</script>`;
+    const breadcrumbSchemaHtml = `<script type="application/ld+json">\n${ldJson({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: breadcrumbItems })}\n</script>`;
     const breadcrumbHtml = `<a href="/">Home</a> <span>/</span> ` + (focusType
       ? `<a href="/appliance-repair/${citySlug}/${applianceSlug(appliance.name)}">${escapeHtml(appliance.name)} Service in ${escapeHtml(city.name)}</a> <span>/</span> <strong>${escapeHtml(displayName)}</strong>`
       : `<strong>${escapeHtml(appliance.name)} Service in ${escapeHtml(city.name)}</strong>`);
@@ -5346,7 +5518,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
         if (offers.length) {
           schema.hasOfferCatalog = { '@type': 'OfferCatalog', name: `${displayName} services in ${city.name}`, itemListElement: offers };
         }
-        return JSON.stringify(schema, null, 2);
+        return ldJson(schema);
       })(),
       '{{BREADCRUMB_SCHEMA_JSON}}': breadcrumbSchemaHtml,
       '{{PAGE_CONFIG_JSON}}': pageConfig
@@ -5622,7 +5794,7 @@ function buildJobPostingSchema(city, applianceListText, careerAppliances) {
     skills: careerAppliances.map(a => a.name).join(', '),
     directApply: true
   };
-  return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>`;
+  return `<script type="application/ld+json">\n${ldJson(schema)}\n</script>`;
 }
 
 function renderCareersPage(req, res, focusCitySlug) {
@@ -5885,18 +6057,18 @@ function renderCareersPage(req, res, focusCitySlug) {
       .split('{{CAREERS_TITLE}}').join(escapeHtml(title))
       .split('{{CAREERS_CANONICAL_URL}}').join(careersCanonicalUrl)
       .split('{{CAREERS_META_DESCRIPTION}}').join(escapeHtml(metaDescription))
-      .replace('{{CAREERS_KEYWORDS}}', escapeHtml(keywords))
-      .replace('{{JOB_POSTING_SCHEMA_JSON}}', jobPostingSchemaHtml)
-      .replace('{{CAREERS_INTRO_TEXT}}', escapeHtml(careersIntroText))
-      .replace('{{CAREER_CITY_LINKS_HTML}}', careerCityLinksHtml)
-      .replace('{{POPULAR_SEARCHES_HTML}}', popularSearchesHtml)
-      .replace('{{APPLY_EYEBROW}}', escapeHtml(applyEyebrow))
-      .replace('{{APPLY_HEADING}}', escapeHtml(applyHeading))
-      .replace('{{APPLY_SUBTEXT}}', escapeHtml(applySubtext))
-      .replace('{{HIRING_PAUSED_NOTICE}}', hiringPausedNotice)
-      .replace('{{FORM_DISPLAY_STYLE}}', formDisplayStyle)
-      .replace('{{HEADER_HOME_LINK_HTML}}', headerHomeLinkHtml)
-      .replace('{{HEADER_CALL_HTML}}', headerCallHtml);
+      .replace('{{CAREERS_KEYWORDS}}', () => (escapeHtml(keywords)))
+      .replace('{{JOB_POSTING_SCHEMA_JSON}}', () => (jobPostingSchemaHtml))
+      .replace('{{CAREERS_INTRO_TEXT}}', () => (escapeHtml(careersIntroText)))
+      .replace('{{CAREER_CITY_LINKS_HTML}}', () => (careerCityLinksHtml))
+      .replace('{{POPULAR_SEARCHES_HTML}}', () => (popularSearchesHtml))
+      .replace('{{APPLY_EYEBROW}}', () => (escapeHtml(applyEyebrow)))
+      .replace('{{APPLY_HEADING}}', () => (escapeHtml(applyHeading)))
+      .replace('{{APPLY_SUBTEXT}}', () => (escapeHtml(applySubtext)))
+      .replace('{{HIRING_PAUSED_NOTICE}}', () => (hiringPausedNotice))
+      .replace('{{FORM_DISPLAY_STYLE}}', () => (formDisplayStyle))
+      .replace('{{HEADER_HOME_LINK_HTML}}', () => (headerHomeLinkHtml))
+      .replace('{{HEADER_CALL_HTML}}', () => (headerCallHtml));
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (e) {
@@ -5977,29 +6149,6 @@ function cleanupOldCompletionPhotos() {
 // the server starts accepting requests. Without this, the very first
 // request could hit readData() before any data has been loaded.
 initDb().then(() => {
-  // ONE-TIME DEPLOYMENT SAFETY NET: login was reportedly failing on the
-  // very first production deploy despite the correct credentials being
-  // in data/admin.json in the repo — the exact cause couldn't be
-  // confirmed remotely (no direct log/shell access to the hosting
-  // platform during troubleshooting). Rather than leave the site
-  // inaccessible, this force-resets the admin login to a known-good
-  // value ONE TIME ONLY, guarded by forceResetApplied so it can never
-  // silently undo a password change made afterward through the Admin
-  // Panel. Safe to leave in permanently — after the first successful
-  // boot post-deploy, this block never does anything again.
-  try {
-    const admin = readData('admin');
-    if (!admin.forceResetApplied) {
-      admin.username = 'admin';
-      admin.password = 'Seerua@2026'; // plaintext — auto-upgrades to a bcrypt hash on first successful login, same as normal
-      admin.forceResetApplied = true;
-      writeData('admin', admin);
-      console.log('[startup] One-time admin credential reset applied (username: admin). This will not run again.');
-    }
-  } catch (e) {
-    console.error('[startup] Could not apply one-time admin reset:', e.message);
-  }
-
   app.listen(PORT, () => {
     console.log(`Seerua Appliance Care server is running: http://localhost:${PORT}`);
     console.log(`[version] Build: ${BUILD_MARKER} — started ${SERVER_STARTED_AT}`);

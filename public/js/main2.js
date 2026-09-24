@@ -173,6 +173,12 @@ let incomingReferralCode = null; // set from ?ref= in the URL, sent along with t
 // instead of letting the browser jump there directly, we intercept those
 // clicks so the form is revealed first, then scroll to it.
 function openBookingForm() {
+  // The old long booking form is retired — every old entry point now
+  // lands in the one-screen popup (public/js/service-page.js).
+  if (window.SeeruaBooking && window.SeeruaBooking.openFromOldEntry) { window.SeeruaBooking.openFromOldEntry(); return; }
+  // Called while the page is still loading (e.g. arriving at /#book) —
+  // the popup script loads right after this one, so wait for it.
+  if (!window.SeeruaBooking && document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', openBookingForm, { once: true }); return; }
   // FLOW CHANGE: this used to un-hide a plain page section and scroll to
   // it — now opens as a proper floating modal (matching every other
   // popup on this site: Account Gate, Quick Book, Track Booking, etc.)
@@ -2699,6 +2705,11 @@ function bookAgain(bookingId) {
   const b = lastTrackedBookings.find(x => x.id === bookingId);
   if (!b) return;
   closeTrackBookingModal(); // "Book Again" tapped from the popup — close it so it doesn't sit on top of the booking form
+  // Same one-screen popup as the rest of the site (not the old long form).
+  if (window.SeeruaBooking && window.SeeruaBooking.openWithItems) {
+    window.SeeruaBooking.openWithItems(b.cityId, b.items || [], { name: b.name, phone: b.phone, address: b.address, cityId: b.cityId });
+    return;
+  }
   document.getElementById('fName').value = b.name;
   document.getElementById('fPhone').value = b.phone;
   document.getElementById('fAddress').value = b.address;
@@ -3112,6 +3123,9 @@ function verifyPhoneWithOtp(phone, opts) {
 // attribute on the button in the template, which chatbot.js checks to
 // know to skip binding its own generic fallback for this button.
 function updateBottomNavCartBadge() {
+  // The booking popup (service-page.js) owns the cart and its badges now;
+  // this old counter used to overwrite them with 0.
+  if (window.SeeruaBooking && window.SeeruaBooking.refreshBadges) { window.SeeruaBooking.refreshBadges(); return; }
   const badge = document.getElementById('bottomNavCartBadge');
   // BUG FIX: during a standalone Quick Book (direct-book) session, the
   // item being booked is technically appended to cartItems (for code
@@ -3436,6 +3450,7 @@ function bindHeaderAccountMenu() {
   document.getElementById('headerAccountLogoutBtn')?.addEventListener('click', () => {
     menu.classList.remove('open');
     clearAccount();
+    if (window.SeeruaBooking && window.SeeruaBooking.onLogout) window.SeeruaBooking.onLogout();
     // Reset the booking form's fields too, in case it's open right now
     // with the previous account's (now logged-out) details still showing.
     const nameEl = document.getElementById('fName');
@@ -3886,6 +3901,17 @@ bindAccountGateModal();
 // modal below (openQuickBookModalReal) opens immediately with the
 // mobile number field already filled in and hidden.
 function openQuickBookModal(applianceId, typeId) {
+  // The old Quick Book modal is retired: chat assistant, ?appliance= links
+  // and every other caller now open the one-screen booking popup.
+  if (window.SeeruaBooking && window.SeeruaBooking.openForAppliance) {
+    const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    window.SeeruaBooking.openForAppliance(applianceId, typeId || (typeof qbSelectedTypeId !== 'undefined' ? qbSelectedTypeId : null), {
+      cityId: val('fCity') || new URLSearchParams(location.search).get('city') || '',
+      name: val('fName'), phone: val('fPhone') || val('qbPhone'), address: val('fAddress')
+    });
+    return;
+  }
+  if (!window.SeeruaBooking && document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', () => openQuickBookModal(applianceId, typeId), { once: true }); return; }
   // BUG FIX (per explicit request): a customer who searched "AC service in
   // Jalesar" on Google, landed on the Split-AC-specific SEO page, and
   // tapped its Book button used to always see this modal open on Window AC

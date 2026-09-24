@@ -19,6 +19,12 @@ function esc(value) {
     .replace(/'/g, '&#39;');
 }
 
+// "Today" in India (IST) as YYYY-MM-DD — toISOString() is UTC, which is
+// still yesterday between midnight and 5:30 AM IST.
+function istToday() {
+  return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+}
+
 // SUGGESTION IMPLEMENTED: amounts were shown as plain digits (₹125000)
 // with no thousands separator, hard to read at a glance. This formats
 // them the Indian way (₹1,25,000) everywhere a ₹ amount is displayed.
@@ -242,17 +248,26 @@ function renderOrders() {
     return;
   }
 
+  // Keep anything the technician is typing when the list refreshes
+  // (new job arriving every few seconds used to wipe the report box).
+  const drafts = {};
+  let focusedId = document.activeElement && document.activeElement.id;
+  wrap.querySelectorAll('textarea[id^="report-"]').forEach(t => { drafts[t.id] = t.value; });
+  setTimeout(() => {
+    Object.keys(drafts).forEach(id => { const t = document.getElementById(id); if (t) t.value = drafts[id]; });
+    if (focusedId && focusedId.startsWith('report-')) { const t = document.getElementById(focusedId); if (t) t.focus(); }
+  }, 0);
   wrap.innerHTML = list.map(o => `
     <div class="order-card">
       <div class="top-row">
         <div>
-          <h4>${o.qty}x ${o.applianceName} (${o.typeName}) <span class="pill pill-${o.itemStatus}">${o.itemStatus.replace('-', ' ')}</span></h4>
+          <h4>${o.qty}x ${esc(o.applianceName)} (${esc(o.typeName)}) <span class="pill pill-${o.itemStatus}">${o.itemStatus.replace('-', ' ')}</span></h4>
           <div class="meta">👤 ${esc(o.name)} · ${phoneLink(o.phone)}</div>
           <div class="meta">📍 ${esc(o.address)}, ${esc(o.cityName)}</div>
           <div class="meta">🛠️ ${o.serviceType === 'repair' ? 'Repair' : 'Service'}${o.problem ? `: ${esc(o.problem)}` : ''}</div>
           ${o.photoUrl ? `<div class="meta"><a href="${o.photoUrl}" target="_blank" rel="noopener">📷 View customer's photo</a></div>` : ''}
           <div class="meta">💰 Visit Charge: ₹${fmtInr(o.lineTotal)} ${o.timeSlot ? `· 🕐 ${esc(o.bookingDate)} · ${esc(o.timeSlot)}` : ''}</div>
-          ${o.rejectionHistory && o.rejectionHistory.length ? `<div class="meta" style="color:var(--red);">⚠️ Earlier turned down by: ${o.rejectionHistory.map(r => `${r.technicianName} (${formatAssignedAt(r.rejectedAt)})`).join(', ')}</div>` : ''}
+          ${o.rejectionHistory && o.rejectionHistory.length ? `<div class="meta" style="color:var(--red);">⚠️ Earlier turned down by: ${o.rejectionHistory.map(r => `${esc(r.technicianName)} (${formatAssignedAt(r.rejectedAt)})`).join(', ')}</div>` : ''}
         </div>
       </div>
 
@@ -270,7 +285,7 @@ function renderOrders() {
       ` : ''}
 
       ${o.itemStatus === 'in-progress' ? `
-        <textarea id="report-${o.taskId}" placeholder="Progress report (e.g. gas refill done, part replaced, etc.)">${o.technicianReport || ''}</textarea>
+        <textarea id="report-${o.taskId}" placeholder="Progress report (e.g. gas refill done, part replaced, etc.)">${esc(o.technicianReport || '')}</textarea>
         <div class="meta" style="margin-top:8px;">
           ${!PHOTO_UPLOAD_DISABLED ? `
           <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--blue-600);font-weight:600;">
@@ -437,7 +452,7 @@ function sendGoogleReviewLink(bookingId, itemId) {
 
 async function renderReport() {
   const dateInput = document.getElementById('techReportDate');
-  if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+  if (!dateInput.value) dateInput.value = istToday();
   document.getElementById('techExportBtn').href = `/api/technician/reports/daily/export?date=${dateInput.value}`;
   const data = await api(`/api/technician/reports/daily?date=${dateInput.value}`);
   document.getElementById('techReportStats').innerHTML = `
@@ -512,7 +527,7 @@ async function renderMyRating() {
     const a = stats.applianceBreakdown[id];
     return `
       <tr>
-        <td>${a.applianceName}</td>
+        <td>${esc(a.applianceName)}</td>
         <td>${a.avgRating ? `⭐ ${a.avgRating}` : '<span style="color:var(--slate)">Not rated yet</span>'}</td>
         <td>${a.ratingCount}</td>
         <td>${a.completedJobs}</td>

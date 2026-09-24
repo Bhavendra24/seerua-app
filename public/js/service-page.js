@@ -47,9 +47,16 @@
     return fetchJSON(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   }
   function setMsg(el, text, kind) { if (!el) return; el.className = 'form-msg' + (kind ? ' ' + kind : ''); el.textContent = text || ''; }
+  // India has no daylight saving, so IST = UTC + 5:30 always. (The old
+  // Intl 'en-CA' trick broke on some older Android WebViews.)
   function istDate(offsetDays) {
-    var d = new Date(Date.now() + offsetDays * 86400000);
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    return new Date(Date.now() + offsetDays * 86400000 + 5.5 * 3600000).toISOString().slice(0, 10);
+  }
+  // "+91 98765 43210", "09876543210", "98765-43210" -> "9876543210"
+  function normalizePhone(v) {
+    var d = String(v || '').replace(/\D/g, '');
+    if (d.length > 10) d = d.replace(/^(91|0)/, '');
+    return d.slice(0, 10);
   }
   function isoToUtcNoon(iso) { var p = iso.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], 6)); }
   function dateLabel(iso, i) {
@@ -108,7 +115,7 @@
       '     <button type="button" class="sp-link-btn" id="spEditDetails">Change</button></div>' +
       '    <div id="spDetailFields">' +
       '     <label class="sp-label" for="spName">Your name</label><input class="sp-input" id="spName" type="text" autocomplete="name" placeholder="Full name" maxlength="80">' +
-      '     <label class="sp-label" for="spPhone">Mobile number</label><div class="sp-phone-wrap"><span>+91</span><input class="sp-input" id="spPhone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10 digit mobile number" maxlength="10"></div>' +
+      '     <label class="sp-label" for="spPhone">Mobile number</label><div class="sp-phone-wrap"><span>+91</span><input class="sp-input" id="spPhone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10 digit mobile number" maxlength="16"></div>' +
       '     <label class="sp-label" for="spAddress" id="spAddressLabel">Full address</label><textarea class="sp-input" id="spAddress" rows="2" autocomplete="street-address" placeholder="House no., street, area, landmark" maxlength="300"></textarea>' +
       '    </div>' +
       '   </div>' +
@@ -179,10 +186,27 @@
   function realCart() { return stashedCart || cart; }
   function writeCart() { try { sessionStorage.setItem(CART_KEY, JSON.stringify(realCart())); } catch (e) { /* ignore */ } }
   function startDirect(item) { if (!stashedCart) stashedCart = cart; cart = { cityId: stashedCart.cityId || city.id, items: [item] }; }
-  function endDirect() { if (stashedCart) { cart = stashedCart; stashedCart = null; } }
-  function addToRealCart(item) { var c = realCart(); if (c.items.some(function (i) { return i.key === item.key; })) return false; if (!c.cityId) c.cityId = city.id; c.items.push(item); writeCart(); refreshCartUi(); return true; }
+  function endDirect() { if (stashedCart) { cart = stashedCart; stashedCart = null; syncCityToCart(); } }
+  // A cart always belongs to ONE city (prices differ per city). When the
+  // real cart comes back after a one-off "Book", the popup follows it.
+  function syncCityToCart() {
+    if (!cart.items.length || !cart.cityId || cart.cityId === city.id) return;
+    var c = (pick.cities || []).find(function (x) { return x.id === cart.cityId; });
+    if (!c) return;
+    setCity(c.id, c.name);
+    if (pick.appliance && $('spPickCity')) renderPickCities();
+  }
+  function addToRealCart(item) {
+    var c = realCart();
+    if (c.items.some(function (i) { return i.key === item.key; }) && c.cityId === city.id) return false;
+    if (c.cityId && c.cityId !== city.id) {
+      if (c.items.length && !window.confirm('Your cart has services for another city. Start a new cart for ' + (city.name || 'this city') + '?')) return false;
+      c.items = [];
+    }
+    c.cityId = city.id; c.items.push(item); writeCart(); refreshCartUi(); return true;
+  }
   function removeFromRealCart(key) { var c = realCart(); c.items = c.items.filter(function (i) { return i.key !== key; }); writeCart(); refreshCartUi(); }
-  function inRealCart(key) { return realCart().items.some(function (i) { return i.key === key; }); }
+  function inRealCart(key) { var c = realCart(); return c.cityId === city.id && c.items.some(function (i) { return i.key === key; }); }
   var cart = readCart();
   try {
     var urlRef = new URLSearchParams(location.search).get('ref');
@@ -286,18 +310,22 @@
     return photoMapPromise;
   }
 
-  function openForAppliance(applianceId, typeId) {
+  var pendingDetails = null; // name/phone/address handed over by the chat assistant
+  function openForAppliance(applianceId, typeId, opts) {
     ensureMarkup(); bindOnce();
+    opts = opts || {};
+    if (opts.name || opts.phone || opts.address) pendingDetails = { name: opts.name || '', phone: normalizePhone(opts.phone), address: opts.address || '' };
     Promise.all([loadCities(), loadAppliances(), loadPhotoMap()]).then(function (r) {
       pick.cities = r[0];
       pick.photos = r[2] || {};
       var appl = r[1].find(function (a) { return a.id === applianceId; });
       if (!appl || !appl.types.length) { toast('This service is not available right now.'); return; }
       pick.appliance = appl;
-      var cid = (cart.items.length && cart.cityId && pick.cities.some(function (x) { return x.id === cart.cityId; })) ? cart.cityId : guessCityId(pick.cities);
+      var cid = (opts.cityId && pick.cities.some(function (x) { return x.id === opts.cityId; })) ? opts.cityId
+        : (cart.items.length && cart.cityId && pick.cities.some(function (x) { return x.id === cart.cityId; })) ? cart.cityId : guessCityId(pick.cities);
       var c = pick.cities.find(function (x) { return x.id === cid; }) || {};
       setCity(c.id || null, c.name || '');
-      if (cart.cityId !== city.id) { cart = { cityId: city.id, items: [] }; writeCart(); refreshCartUi(); }
+      if (cart.cityId !== city.id && !cart.items.length) { cart = { cityId: city.id, items: [] }; writeCart(); refreshCartUi(); }
       $('spPickName').textContent = appl.name;
       var img = $('spPickImg');
       if (appl.photoUrl) { img.src = appl.photoUrl; img.alt = appl.name; img.hidden = false; } else img.hidden = true;
@@ -390,17 +418,20 @@
     var rc = realCart();
     var n = rc.items.length;
     bar.hidden = n === 0;
-    $('spCardBarText').innerHTML = '🛒 <strong>' + n + (n === 1 ? ' service' : ' services') + ' in cart</strong> · ' + inr(rc.items.reduce(function (t, i) { return t + i.price; }, 0));
+    var other = rc.cityId && rc.cityId !== city.id ? (pick.cities || []).find(function (x) { return x.id === rc.cityId; }) : null;
+    $('spCardBarText').innerHTML = '🛒 <strong>' + n + (n === 1 ? ' service' : ' services') + ' in cart</strong>' + (other ? ' (' + escapeHtml(other.name) + ')' : '') + ' · ' + inr(rc.items.reduce(function (t, i) { return t + i.price; }, 0));
   }
 
   function goToForm() {
+    syncCityToCart();
     $('spPickChange').hidden = true;
     $('spAddMore').hidden = !!stashedCart;
     showStep('spStepForm');
     appliedCoupon = null; setMsg($('spCouponMsg'), '');
     prefillDetails();
-    renderDates();
-    afterItemsChange();
+    updatePickSummary();
+    renderItems();
+    renderDates(); // also loads the slots (and jumps to tomorrow if today is full)
     var body = $('spStepForm'); if (body) body.scrollTop = 0;
   }
 
@@ -421,8 +452,10 @@
       var c = pick.cities.find(function (x) { return x.id === sel.value; });
       if (!c || c.id === city.id) return;
       setCity(c.id, c.name);
-      if (stashedCart) { endDirect(); } else { cart = { cityId: city.id, items: [] }; }
-      writeCart(); refreshCartUi(); // prices differ per city
+      // One-off "Book" item is dropped (its price was for the old city);
+      // the real cart is kept — adding here offers to start a new one.
+      if (stashedCart) { cart = stashedCart; stashedCart = null; }
+      refreshCartUi(); // prices differ per city
       appliedCoupon = null; setMsg($('spCouponMsg'), '');
       prefillDetails();
       renderCards();
@@ -454,9 +487,11 @@
     $('spAddMore').hidden = !!stashedCart;
     if (MODE === 'page') { setCity(city.id, city.name); $('spSheetTitle').textContent = 'Book Service'; }
     showStep(step);
+    if (!$('spSheet').classList.contains('open')) { appliedCoupon = null; setMsg($('spCouponMsg'), ''); var cc = $('spCoupon'); if (cc) cc.value = ''; }
     renderItems();
     prefillDetails();
     renderDates();
+    if (!$('spSheet').classList.contains('open')) pushSheetState();
     $('spSheet').classList.add('open');
     $('spSheet').setAttribute('aria-hidden', 'false');
     document.body.classList.add('sp-sheet-open');
@@ -465,8 +500,23 @@
     checkBookingStatus();
     prewarmOtp();
   }
-  function closeSheet() {
+  // Phone Back button closes the popup instead of leaving the page.
+  var sheetHistory = false;
+  function pushSheetState() {
+    try { history.pushState({ spSheet: 1 }, ''); sheetHistory = true; } catch (e) { sheetHistory = false; }
+  }
+  window.addEventListener('popstate', function () {
+    if (!sheetHistory) return;
+    sheetHistory = false;
+    var sheet = $('spSheet');
+    if (sheet && sheet.classList.contains('open')) { if (posting) { pushSheetState(); return; } closeSheet(true); }
+  });
+  function closeSheet(fromBack) {
     var sheet = $('spSheet'); if (!sheet) return;
+    // Never close while the booking is being saved — the confirmation
+    // (and the cart clean-up) would happen behind a closed popup.
+    if (posting) return;
+    if (fromBack !== true && sheetHistory) { sheetHistory = false; try { history.back(); } catch (e) { /* ignore */ } }
     sheet.classList.remove('open');
     sheet.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('sp-sheet-open');
@@ -508,11 +558,23 @@
     $('spConfirm').textContent = cart.items.length ? 'Confirm Booking · ' + inr(sub - disc) : 'Confirm Booking';
   }
 
+  var detailsEdited = false;     // customer typed/changed details — never overwrite them
+  var detailsFromAccount = false;
   function prefillDetails() {
+    if (detailsEdited) { $('spSaved').hidden = true; $('spDetailFields').hidden = false; return; }
     var acc = getAccount();
+    if (pendingDetails) {
+      if (pendingDetails.name) $('spName').value = pendingDetails.name;
+      if (pendingDetails.phone) $('spPhone').value = pendingDetails.phone;
+      if (pendingDetails.address) $('spAddress').value = pendingDetails.address;
+      pendingDetails = null;
+      if ($('spName').value || $('spAddress').value) { detailsEdited = true; $('spSaved').hidden = true; $('spDetailFields').hidden = false; return; }
+    }
+    if (!acc && detailsFromAccount) { $('spName').value = ''; $('spPhone').value = ''; $('spAddress').value = ''; detailsFromAccount = false; }
     var sameCity = acc && (!acc.cityId || acc.cityId === city.id);
     if (acc && acc.name && /^[0-9]{10}$/.test(acc.phone || '') && acc.address && sameCity) {
       $('spName').value = acc.name; $('spPhone').value = acc.phone; $('spAddress').value = acc.address;
+      detailsFromAccount = true;
       $('spSavedName').textContent = acc.name;
       $('spSavedPhone').textContent = acc.phone;
       $('spSavedAddr').textContent = acc.address;
@@ -522,6 +584,7 @@
       if (acc) {
         if (!$('spName').value) $('spName').value = acc.name || '';
         if (!$('spPhone').value) $('spPhone').value = acc.phone || '';
+        detailsFromAccount = true;
       }
       $('spSaved').hidden = true;
       $('spDetailFields').hidden = false;
@@ -540,7 +603,9 @@
       b.addEventListener('click', function () { selectDate(b.getAttribute('data-date'), false); });
     });
     var valid = selectedDate && wrap.querySelector('[data-date="' + selectedDate + '"]');
-    selectDate(valid ? selectedDate : istDate(0), !valid);
+    // Today may have filled up / run out of time since it was picked —
+    // let it jump to the next day with a free slot again.
+    selectDate(valid ? selectedDate : istDate(0), !valid || selectedDate === istDate(0));
   }
   function selectDate(iso, autoAdvance) {
     selectedDate = iso;
@@ -549,7 +614,7 @@
   }
 
   var slotReq = 0;
-  function loadSlots(autoAdvance) {
+  function loadSlots(autoAdvance, noAutoPick) {
     if (!selectedDate) return;
     var wrap = $('spSlots');
     if (!city.id) { wrap.innerHTML = '<span class="sp-muted">Please choose a city.</span>'; return; }
@@ -575,7 +640,7 @@
           return '<button type="button" class="sp-chip" data-slot="' + escapeHtml(s.id) + '"' + (s.available ? '' : ' disabled') + '>' +
             escapeHtml(s.label) + '<small>' + why + '</small></button>';
         }).join('') || '<span class="sp-muted">No slots configured.</span>';
-        if (!selectedSlot) { var first = slots.find(function (s) { return s.available; }); if (first) selectedSlot = first.id; }
+        if (!selectedSlot && !noAutoPick) { var first = slots.find(function (s) { return s.available; }); if (first) selectedSlot = first.id; }
         wrap.querySelectorAll('.sp-chip').forEach(function (b) {
           b.classList.toggle('active', b.getAttribute('data-slot') === selectedSlot);
           b.addEventListener('click', function () {
@@ -653,6 +718,7 @@
       function onVerify() {
         var code = $('spOtpCode').value.trim();
         if (!/^[0-9]{4,6}$/.test(code)) { setMsg(msg, 'Please enter the code you received.', 'error'); return; }
+        if (typeof window.verifyOtp !== 'function') { setMsg(msg, 'Please wait a moment — the code is still being sent.', 'error'); return; }
         unlockAudio();
         var b = $('spOtpVerify'); b.disabled = true; b.textContent = 'Verifying…';
         window.verifyOtp(code, function (data) {
@@ -665,12 +731,15 @@
         });
       }
       function onResend() {
+        if (typeof window.retryOtp !== 'function') { setMsg(msg, 'Please wait a moment — the code is still being sent.', 'error'); return; }
         var b = $('spOtpResend'); b.disabled = true; b.textContent = 'Resending…';
         window.retryOtp(null, function () { b.disabled = false; b.textContent = 'Resend code'; setMsg(msg, 'A new code has been sent.', 'success'); },
           function (e) { b.disabled = false; b.textContent = 'Resend code'; setMsg(msg, 'Could not resend: ' + errText(e), 'error'); });
       }
       function onBack() { finish(false, Object.assign(new Error('cancelled'), { cancelled: true })); }
       otpSession = { cancel: onBack };
+      ['spOtpVerify', 'spOtpResend'].forEach(function (id) { $(id).disabled = false; });
+      $('spOtpVerify').textContent = 'Verify & Book'; $('spOtpResend').textContent = 'Resend code';
       $('spOtpVerify').addEventListener('click', onVerify);
       $('spOtpResend').addEventListener('click', onResend);
       $('spOtpBack').addEventListener('click', onBack);
@@ -732,13 +801,14 @@
   // ------------------------------------------------------------------ submit
   var submitting = false;
   function readDetails() {
-    return { name: $('spName').value.trim(), phone: $('spPhone').value.replace(/\D/g, '').slice(-10), address: $('spAddress').value.trim() };
+    return { name: $('spName').value.trim(), phone: normalizePhone($('spPhone').value), address: $('spAddress').value.trim() };
   }
   function validate(d) {
     if (!city.id) return 'Please choose your city.';
     if (!cart.items.length) return 'Please choose a service first.';
     if (!d.name) return 'Please enter your name.';
-    if (!/^[0-9]{10}$/.test(d.phone)) return 'Please enter a valid 10 digit mobile number.';
+    if (!/^[6-9][0-9]{9}$/.test(d.phone)) return 'Please enter a valid 10 digit mobile number.';
+    if (cart.cityId && city.id && cart.cityId !== city.id) return 'Your services are priced for another city — please pick them again.';
     if (d.address.length < 8) return 'Please enter your full address (house no., area, landmark).';
     if (!selectedDate || !selectedSlot) return 'Please choose a date and time slot.';
     return null;
@@ -775,8 +845,11 @@
     });
   }
 
+  var posting = false;
   function submitBooking(d, accessToken) {
     $('spConfirm').textContent = 'Booking…';
+    posting = true;
+    $('spSheetClose').disabled = true;
     var ref = null; try { ref = sessionStorage.getItem(REF_KEY); } catch (e) { /* ignore */ }
     var payload = {
       name: d.name, phone: d.phone, address: d.address, cityId: city.id,
@@ -789,12 +862,28 @@
         return { applianceId: i.applianceId, typeId: i.typeId, serviceType: i.serviceType, qty: 1, skuId: i.skuId, problem: generic ? '' : i.skuName + ' requested.' };
       })
     };
-    return postJSON('/api/bookings', payload).then(function (res) {
+    // 30 s timeout — a stuck request no longer leaves "Booking…" forever.
+    // (A retry of the same booking is recognised by the server, not doubled.)
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 30000) : null;
+    var done = function () { posting = false; $('spSheetClose').disabled = false; if (timer) clearTimeout(timer); };
+    return fetchJSON('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: ctrl ? ctrl.signal : undefined }).then(function (res) {
+      done();
       var b = res.booking || {};
       saveAccount({ phone: d.phone, name: d.name, address: d.address, cityId: city.id, accessToken: null });
       postJSON('/api/customer-profile', { phone: d.phone, name: d.name, address: d.address, cityId: city.id }).catch(function () {});
       try { sessionStorage.removeItem(REF_KEY); } catch (e) { /* ignore */ }
-      cart = { cityId: city.id, items: [] }; writeCart(); refreshCartUi();
+      // Remove exactly what was booked. After a one-off "Book", the real
+      // cart comes back minus that item; after a cart booking, it's empty.
+      var bookedKeys = cart.items.map(function (i) { return i.key; });
+      if (stashedCart) {
+        cart = stashedCart; stashedCart = null;
+        if (cart.cityId === city.id) cart.items = cart.items.filter(function (i) { return bookedKeys.indexOf(i.key) === -1; });
+      } else {
+        cart = { cityId: city.id, items: [] };
+      }
+      writeCart(); refreshCartUi();
+      detailsEdited = false;
       appliedCoupon = null; $('spCoupon').value = ''; setMsg($('spCouponMsg'), '');
       $('spDoneId').textContent = b.id || '—';
       $('spDoneWhen').textContent = (b.bookingDate || selectedDate) + ' · ' + (b.timeSlot || '') + ' · Total ' + inr(b.totalPrice);
@@ -802,7 +891,9 @@
       celebrate();
       if (typeof window.gtag === 'function') { try { window.gtag('event', 'purchase', { value: b.totalPrice, currency: 'INR', transaction_id: b.id }); } catch (e) { /* ignore */ } }
     }).catch(function (e) {
-      if (e.status === 409) loadSlots(false);
+      done();
+      if (e && e.name === 'AbortError') throw new Error('Network is slow — we could not confirm. Please check My Bookings before trying again, or call us.');
+      if (e.status === 409) { selectedSlot = null; loadSlots(false, true); }
       if (/verify your mobile/i.test(e.message || '') && !accessToken) {
         return verifyWithOtp(d.phone).then(function (t) { showStep('spStepForm'); return submitBooking(d, t); });
       }
@@ -824,9 +915,10 @@
     });
     $('spPickChange').addEventListener('click', function () { if (pick.appliance) showTypeStep(); });
     $('spCardBarBtn').addEventListener('click', function () { endDirect(); if (cart.items.length) goToForm(); });
-    $('spEditDetails').addEventListener('click', function () { $('spSaved').hidden = true; $('spDetailFields').hidden = false; $('spName').focus(); });
+    $('spEditDetails').addEventListener('click', function () { detailsEdited = true; $('spSaved').hidden = true; $('spDetailFields').hidden = false; $('spName').focus(); });
     $('spConfirm').addEventListener('click', onConfirm);
-    $('spPhone').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 10); });
+    $('spPhone').addEventListener('input', function () { var v = normalizePhone(this.value); if (v !== this.value) this.value = v; });
+    ['spName', 'spPhone', 'spAddress'].forEach(function (id) { $(id).addEventListener('input', function () { detailsEdited = true; }); });
     $('spOtpCode').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 6); });
     $('spCouponApply').addEventListener('click', function () {
       var code = $('spCoupon').value.trim();
@@ -837,6 +929,59 @@
         .then(function (r) { appliedCoupon = { code: r.code, discountAmount: r.discountAmount }; setMsg(msg, '✅ ' + r.code + ' applied — you save ' + inr(r.discountAmount), 'success'); updateTotal(); })
         .catch(function (err) { appliedCoupon = null; setMsg(msg, err.message, 'error'); updateTotal(); });
     });
+  }
+
+  // "Book Again" (My Account / Track Booking list) -> the SAME popup form,
+  // pre-filled with that past booking's services at today's prices for its
+  // city. Old bookings don't store which exact service card was picked, so
+  // it's matched by service kind + old price (falls back to plain
+  // Service / Repair). The customer's cart is left untouched.
+  function openWithItems(cityId, pastItems, details) {
+    ensureMarkup(); bindOnce();
+    return Promise.all([loadCities(), loadAppliances(), loadPhotoMap()]).then(function (r) {
+      pick.cities = r[0]; pick.photos = r[2] || {};
+      var c = r[0].find(function (x) { return x.id === cityId; });
+      if (!c) { var g = guessCityId(r[0]); c = r[0].find(function (x) { return x.id === g; }); }
+      if (!c) throw new Error('Booking is not available right now.');
+      setCity(c.id, c.name);
+      var jobs = (pastItems || []).map(function (p) {
+        var appl = r[1].find(function (a) { return a.id === p.applianceId; });
+        var type = appl && appl.types.find(function (t) { return t.id === p.typeId; });
+        if (!appl || !type || (appl.disabledCities || []).indexOf(c.id) > -1) return Promise.resolve(null);
+        return loadPrice(c.id, appl.id, type.id).then(function (row) {
+          var opts = servicesOf(type).map(function (sv) { return { svc: sv, price: priceForSku(row, sv.id) }; })
+            .filter(function (x) { return typeof x.price === 'number'; });
+          var want = p.serviceType === 'repair' ? 'repair' : 'service';
+          var same = opts.filter(function (x) { return bookingServiceType(x.svc.id) === want; });
+          var best = same.find(function (x) { return x.price === Number(p.unitPrice); }) ||
+            same.find(function (x) { return x.svc.id === (want === 'repair' ? 'svc-repair' : 'svc-service'); }) || same[0] || opts[0];
+          return best ? cardItem(appl, type, best.svc, best.price) : null;
+        }).catch(function () { return null; });
+      });
+      return Promise.all(jobs).then(function (found) {
+        var items = [];
+        found.forEach(function (it) { if (it && !items.some(function (i) { return i.key === it.key; })) items.push(it); });
+        if (!items.length) { toast('Those services are not available right now — please pick again.'); return; }
+        if (!stashedCart) stashedCart = cart;
+        cart = { cityId: c.id, items: items };
+        var last = items[items.length - 1];
+        pick.appliance = r[1].find(function (a) { return a.id === last.applianceId; }) || null;
+        pick.typeId = last.typeId;
+        if (pick.appliance) renderPickCities();
+        var multi = items.some(function (i) { return i.applianceId !== items[0].applianceId; });
+        $('spPickName').textContent = multi || !pick.appliance ? 'Book again' : pick.appliance.name;
+        var img = $('spPickImg');
+        if (!multi && pick.appliance && pick.appliance.photoUrl) { img.src = pick.appliance.photoUrl; img.hidden = false; } else img.hidden = true;
+        openSheet('spStepForm');
+        goToForm();
+        if (details && !$('spDetailFields').hidden) {
+          if (!$('spName').value) $('spName').value = details.name || '';
+          if (!$('spPhone').value) $('spPhone').value = details.phone || '';
+          if (!$('spAddress').value && details.cityId === c.id) $('spAddress').value = details.address || '';
+        }
+        setMsg($('spFormMsg'), 'Your past services and details are filled in — just pick a date & time slot and confirm.', 'success');
+      });
+    }).catch(function (err) { toast(err.message || 'Could not open booking.'); });
   }
 
   if (MODE === 'page') {
@@ -889,7 +1034,31 @@
     });
   }
   updateHeaderInitial();
-  window.SeeruaBooking = { openForAppliance: openForAppliance, open: openSheet, close: closeSheet };
+  // Old homepage form entry points (#book links from city/blog pages,
+  // "Book Again") now all land in this popup instead.
+  var lastOldEntry = 0;
+  function openFromOldEntry() {
+    if (Date.now() - lastOldEntry < 1500) return; // /#book used to fire this twice
+    lastOldEntry = Date.now();
+    ensureMarkup(); bindOnce();
+    endDirect();
+    if (MODE === 'home' && cart.items.length) {
+      var hb = $('headerCartBtn') || $('bottomNavCartBtn');
+      if (hb) { hb.click(); return; }
+    }
+    var s = $('services');
+    if (s) s.scrollIntoView({ behavior: 'smooth' });
+    toast('👇 Tap the appliance you want to book');
+  }
+  window.SeeruaBooking = { openForAppliance: openForAppliance, open: openSheet, close: closeSheet, openWithItems: openWithItems, openFromOldEntry: openFromOldEntry,
+    refreshBadges: function () { refreshCartUi(); },
+    onLogout: function () {
+      detailsEdited = false; detailsFromAccount = false; pendingDetails = null;
+      ['spName', 'spPhone', 'spAddress'].forEach(function (id) { var el = $(id); if (el) el.value = ''; });
+      var sv = $('spSaved'); if (sv) sv.hidden = true;
+      var df = $('spDetailFields'); if (df) df.hidden = false;
+      updateHeaderInitial();
+    } };
 
   // ------------------------------------------------------------------ auto-scrolling photo strips
   // Photos glide slowly right-to-left in a loop. Stops while the customer

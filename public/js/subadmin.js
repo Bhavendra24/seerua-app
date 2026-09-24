@@ -17,7 +17,7 @@ let CUSTOMERS = [];
 // explicitly unlocked by the Super Admin.
 function isBookingDateLocked(dateStr) {
   if (!dateStr) return false;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istToday();
   if (dateStr >= today) return false;
   return !UNLOCKED_DATES.includes(dateStr);
 }
@@ -34,6 +34,12 @@ function esc(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// "Today" in India (IST) as YYYY-MM-DD — toISOString() is UTC, which is
+// still yesterday between midnight and 5:30 AM IST.
+function istToday() {
+  return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
 }
 
 // SUGGESTION IMPLEMENTED: see the matching comment in admin.js — Indian
@@ -162,7 +168,7 @@ function cityName(id) { const c = CITIES.find(x => x.id === id); return c ? c.na
 function applianceName(id) { const a = APPLIANCES.find(x => x.id === id); return a ? a.name : '-'; }
 function itemsSummary(booking) {
   if (!booking.items || !booking.items.length) return '-';
-  return booking.items.map(it => `${it.qty}x ${it.applianceName} (${it.typeName}, ${it.serviceType === 'repair' ? 'Repair' : 'Service'})`).join(', ');
+  return booking.items.map(it => `${it.qty}x ${esc(it.applianceName)} (${esc(it.typeName)}, ${it.serviceName ? esc(it.serviceName) : (it.serviceType === 'repair' ? 'Repair' : 'Service')})`).join(', ');
 }
 
 // Shows the technician's own local time it was assigned — e.g. "15 Aug, 2:30 pm".
@@ -227,18 +233,18 @@ function renderOrders() {
 
   document.getElementById('ordersTable').innerHTML = list.length ? list.map(b => `
     <tr>
-      <td>${b.id}${isBookingDateLocked(b.bookingDate) ? ' <span class="pill" style="background:#fef3c7;color:#b45309;" title="Locked past date">🔒 Locked</span>' : ''}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${b.timeSlot}</small>` : ''}</td>
+      <td>${b.id}${isBookingDateLocked(b.bookingDate) ? ' <span class="pill" style="background:#fef3c7;color:#b45309;" title="Locked past date">🔒 Locked</span>' : ''}<br><small style="color:var(--slate)">Booked: ${new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</small>${b.timeSlot ? `<br><small style="color:var(--blue-700);font-weight:700;">🕐 Visit: ${new Date(b.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${esc(b.timeSlot)}</small>` : ''}</td>
       <td>${esc(b.name)} ${b.source === 'phone' ? '<span class="pill pill-assigned" title="Booked via phone call">📞 Phone</span>' : ''}<br><small style="color:var(--slate)">${phoneLink(b.phone)}</small><br><small style="color:var(--slate)">${esc(b.address)}</small></td>
       <td>
         ${b.items.map(it => `
           <div style="padding:8px 0;border-bottom:1px dashed var(--line);">
-            <div>${it.qty}x ${it.applianceName} (${it.typeName}) — ${it.serviceType === 'repair' ? 'Repair' : 'Service'}</div>
+            <div>${it.qty}x ${esc(it.applianceName)} (${esc(it.typeName)}) — ${it.serviceName ? esc(it.serviceName) : (it.serviceType === 'repair' ? 'Repair' : 'Service')}</div>
             ${it.problem ? `<small style="color:var(--slate)">${esc(it.problem)}</small><br>` : ''}
             ${it.photoUrl ? `<a href="${it.photoUrl}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--blue-600);">📷 View customer's photo</a><br>` : ''}
             ${it.completionPhotoUrl ? `<a href="${it.completionPhotoUrl}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--green);">✅ View completion photo</a><br>` : (it.itemStatus === 'completed' && it.completionPhotoExpired ? `<small style="color:var(--slate);">📷 Completion photo auto-removed after 35 days</small><br>` : '')}
             <span class="pill pill-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
-            ${it.technicianName ? ` <small style="color:var(--slate)">→ ${it.technicianName}${it.assignedAt ? ` · assigned ${formatAssignedAt(it.assignedAt)}` : ''}</small>` : ''}
-            ${it.rejectionHistory && it.rejectionHistory.length ? `<br><small style="color:var(--red);">⚠️ Previously rejected by: ${it.rejectionHistory.map(r => `${r.technicianName} (${formatAssignedAt(r.rejectedAt)})`).join(', ')}</small>` : ''}
+            ${it.technicianName ? ` <small style="color:var(--slate)">→ ${esc(it.technicianName)}${it.assignedAt ? ` · assigned ${formatAssignedAt(it.assignedAt)}` : ''}</small>` : ''}
+            ${it.rejectionHistory && it.rejectionHistory.length ? `<br><small style="color:var(--red);">⚠️ Previously rejected by: ${it.rejectionHistory.map(r => `${esc(r.technicianName)} (${formatAssignedAt(r.rejectedAt)})`).join(', ')}</small>` : ''}
             <br>
             ${it.itemStatus === 'completed' ? `
               <!-- Completed jobs are locked — no Reassign/Auto-Assign here,
@@ -247,7 +253,7 @@ function renderOrders() {
               <div style="margin-top:6px;padding:8px 10px;background:var(--mist);border-radius:8px;">
                 <small style="color:var(--slate);">🔒 Locked — job is completed.</small><br>
                 ${isBookingDateLocked(b.bookingDate) ? `
-                  <small style="color:#b45309;display:block;margin-top:6px;">🔒 This booking is from ${b.bookingDate}, a locked past date — ask Super Admin to unlock it to reactivate this job.</small>
+                  <small style="color:#b45309;display:block;margin-top:6px;">🔒 This booking is from ${esc(b.bookingDate)}, a locked past date — ask Super Admin to unlock it to reactivate this job.</small>
                 ` : `
                 ${it.technicianId ? `
                   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:0.8rem;cursor:${it.reviewVerifiedByStaff ? 'default' : 'pointer'};">
@@ -262,10 +268,10 @@ function renderOrders() {
             ` : `
               <div style="margin-top:8px;">
                 ${isBookingDateLocked(b.bookingDate) ? `
-                  <small style="color:#b45309;">🔒 This booking is from ${b.bookingDate}, a locked past date — ask Super Admin to unlock it to assign a technician.</small>
+                  <small style="color:#b45309;">🔒 This booking is from ${esc(b.bookingDate)}, a locked past date — ask Super Admin to unlock it to assign a technician.</small>
                 ` : (it.technicianName && !assignmentUnlocked.has(`${b.id}__${it.id}`) ? `
                   <div style="padding:8px 10px;background:var(--mist);border-radius:8px;">
-                    <small style="color:var(--slate);">🔒 Locked — already assigned to ${it.technicianName}.</small><br>
+                    <small style="color:var(--slate);">🔒 Locked — already assigned to ${esc(it.technicianName)}.</small><br>
                     <button class="btn btn-outline btn-sm" style="margin-top:6px;" onclick="unlockAssignment('${b.id}','${it.id}')">🔓 Unlock to Reassign</button>
                   </div>
                 ` : `
@@ -277,7 +283,7 @@ function renderOrders() {
           </div>
         `).join('')}
       </td>
-      <td>${b.cityName}</td>
+      <td>${esc(b.cityName)}</td>
       <td>₹${fmtInr(b.totalPrice)}</td>
     </tr>
   `).join('') : `<tr class="empty-row"><td colspan="5">No orders found.</td></tr>`;
@@ -369,13 +375,13 @@ async function openAssign(bookingId, itemId) {
         // Prioritize the rating for THIS appliance specifically over their
         // blended overall rating — same logic used in the Admin Panel.
         const apRatingText = t.applianceRating
-          ? `⭐${t.applianceRating} for ${item.applianceName} (${t.applianceJobs} job${t.applianceJobs === 1 ? '' : 's'})`
-          : `new to ${item.applianceName} (0 jobs yet)`;
+          ? `⭐${t.applianceRating} for ${esc(item.applianceName)} (${t.applianceJobs} job${t.applianceJobs === 1 ? '' : 's'})`
+          : `new to ${esc(item.applianceName)} (0 jobs yet)`;
         const overallText = t.avgRating ? `, overall ⭐${t.avgRating}` : '';
         const expText = `${t.experienceYears || 0} yr${t.experienceYears === 1 ? '' : 's'} exp.`;
         const liveText = t.isOnline ? ', 🟢 online now' : '';
         const capacityText = t.atCapacity ? ` — ⚠️ at daily limit (${t.jobsOnDate}/${t.dailyLimit} jobs on ${booking.bookingDate || 'this date'})` : '';
-        return `<option value="${t.id}">${t.name} — ${apRatingText}${overallText}, ${expText}${liveText}${capacityText}</option>`;
+        return `<option value="${t.id}">${esc(t.name)} — ${apRatingText}${overallText}, ${expText}${liveText}${capacityText}</option>`;
       }).join('');
       sel.disabled = false;
       confirmBtn.disabled = false;
@@ -404,11 +410,11 @@ async function renderSlots() {
   document.getElementById('dailyJobLimit').value = SLOTS_CONFIG.dailyJobLimit || '';
 
   const citySel = document.getElementById('blockCity');
-  citySel.innerHTML = CITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  citySel.innerHTML = CITIES.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   const slotSel = document.getElementById('blockSlotId');
   slotSel.innerHTML = SLOTS_CONFIG.timeSlots.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
   const applianceSel = document.getElementById('blockAppliance');
-  applianceSel.innerHTML = '<option value="">All Appliances</option>' + APPLIANCES.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  applianceSel.innerHTML = '<option value="">All Appliances</option>' + APPLIANCES.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
 
   const tbody = document.getElementById('blockedSlotsTable');
   const blocked = SLOTS_CONFIG.blockedSlots;
@@ -416,11 +422,11 @@ async function renderSlots() {
     const slotLabel = (SLOTS_CONFIG.timeSlots.find(s => s.id === b.slotId) || {}).label || b.slotId;
     return `
       <tr>
-        <td>${b.date}</td>
+        <td>${esc(b.date)}</td>
         <td>${cityName(b.cityId)}</td>
         <td>${b.applianceId ? applianceName(b.applianceId) : 'All appliances'}</td>
         <td>${slotLabel}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="unblockSlot('${b.date}','${b.slotId}','${b.cityId}','${b.applianceId || ''}')">Unblock</button></td>
+        <td><button class="btn btn-danger btn-sm" onclick="unblockSlot('${esc(b.date)}','${b.slotId}','${b.cityId}','${b.applianceId || ''}')">Unblock</button></td>
       </tr>
     `;
   }).join('') : `<tr class="empty-row"><td colspan="5">No slots are manually blocked.</td></tr>`;
@@ -538,7 +544,7 @@ async function refreshNbAppliancesForCity(cityId) {
     nbFilteredAppliances = APPLIANCES;
   }
   const current = document.getElementById('nbAppliance').value;
-  document.getElementById('nbAppliance').innerHTML = nbFilteredAppliances.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  document.getElementById('nbAppliance').innerHTML = nbFilteredAppliances.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
   if (current && nbFilteredAppliances.some(a => a.id === current)) {
     document.getElementById('nbAppliance').value = current;
   }
@@ -562,7 +568,7 @@ async function openNewBookingModal() {
   nbCartItems = [];
   renderNbCart();
 
-  document.getElementById('nbCity').innerHTML = CITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('nbCity').innerHTML = CITIES.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   document.getElementById('nbSlotId').innerHTML = '<option value="">Select a time slot</option>' +
     '<option value="slot1">9:00 AM - 12:00 PM</option>' +
     '<option value="slot2">1:00 PM - 4:00 PM</option>' +
@@ -628,7 +634,7 @@ document.getElementById('nbAppliance').addEventListener('change', refreshNbTypes
 function refreshNbTypes() {
   const applianceId = document.getElementById('nbAppliance').value;
   const appliance = nbFilteredAppliances.find(a => a.id === applianceId);
-  document.getElementById('nbType').innerHTML = appliance ? appliance.types.map(t => `<option value="${t.id}">${t.name}</option>`).join('') : '';
+  document.getElementById('nbType').innerHTML = appliance ? appliance.types.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('') : '';
 }
 
 function renderNbCart() {
@@ -643,7 +649,7 @@ function renderNbCart() {
   const total = nbCartItems.reduce((s, it) => s + it.lineTotal, 0);
   list.innerHTML = nbCartItems.map((it, idx) => `
     <div class="cart-item">
-      <div class="cart-item-info"><strong>${it.qty}x ${it.applianceName}</strong> — ${it.typeName}, ${it.serviceType === 'repair' ? 'Repair' : 'Service'}</div>
+      <div class="cart-item-info"><strong>${it.qty}x ${esc(it.applianceName)}</strong> — ${esc(it.typeName)}, ${it.serviceName ? esc(it.serviceName) : (it.serviceType === 'repair' ? 'Repair' : 'Service')}</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span class="cart-item-price">₹${fmtInr(it.lineTotal)}</span>
         <button type="button" class="cart-item-remove" onclick="removeNbCartItem(${idx})">✕</button>

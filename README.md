@@ -43,6 +43,20 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 12) Bug-fix + suraksha (security):**
+  - **Admin password:** purana default password (`Seerua@2026`) code mein likha tha aur har server start par wapas set ho sakta tha — wo code hata diya. Dashboard par **🔑 Admin Login Password** card se password (aur chahein to username) badliye. Default password chal raha ho to lal chetavni dikhti hai.
+  - Galat request se poora server band ho jaata tha — ab nahi hoga.
+  - Booking: service card ki asli price hi lagti hai (chhedchhad se sasti price nahi), ek number se 5 se zyada aane wali visit nahi, ek network se ghante mein 15 booking tak, 60 din se aage ki date nahi, ek booking mein max 10 service. Double-tap/network retry se duplicate booking nahi banti. Galat/purana referral code ab booking nahi rokta.
+  - Booking record mein service ka naam bhi (jaise "Gas Filling") — admin/sub-admin/technician ko dikhta hai.
+  - Phone number se booking/jaankari dekhne wale raaston par rate-limit (koi saare number try karke data na nikaal sake). OTP band hai, isliye ye zaroori tha.
+  - Admin panel mein customer ke naam/pata ke zariye script chalana (XSS) band — Orders, Customers, Reports, Commission, Refer & Earn sab jagah.
+  - Delete/deactivate kiya sub-admin ya technician turant bahar (pehle 12 ghante tak chalta tha, aur delete sub-admin ko saari cities dikhti thi).
+  - Technician complete job ko reject/accept karke commission nahi mita sakta; complete job dobara assign nahi hoti. Report/commission "complete hone ke din" (completedAt) se ginti hai.
+  - Slot ke aakhri ghante mein us slot ki booking band (9–12 wala 11 baje tak).
+  - Admin/sub-admin/technician mein "aaj" ki taareekh IST se (raat 12–5:30 wali galti theek). Dashboard ka auto-refresh ab type kiya text nahi mitata. Session khatam hone par login screen.
+  - Popup: phone "+91 98765 43210" paste karna chalta hai; Back button popup band karta hai; booking hote samay popup band nahi hota; "Book" ke baad cart ki wahi service bhi cart se hatti hai; city badalne par cart chupchaap khaali nahi hota; logout ke baad purana naam/pata form mein nahi rehta; chat assistant aur purane links bhi naya popup kholte hain.
+  - SEO: capital letters wale URL (`/appliance-repair/Moradabad/AC-Service`) ab 301 se sahi URL par; schema JSON surakshit.
+- **(Update 11)** Login ke baad "↻ Book Again" naya popup form kholta hai (pichhli services + details bhari hui).
 - **(Update 10) SEO sudhar:**
   - Admin → Cities → har city ke aage **"📍 Local info"**: us city ki apni jaankari (mohalle, aas-paas ke gaon, local problems) likhiye — ye us city ke har service page par "… Service Across <City>" section mein aati hai. Har city ka alag, asli text = Google ki nazar mein alag page.
   - Type page (jaise Split AC) par ab sirf usi type ke cards; baaki types ke tab uske apne page ka link. Appliance page par sab types ke tab pehle jaise.
