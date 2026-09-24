@@ -13,7 +13,25 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
-const { readData, readDataReadOnly, writeData, genId, withLock, initDb, getAllData } = require('./db');
+const { readData, readDataReadOnly, writeData: dbWriteData, genId, withLock, initDb, getAllData } = require('./db');
+
+// SEO: remembers the IST day each kind of public content last really
+// changed, so the sitemap's <lastmod> is truthful. (It used to say
+// "changed today" for every page on every visit, which teaches Google to
+// ignore our lastmod entirely.)
+const CONTENT_STAMP_KEYS = ['cities', 'appliances', 'pricing', 'site-content', 'service-photos', 'blog-articles', 'career-cities', 'career-appliances'];
+function writeData(name, data) {
+  const p = dbWriteData(name, data);
+  if (CONTENT_STAMP_KEYS.includes(name)) {
+    try {
+      let stamps = {};
+      try { stamps = readData('seo-stamps'); } catch (e) { stamps = {}; }
+      const today = istDateStr();
+      if (stamps[name] !== today) { stamps[name] = today; dbWriteData('seo-stamps', stamps).catch(e => console.error('seo-stamps write failed:', e.message)); }
+    } catch (e) { /* never block a real write over this */ }
+  }
+  return p;
+}
 const { istDateStr, istCurrentHour } = require('./lib/date');
 const { hashPassword, verifyAndUpgrade, isBcryptHash } = require('./lib/password');
 const { askAiAssistant } = require('./lib/ai-assistant');
@@ -5209,6 +5227,17 @@ const BUSINESS_PHONE = '9389585479';
 //   - renamed city (old slug) -> { redirectSlug }  (301 keeps Google ranking)
 //   - deleted / deactivated   -> { gone: true }    (410 tells Google to drop it fast)
 //   - never existed           -> {}                (plain 404)
+const APPLIANCE_SLUG_SYNONYMS = {
+  refrigerator: 'fridge', 'fridge-refrigerator': 'fridge', 'air-conditioner': 'ac', 'split-ac': 'ac', 'window-ac': 'ac',
+  'water-purifier': 'ro', 'ro-water-purifier': 'ro', 'ro-purifier': 'ro', purifier: 'ro', washing: 'washing-machine',
+  'microwave-oven': 'microwave', 'water-heater': 'geyser', 'kitchen-chimney': 'chimney'
+};
+function guessApplianceFromSlug(slug, appliances) {
+  let core = String(slug || '').toLowerCase().replace(/-(service|services|servicing|repair|repairs|repairing|installation|maintenance)$/g, '').replace(/-(repair|service)$/, '');
+  core = APPLIANCE_SLUG_SYNONYMS[core] || core;
+  return appliances.find(a => slugify(a.name) === core) || null;
+}
+
 function resolveCityForSlug(slug) {
   const all = readData('cities');
   const active = all.filter(c => c.active);
@@ -5378,6 +5407,12 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     const appliance = allAppliances.find(a => applianceSlug(a.name) === req.params.applianceSlug);
     if (!appliance && isRemovedServiceSlug(req.params.applianceSlug)) return sendCityGonePage(res, true);
     if (!appliance) {
+      // Old / hand-typed links ("ac-repair", "refrigerator-service",
+      // "fridge") -> 301 to the real page instead of a 404 in Search Console.
+      const guess = guessApplianceFromSlug(req.params.applianceSlug, allAppliances);
+      if (guess) return res.redirect(301, `/appliance-repair/${slugify(city.name)}/${applianceSlug(guess.name)}`);
+    }
+    if (!appliance) {
       return res.status(404).send(
         `<h1>Service not found in ${escapeHtml(city.name)}</h1><p>This service may not be available here yet. <a href="/appliance-repair/${slugify(city.name)}">See everything we offer in ${escapeHtml(city.name)}</a>.</p>`
       );
@@ -5389,6 +5424,12 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
     if (focusTypeSlug) {
       focusType = appliance.types.find(t => slugify(t.name) === focusTypeSlug);
       if (!focusType && isRemovedServiceSlug(`${req.params.applianceSlug}/${focusTypeSlug}`)) return sendCityGonePage(res, true);
+      if (!focusType) {
+        // "window" -> "window-ac"; otherwise the appliance's own page is the
+        // closest real match for an old/unknown type link.
+        const alt = appliance.types.find(t => slugify(t.name) === `${focusTypeSlug}-${slugify(appliance.name)}` || `${slugify(t.name)}-${slugify(appliance.name)}` === focusTypeSlug);
+        return res.redirect(301, `/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}${alt && appliance.types.length > 1 ? '/' + slugify(alt.name) : ''}`);
+      }
       if (!focusType) {
         return res.status(404).send(
           `<h1>Service not found in ${escapeHtml(city.name)}</h1><p>This specific service type may not be available here yet. <a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(appliance.name)}">See all ${escapeHtml(appliance.name)} services in ${escapeHtml(city.name)}</a>.</p>`
@@ -5636,7 +5677,12 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
     const footerServicesHtml = appliances.map(a => `<li><a href="/appliance-repair/${slugify(city.name)}/${applianceSlug(a.name)}">${a.name} Repair &amp; Service</a></li>`).join('\n          ');
     const blogIndexUrl = `/appliance-repair/${slugify(city.name)}/blog`;
     const relatedArticlesHtml = articles.filter(a => a.slug !== article.slug).slice(0, 3).map(a => articleCardHtml(a, city)).join('');
-    const canonicalUrl = `${SITE_URL}${blogIndexUrl}/${article.slug}`;
+    // The same article exists for every city with only the city name
+    // swapped — Google treats those as duplicates ("Crawled/Discovered –
+    // currently not indexed"). All copies point their canonical at ONE
+    // version (the first active city), so that one gets indexed & ranks.
+    const primaryBlogCity = readData('cities').find(c => c.active) || city;
+    const canonicalUrl = `${SITE_URL}/appliance-repair/${slugify(primaryBlogCity.name)}/blog/${article.slug}`;
     const title = `${personalize(article.title, city.name)}`;
     const metaDescription = personalize(article.metaDescription, city.name);
 
@@ -5678,10 +5724,23 @@ app.get('/sitemap.xml', (req, res) => {
   const allAppliancesRaw = readData('appliances').filter(a => !a.hidden);
   const articles = readData('blog-articles');
   const today = istDateStr();
+  let stamps = {};
+  try { stamps = readData('seo-stamps'); } catch (e) { stamps = {}; }
+  // Page code changes arrive with a deploy — the template file's date covers those.
+  const fileDay = (f) => { try { return istDateStr(fs.statSync(f).mtime.toISOString()); } catch (e) { return ''; } };
+  const lastmodOf = (keys, files) => {
+    const days = keys.map(k => stamps[k] || '').concat(files.map(fileDay)).filter(Boolean).sort();
+    return days.length ? days[days.length - 1] : today;
+  };
+  const serverDay = fileDay(__filename);
+  const serviceLastmod = lastmodOf(['cities', 'appliances', 'pricing', 'service-photos', 'site-content'], [APPLIANCE_CITY_TEMPLATE_PATH, path.join(__dirname, 'lib', 'service-page.js')]);
+  const careersLastmod = lastmodOf(['career-cities', 'career-appliances'], [CAREERS_TEMPLATE_PATH]);
+  const blogLastmod = lastmodOf(['blog-articles'], [BLOG_POST_TEMPLATE_PATH]);
+  const primaryBlogCity = cities[0];
   const urls = [
-    { loc: `${SITE_URL}/`, changefreq: 'weekly', priority: '1.0', lastmod: today },
-    { loc: `${SITE_URL}/terms`, changefreq: 'monthly', priority: '0.3', lastmod: today },
-    { loc: `${SITE_URL}/careers`, changefreq: 'monthly', priority: '0.5', lastmod: today },
+    { loc: `${SITE_URL}/`, changefreq: 'weekly', priority: '1.0', lastmod: lastmodOf(['cities', 'appliances', 'site-content', 'service-photos'], [INDEX_TEMPLATE_PATH, serverDay ? __filename : '']) },
+    { loc: `${SITE_URL}/terms`, changefreq: 'monthly', priority: '0.3', lastmod: lastmodOf([], [path.join(__dirname, 'public', 'terms.html')]) },
+    { loc: `${SITE_URL}/careers`, changefreq: 'monthly', priority: '0.5', lastmod: careersLastmod },
     // Per-city career pages — same long-tail reasoning as the
     // appliance+city pages: someone searching "technician job
     // <city>" naming just ONE city is a very different, more specific
@@ -5691,7 +5750,7 @@ app.get('/sitemap.xml', (req, res) => {
       loc: `${SITE_URL}/careers/${slugify(c.name)}`,
       changefreq: 'monthly',
       priority: '0.5',
-      lastmod: today
+      lastmod: careersLastmod
     })),
     // NOTE: the combined "every appliance in this city" page
     // (/appliance-repair/:city with no appliance segment) is
@@ -5711,7 +5770,7 @@ app.get('/sitemap.xml', (req, res) => {
         loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}`,
         changefreq: 'weekly',
         priority: '0.85',
-        lastmod: today
+        lastmod: serviceLastmod
       }));
     }),
     // Type-specific pages (e.g. "Split AC service in Noida", distinct
@@ -5726,23 +5785,24 @@ app.get('/sitemap.xml', (req, res) => {
         loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}/${slugify(t.name)}`,
         changefreq: 'weekly',
         priority: '0.8',
-        lastmod: today
+        lastmod: serviceLastmod
       })));
     }),
     ...cities.map(c => ({
       loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/blog`,
       changefreq: 'monthly',
       priority: '0.6',
-      lastmod: today
+      lastmod: blogLastmod
     })),
-    ...cities.flatMap(c => articles.map(a => ({
+    // Only the canonical copy of each article (see the blog post route).
+    ...(primaryBlogCity ? [primaryBlogCity] : []).flatMap(c => articles.map(a => ({
       loc: `${SITE_URL}/appliance-repair/${slugify(c.name)}/blog/${a.slug}`,
       changefreq: 'monthly',
       priority: '0.5',
       // A real per-article date if the article has one, so search engines
       // see accurate freshness signals instead of every article claiming
       // to have changed today.
-      lastmod: (a.updatedAt || a.createdAt || today).slice(0, 10)
+      lastmod: (a.updatedAt || a.createdAt || blogLastmod).slice(0, 10)
     })))
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u =>
@@ -5834,9 +5894,9 @@ function renderCareersPage(req, res, focusCitySlug) {
     if (focusCitySlug) {
       focusCity = allCareerCities.find(c => slugify(c.name) === focusCitySlug);
       if (!focusCity) {
-        return res.status(404).send(
-          `<h1>Hiring page not found</h1><p>We may not be hiring in this city yet. <a href="/careers">See all cities we're currently hiring in</a>.</p>`
-        );
+        // A city removed from (or not yet in) the hiring list -> the main
+        // careers page, instead of a 404 in Google Search Console.
+        return res.redirect(301, '/careers');
       }
     }
     const careerCities = focusCity ? [focusCity] : allCareerCities;
@@ -6088,6 +6148,26 @@ app.get('/careers/:citySlug', (req, res) => renderCareersPage(req, res, req.para
 // synchronous errors from db.js, like a failed disk write) so the response
 // is always valid JSON the frontend can parse, and so the real cause is
 // always visible in the server logs instead of silently crashing.
+// Common old / typed URLs -> the right page (301), instead of 404s.
+app.get('/index.html', (req, res) => res.redirect(301, '/'));
+app.get('/blog', (req, res) => {
+  const c = readData('cities').find(x => x.active);
+  res.redirect(c ? 301 : 302, c ? `/appliance-repair/${slugify(c.name)}/blog` : '/');
+});
+app.get(['/city/:slug', '/:slug'], (req, res, next) => {
+  const r = resolveCityForSlug(String(req.params.slug).toLowerCase().replace(/-(appliance-repair|appliance-service|service|repair)$/, ''));
+  if (r.city) return res.redirect(301, `/appliance-repair/${slugify(r.city.name)}`);
+  if (r.redirectSlug) return res.redirect(301, `/appliance-repair/${r.redirectSlug}`);
+  next();
+});
+// Friendly 404 page (the bare "Cannot GET" gave visitors nowhere to go).
+app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
+  res.status(404).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Page not found — Seerua Appliance Care</title>
+<style>body{font-family:system-ui,sans-serif;background:#f5f8fb;color:#1a2b3c;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:20px}a.b{display:inline-block;margin-top:14px;background:#1f8a3b;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600}</style></head>
+<body><div><h1>Page not found</h1><p>Ye page ab maujood nahi hai. AC, washing machine, RO, fridge ki service book karne ke liye home page par jaaiye.</p><a class="b" href="/">Go to Home</a></div></body></html>`);
+});
+
 app.use((err, req, res, next) => {
   console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, err);
   if (res.headersSent) return next(err);

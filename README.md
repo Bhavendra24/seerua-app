@@ -43,6 +43,11 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 13) Google Search Console sudhar:**
+  - Sitemap ki `lastmod` ab asli taareekh (jab city/appliance/price/photo/blog sach mein badle) — pehle har page roz "aaj badla" dikhata tha.
+  - Blog: har article har city mein lagbhag same copy tha (duplicate). Ab sabka canonical ek (pehli city) version par, aur sitemap mein sirf wahi — baaki city wale page chalte rehte hain.
+  - Purane/galat link 404 ki jagah sahi page par 301: `ac-repair`→`ac-service`, `refrigerator-service`→`fridge-service`, `/moradabad`, `/city/moradabad`, `/index.html`, `/blog`, galat type → appliance page.
+  - Sach mein na mile page par saaf "Page not found" page (Home button ke saath).
 - **(Update 12) Bug-fix + suraksha (security):**
   - **Admin password:** purana default password (`Seerua@2026`) code mein likha tha aur har server start par wapas set ho sakta tha — wo code hata diya. Dashboard par **🔑 Admin Login Password** card se password (aur chahein to username) badliye. Default password chal raha ho to lal chetavni dikhti hai.
   - Galat request se poora server band ho jaata tha — ab nahi hoga.
