@@ -1065,7 +1065,7 @@ async function loadPublicReviews() {
   if (!section) return;
   try {
     const reviews = await fetchJSON('/api/reviews/public');
-    if (!reviews || reviews.length < 3) {
+    if (!reviews || reviews.length < 1) { // shows from the very first real review
       section.style.display = 'none';
       return;
     }
@@ -2490,13 +2490,20 @@ async function submitCustomerRating(bookingId, itemId) {
   const taskKey = `${bookingId}__${itemId}`;
   const rating = pendingRating[taskKey];
   if (!rating) return;
-  const phone = document.getElementById('trackPhone').value.trim();
+  // BUG FIX: the phone used to be read from the hidden #trackPhone box,
+  // which is empty when bookings were looked up through the Track Booking
+  // popup — so "Submit Rating" silently did nothing. The booking itself
+  // already carries the customer's phone.
+  const bk = lastTrackedBookings.find(x => x.id === bookingId);
+  const phone = (bk && bk.phone) || (document.getElementById('trackPhoneModal') || {}).value || (document.getElementById('trackPhone') || {}).value || '';
   if (!/^[0-9]{10}$/.test(phone)) {
-    alert('Please enter your mobile number above and search first.');
+    alert('Please search your bookings with your mobile number first.');
     return;
   }
   const reviewEl = document.getElementById(`reviewText-${taskKey}`);
   const reviewText = reviewEl ? reviewEl.value.trim() : '';
+  const btn = document.querySelector(`#reviewBox-${CSS.escape(taskKey)} button`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
   try {
     await fetchJSON(`/api/bookings/${bookingId}/items/${itemId}/rate`, {
       method: 'PUT',
@@ -2506,28 +2513,33 @@ async function submitCustomerRating(bookingId, itemId) {
     // Only happy customers (4-5 stars) get asked to also post on Google —
     // asking unhappy customers would just invite a public bad review, and
     // we only ever link to a real, Admin-verified Google profile.
-    if (rating >= 4 && GOOGLE_REVIEW_URL) {
-      showGoogleReviewPrompt();
-    } else {
-      document.getElementById('trackBtn').click();
-    }
+    // Show "Thank you" right in the card (the list isn't re-fetched from
+    // the hidden box any more — that also failed for the popup).
+    const it = bk && (bk.items || []).find(x => x.id === itemId);
+    if (it) { it.rating = rating; if (reviewText) it.reviewText = reviewText; }
+    const starsWrap = document.getElementById(`stars-${taskKey}`);
+    const row = starsWrap && starsWrap.closest('.row2');
+    const box = document.getElementById(`reviewBox-${taskKey}`);
+    if (row) row.innerHTML = `✅ Thank you! Your rating: ${'⭐'.repeat(rating)}`;
+    if (box) box.outerHTML = reviewText ? `<div class="row2" style="font-style:italic;">"${escapeHtml(reviewText)}"</div>` : '';
+    if (typeof showToast === 'function') showToast('✅ Thank you for your feedback!');
+    if (rating >= 4 && GOOGLE_REVIEW_URL) showGoogleReviewPrompt(row ? row.closest('.track-order-card') : null);
   } catch (e) {
     alert(e.message || 'Could not submit your rating.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit Rating'; }
   }
 }
 
-function showGoogleReviewPrompt() {
-  const results = document.getElementById('trackResults');
-  if (!results) { document.getElementById('trackBtn').click(); return; }
-  results.innerHTML = `
-    <div class="track-box" style="text-align:center;max-width:440px;margin:0 auto;">
-      <div style="font-size:2rem;">🎉</div>
-      <h4 style="margin:8px 0 6px;">Thanks for rating us!</h4>
-      <p style="color:var(--slate);font-size:0.88rem;margin-bottom:16px;">Glad you had a good experience. Would you mind sharing it on Google too? It takes 30 seconds and really helps other people in your city find us.</p>
-      <a href="${GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" class="btn btn-primary btn-block" onclick="document.getElementById('trackBtn').click();">⭐ Rate us on Google</a>
-      <button type="button" class="btn btn-outline btn-block" style="margin-top:8px;" onclick="document.getElementById('trackBtn').click();">Maybe later</button>
-    </div>
-  `;
+// 4-5 star rating -> invite the customer to post the same on Google,
+// shown right inside their booking card (works in the Track popup too).
+function showGoogleReviewPrompt(anchorEl) {
+  const html = `
+    <div class="track-box" style="text-align:center;margin:10px 0 0;padding:12px;border:1px solid var(--line);border-radius:10px;">
+      <div style="font-size:1.6rem;">🎉</div>
+      <p style="color:var(--slate);font-size:0.88rem;margin:6px 0 10px;">Glad you had a good experience! Would you share it on Google too? It takes 30 seconds and helps people in your city find us.</p>
+      <a href="${GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" class="btn btn-primary btn-block">⭐ Rate us on Google</a>
+    </div>`;
+  if (anchorEl) anchorEl.insertAdjacentHTML('beforeend', html);
 }
 
 function closeReferModal() {

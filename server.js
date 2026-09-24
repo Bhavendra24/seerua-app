@@ -632,7 +632,9 @@ app.get('/api/reviews/public', (req, res) => {
   const reviews = [];
   bookings.forEach(b => {
     (b.items || []).forEach(it => {
-      if (it.itemStatus === 'completed' && it.rating && it.reviewText) {
+      // Homepage testimonials: written reviews rated 4-5 stars. (Every
+      // rating still counts in the overall star rating and shows in Admin.)
+      if (it.itemStatus === 'completed' && it.rating >= 4 && it.reviewText) {
         const nameParts = (b.name || '').trim().split(/\s+/);
         const displayName = nameParts.length > 1
           ? `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`
@@ -2986,6 +2988,7 @@ app.delete('/api/admin/appliances/:applianceId/types/:typeId', requireAdmin, (re
 // =======================================================
 
 app.get('/api/admin/pricing', requireAdmin, (req, res) => {
+  try { ensurePricingRows(); } catch (e) { console.error('ensurePricingRows failed:', e.message); }
   res.json(readData('pricing'));
 });
 
@@ -5183,7 +5186,7 @@ function buildServicesGridHtml(appliances, cities, pricing) {
       <h3>${escapeHtml(a.name)}</h3>`;
     return `
     <div class="service-card" data-appliance="${a.id}">
-      ${c ? `<a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}" class="service-card-link" aria-label="${escapeHtml(a.name)} repair and service" style="display:block;color:inherit;text-decoration:none;">${inner}</a>` : inner}
+      <a href="${c ? `/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}` : '#services'}" class="service-card-link" aria-label="${escapeHtml(a.name)} repair and service" style="display:block;color:inherit;text-decoration:none;">${inner}</a>
       <button type="button" class="btn btn-outline btn-sm" onclick="openApplianceBoxesPanel('${a.id}')">Book Now</button>
     </div>
   `;
@@ -5387,6 +5390,51 @@ function isRemovedServiceSlug(slug) {
 // once at least one of its types has a price there — a freshly added
 // appliance with no types yet stays invisible instead of showing an
 // empty page to customers and Google.
+// Self-repair: every appliance type must have a price row in every city.
+// If the live data ever drifts (e.g. an appliance/type exists but its
+// price rows are missing), its pages 404, the homepage tile does nothing
+// and Admin → Pricing has nowhere to type a price. Missing rows are
+// created — prices copied from the same type in another city, else from
+// the prices bundled with the site code, else the same 299/499 defaults
+// "Add Type" uses — so Admin can review them in the Pricing tab.
+function ensurePricingRows() {
+  const cities = readData('cities');
+  const appliances = readData('appliances');
+  const pricing = readData('pricing');
+  let bundled = null;
+  const loadBundled = () => {
+    if (bundled) return bundled;
+    try {
+      bundled = {
+        a: JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'appliances.json'), 'utf-8')),
+        p: JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'pricing.json'), 'utf-8'))
+      };
+    } catch (e) { bundled = { a: [], p: [] }; }
+    return bundled;
+  };
+  const same = (x, y) => String(x || '').trim().toLowerCase() === String(y || '').trim().toLowerCase();
+  const added = [];
+  appliances.forEach(a => (a.types || []).forEach(t => cities.forEach(c => {
+    if (pricing.some(p => p.cityId === c.id && p.applianceId === a.id && p.typeId === t.id)) return;
+    let src = pricing.find(p => p.applianceId === a.id && p.typeId === t.id);
+    if (!src) {
+      const bd = loadBundled();
+      const ba = bd.a.find(x => same(x.name, a.name));
+      const bt = ba && (ba.types || []).find(x => same(x.name, t.name));
+      if (bt) src = bd.p.find(p => p.applianceId === ba.id && p.typeId === bt.id);
+    }
+    const row = { id: genId('p'), cityId: c.id, applianceId: a.id, typeId: t.id, servicePrice: src ? src.servicePrice : 299, repairPrice: src ? src.repairPrice : 499, autoCreated: true };
+    if (src && src.servicePrices) row.servicePrices = { ...src.servicePrices };
+    pricing.push(row);
+    added.push(`${a.name} / ${t.name} / ${c.name}`);
+  })));
+  if (added.length) {
+    writeData('pricing', pricing);
+    console.log(`[pricing] Created ${added.length} missing price row(s): ${added.slice(0, 20).join('; ')}${added.length > 20 ? ' …' : ''}`);
+  }
+  return added.length;
+}
+
 function applianceHasPricing(appliance, cityId, pricing) {
   return (appliance.types || []).some(t => pricing.some(p => p.cityId === cityId && p.applianceId === appliance.id && p.typeId === t.id));
 }
@@ -6347,6 +6395,7 @@ function cleanupOldCompletionPhotos() {
 // the server starts accepting requests. Without this, the very first
 // request could hit readData() before any data has been loaded.
 initDb().then(() => {
+  try { ensurePricingRows(); } catch (e) { console.error('[startup] ensurePricingRows failed:', e.message); }
   app.listen(PORT, () => {
     console.log(`Seerua Appliance Care server is running: http://localhost:${PORT}`);
     console.log(`[version] Build: ${BUILD_MARKER} — started ${SERVER_STARTED_AT}`);

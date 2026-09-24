@@ -669,6 +669,7 @@ function renderOrders() {
             <span class="pill pill-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
             ${it.technicianName ? ` <small style="color:var(--slate)">→ ${esc(it.technicianName)}</small>` : ''}
             ${it.rating ? ` <small style="color:var(--slate)">· ⭐${it.rating}</small>` : ''}
+            ${it.reviewText ? `<br><small style="color:#1f5f3a;font-style:italic;">💬 "${esc(it.reviewText)}"</small>` : ''}
           </div>
         `).join('')}</td>
         <td>${esc(b.cityName)}</td>

@@ -43,6 +43,10 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 16) Chimney/Microwave/Geyser + review fix:**
+  - Kisi appliance type ki kisi city mein price line (pricing row) gayab ho to server khud bana deta hai (startup par aur Admin → Pricing kholne par) — pehle aise appliance ka page 404 hota tha, homepage photo dabane par kuch nahi hota tha, aur Pricing tab mein price bharne ki jagah bhi nahi aati thi. Price: doosri city se, warna code ke saath aaye data se, warna 299/499.
+  - Review "Submit Rating" Track Booking popup se kaam nahi karta tha (phone chhupe box se padha ja raha tha) — theek. Submit ke baad card mein "Thank you" aur 4-5★ par "Rate us on Google" button.
+  - Review kahan dikhta hai: homepage "customer reviews" hissa (4-5★ likhe hue reviews, pehle review se hi), aur Admin → Orders mein ⭐ + 💬 review text.
 - **(Update 15) Customer booking cancel kar sakta hai:**
   - Booking ke baad Thank-you screen par "Plans changed? Cancel this booking", aur My Bookings / Track mein har aane wali booking par "✕ Cancel booking".
   - Jis phone/computer se booking hui, wahan se seedha cancel (ek gupt key us browser mein save rehti hai). Doosre phone/computer se cancel par OTP lagta hai (MSG91 set hona chahiye; na ho to "call karein" dikhta hai).
