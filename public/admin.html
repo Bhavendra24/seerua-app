@@ -54,6 +54,7 @@
       <button data-view="orders">🧾 Orders / Bookings</button>
       <button data-view="commission">💵 Commission</button>
       <button data-view="customers">🧑‍🤝‍🧑 Customers</button>
+      <button data-view="reviews">⭐ Customer Reviews</button>
       <button data-view="technicians">👷 Technicians</button>
       <!-- SIMPLIFIED (per explicit request): the remaining items below
            are all things configured occasionally (once at setup, or a
@@ -399,6 +400,21 @@
     </script>
 
     <!-- CITIES -->
+    <section class="panel-view" id="view-reviews">
+      <div class="topbar"><div><h1>⭐ Customer Reviews</h1><div class="sub">Job complete hone ke baad customer ne jo star aur review diya — sab ek jagah</div></div></div>
+      <div class="stat-row" id="reviewStats"></div>
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <select id="reviewStarFilter" style="padding:8px;border:1px solid var(--line);border-radius:8px;">
+            <option value="">Sabhi star</option><option value="low">😟 1–3 star (dhyan dein)</option><option value="5">5 star</option><option value="4">4 star</option><option value="3">3 star</option><option value="2">2 star</option><option value="1">1 star</option>
+          </select>
+          <select id="reviewCityFilter" style="padding:8px;border:1px solid var(--line);border-radius:8px;"></select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;"><input type="checkbox" id="reviewTextOnly"> Sirf likhe hue review</label>
+        </div>
+        <div id="reviewList"></div>
+      </div>
+    </section>
+
     <section class="panel-view" id="view-cities">
       <div class="topbar"><div><h1>Cities</h1><div class="sub">Add or remove service area cities</div></div></div>
       <div class="card">
@@ -1170,6 +1186,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609253"></script>
+<script src="/js/admin.js?v=202609254"></script>
 </body>
 </html>

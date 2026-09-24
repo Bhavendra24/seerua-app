@@ -43,6 +43,8 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 18) Service pages par asli reviews:** har appliance-city page par "<Appliance> Service Reviews" — us appliance ki average rating (sabhi ratings, achhi-buri dono) aur 4 taaza likhe hue 4-5★ review (pehle usi city ke). Koi rating na ho to ye hissa nahi dikhta.
+- **(Update 17) Admin → ⭐ Customer Reviews:** saare star/review ek jagah — average rating, kitne likhe review, 1–3 star wale laal rang mein ("Customer ko call karein"), customer ka naam/phone (tap karke call), city, appliance, technician, Booking ID. Filter: star (ya "1–3 star"), city, "sirf likhe hue review".
 - **(Update 16) Chimney/Microwave/Geyser + review fix:**
   - Kisi appliance type ki kisi city mein price line (pricing row) gayab ho to server khud bana deta hai (startup par aur Admin → Pricing kholne par) — pehle aise appliance ka page 404 hota tha, homepage photo dabane par kuch nahi hota tha, aur Pricing tab mein price bharne ki jagah bhi nahi aati thi. Price: doosri city se, warna code ke saath aaye data se, warna 299/499.
   - Review "Submit Rating" Track Booking popup se kaam nahi karta tha (phone chhupe box se padha ja raha tha) — theek. Submit ke baad card mein "Thank you" aur 4-5★ par "Rate us on Google" button.

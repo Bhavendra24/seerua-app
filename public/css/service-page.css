@@ -258,3 +258,15 @@ body.sp-sheet-open { overflow: hidden; }
 .sp-confirm.sp-confirm-danger { background: #c0392b; }
 .sp-cancel-keep { display: block; margin: 12px auto 0; }
 #spCancelDone { text-align: center; padding: 10px 0; }
+
+/* ---------- Real customer reviews on service pages ---------- */
+.sp-reviews { margin-top: 28px; }
+.sp-review-sum { text-align: center; margin: 0 0 14px; color: var(--slate); font-size: 0.9rem; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.sp-review-avg { font-size: 1.6rem; font-weight: 800; color: var(--ink); }
+.sp-review-stars { color: #f59e0b; letter-spacing: 1px; }
+.sp-review-grid { display: grid; gap: 12px; }
+@media (min-width: 640px) { .sp-review-grid { grid-template-columns: 1fr 1fr; } }
+.sp-review { margin: 0; border: 1px solid var(--line, #e3e8ee); border-radius: 10px; padding: 12px 14px; background: #fff; }
+.sp-review blockquote { margin: 6px 0 8px; font-style: italic; color: #2b3138; font-size: 0.92rem; line-height: 1.5; }
+.sp-review figcaption { font-size: 0.78rem; color: var(--slate); }
+.sp-verified { color: #1f8a3b; font-weight: 600; }

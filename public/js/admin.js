@@ -167,6 +167,7 @@ function switchView(view) {
   if (view === 'technicians') { renderTechnicians(); }
   if (view === 'applications') renderApplications();
   if (view === 'customers') renderCustomers();
+  if (view === 'reviews') renderReviews();
   if (view === 'subadmins') renderSubAdmins();
   if (view === 'reports') renderReport();
   if (view === 'commission') renderCommission();
@@ -3514,3 +3515,56 @@ document.getElementById('adminPwSave')?.addEventListener('click', async () => {
     msg.textContent = e.message;
   } finally { btn.disabled = false; }
 });
+
+
+// ---------------- CUSTOMER REVIEWS ----------------
+// Every rated job in one place: stars, what the customer wrote, who did
+// the job. Low ratings are highlighted so someone can call the customer.
+function reviewRows() {
+  const rows = [];
+  BOOKINGS.forEach(b => (b.items || []).forEach(it => {
+    if (!it.rating) return;
+    rows.push({ b, it, when: it.completedAt || it.updatedAt || b.updatedAt });
+  }));
+  return rows.sort((x, y) => new Date(y.when) - new Date(x.when));
+}
+function renderReviews() {
+  const cityF = document.getElementById('reviewCityFilter');
+  if (cityF && !cityF.options.length) {
+    cityF.innerHTML = '<option value="">Sabhi city</option>' + CITIES.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    ['reviewStarFilter', 'reviewCityFilter', 'reviewTextOnly'].forEach(id => document.getElementById(id).addEventListener('change', renderReviews));
+  }
+  const all = reviewRows();
+  const avg = all.length ? (all.reduce((t, r) => t + r.it.rating, 0) / all.length) : 0;
+  const count = n => all.filter(r => r.it.rating === n).length;
+  document.getElementById('reviewStats').innerHTML = `
+    <div class="stat-card"><div class="val">${all.length ? avg.toFixed(1) + ' ⭐' : '—'}</div><div class="lbl">Average rating</div></div>
+    <div class="stat-card"><div class="val">${all.length}</div><div class="lbl">Total ratings</div></div>
+    <div class="stat-card"><div class="val">${all.filter(r => r.it.reviewText).length}</div><div class="lbl">Likhe hue review</div></div>
+    <div class="stat-card"><div class="val" style="color:${all.some(r => r.it.rating <= 3) ? 'var(--red)' : 'inherit'}">${count(1) + count(2) + count(3)}</div><div class="lbl">1–3 star (dhyan dein)</div></div>`;
+  const star = document.getElementById('reviewStarFilter').value;
+  const city = document.getElementById('reviewCityFilter').value;
+  const textOnly = document.getElementById('reviewTextOnly').checked;
+  const list = all.filter(r =>
+    (!star || (star === 'low' ? r.it.rating <= 3 : r.it.rating === Number(star))) &&
+    (!city || r.b.cityId === city) &&
+    (!textOnly || r.it.reviewText));
+  document.getElementById('reviewList').innerHTML = list.length ? list.map(({ b, it, when }) => {
+    const low = it.rating <= 3;
+    return `
+      <div style="border:1px solid ${low ? '#f0b4ad' : 'var(--line)'};background:${low ? '#fff5f4' : '#fff'};border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <strong style="font-size:1.05rem;color:${low ? 'var(--red)' : '#b7791f'};">${'★'.repeat(it.rating)}${'☆'.repeat(5 - it.rating)}</strong>
+          <small style="color:var(--slate);">${fmtDate(when)}${it.ratingSource === 'admin' ? ' · admin ne diya' : ''}</small>
+        </div>
+        ${it.reviewText ? `<p style="margin:6px 0;font-style:italic;">"${esc(it.reviewText)}"</p>` : '<p style="margin:6px 0;color:var(--slate);font-size:0.85rem;">(sirf star, kuch likha nahi)</p>'}
+        <div style="font-size:0.85rem;color:var(--slate);line-height:1.5;">
+          👤 ${esc(b.name)} · <a href="tel:+91${esc(b.phone)}">${esc(b.phone)}</a> · 📍 ${esc(b.cityName || '')}<br>
+          🔧 ${esc(it.applianceName)} (${esc(it.typeName)}) — ${it.serviceName ? esc(it.serviceName) : (it.serviceType === 'repair' ? 'Repair' : 'Service')}
+          ${it.technicianName ? ` · 👷 ${esc(it.technicianName)}` : ''}<br>
+          Booking ID: ${esc(b.id)}
+        </div>
+        ${low ? `<div style="margin-top:6px;font-size:0.82rem;color:var(--red);font-weight:600;">📞 Customer ko call karke dikkat poochh lijiye.</div>` : ''}
+      </div>`;
+  }).join('') : '<p style="color:var(--slate);">Abhi koi review nahi hai. Technician job complete karega, uske baad customer "Track Booking" se star/review de sakta hai.</p>';
+}

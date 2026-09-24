@@ -572,6 +572,39 @@ function computeSiteRating(cityId) {
   return { avgRating: ratingCount ? Math.round((ratingSum / ratingCount) * 10) / 10 : null, ratingCount };
 }
 
+// Real customer reviews for a service page: overall stars for this
+// appliance (every rating counts, good or bad), plus up to 4 recent
+// written 4-5 star reviews — this city first, then other cities. Hidden
+// until at least one real rating exists; nothing is ever made up.
+function buildPageReviewsHtml(appliance, city) {
+  const all = [];
+  readData('bookings').forEach(b => (b.items || []).forEach(it => {
+    if (it.applianceId === appliance.id && it.itemStatus === 'completed' && it.rating) all.push({ b, it });
+  }));
+  if (!all.length) return '';
+  const avg = Math.round((all.reduce((t, r) => t + r.it.rating, 0) / all.length) * 10) / 10;
+  const when = r => new Date(r.it.completedAt || r.it.updatedAt || r.b.updatedAt || 0);
+  const written = all.filter(r => r.it.rating >= 4 && r.it.reviewText).sort((x, y) => when(y) - when(x));
+  const pick = written.filter(r => r.b.cityId === city.id).concat(written.filter(r => r.b.cityId !== city.id)).slice(0, 4);
+  const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+  const nameOf = b => {
+    const parts = String(b.name || '').trim().split(/\s+/).filter(Boolean);
+    return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : (parts[0] || 'Customer');
+  };
+  const cards = pick.map(({ b, it }) => `
+        <figure class="sp-review">
+          <div class="sp-review-stars" aria-label="${it.rating} out of 5">${stars(it.rating)}</div>
+          <blockquote>"${escapeHtml(it.reviewText)}"</blockquote>
+          <figcaption>${escapeHtml(nameOf(b))} · ${escapeHtml(b.cityName || '')} · ${escapeHtml(it.typeName || appliance.name)} · <span class="sp-verified">✔ Verified booking</span></figcaption>
+        </figure>`).join('');
+  return `
+    <section class="sp-reviews" id="reviews">
+      <h2 class="sp-center-h">${escapeHtml(appliance.name)} Service Reviews</h2>
+      <p class="sp-review-sum"><span class="sp-review-avg">${avg}</span> <span class="sp-review-stars">${stars(Math.round(avg))}</span> <span>based on ${all.length} rating${all.length === 1 ? '' : 's'} from real Seerua bookings</span></p>
+      ${cards ? `<div class="sp-review-grid">${cards}</div>` : ''}
+    </section>`;
+}
+
 // Renders a `"aggregateRating": {...}` JSON-LD fragment (with a leading
 // comma so it can be spliced right after another property) — or an empty
 // string when there isn't at least one real rating yet, so no rich-snippet
@@ -5699,6 +5732,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
       '{{TABS_HTML}}': tabsHtml,
       '{{PANELS_HTML}}': panelsHtml,
       '{{ARTICLE_HTML}}': articleHtml,
+      '{{REVIEWS_HTML}}': buildPageReviewsHtml(appliance, city),
       '{{APPLIANCE_FAQ_HTML}}': faqHtml,
       '{{APPLIANCE_FAQ_SCHEMA}}': faqSchemaHtml,
       '{{OTHER_APPLIANCES_HTML}}': otherAppliancesHtml || '<span class="city-chip">More services coming soon</span>',
