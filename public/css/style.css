@@ -2254,3 +2254,25 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .sf-disclaimer { color: #6b7280; opacity: 1; }
 .site-footer .sf-disclaimer { font-size: 12px; color: #6b7280; }
 .site-footer h5 { white-space: nowrap; }
+
+/* Book buttons: one look everywhere — solid sky blue = book */
+.service-card .btn, .service-card .btn-outline { background: #0ea5e9; color: #fff; border-color: #0ea5e9; font-weight: 700; }
+.service-card .btn:hover, .service-card .btn-outline:hover { background: #0284c7; border-color: #0284c7; color: #fff; }
+
+/* ── Sky theme: light sky header, no black/dark-navy blocks ── */
+.site-header { background: rgba(255,255,255,0.97); border-bottom: 2px solid #0ea5e9; box-shadow: 0 2px 12px rgba(2,132,199,0.08); }
+.header-account-btn, .header-account-btn.has-account, .header-cart-btn { background: #0ea5e9; color: #fff; }
+.header-account-btn:hover, .header-cart-btn:hover { background: #0284c7; }
+.header-cart-badge { border-color: #fff; }
+@media (max-width: 900px) { .nav-links { background: #fff; } }
+.bottom-nav-support { background: #0ea5e9; }
+.bottom-nav-support.open { background: #0284c7; }
+.global-toast { background: #0284c7; }
+.price-tag { background: #e0f2fe; color: #0f2a43; }
+.contact-card { background: #e0f2fe; color: #0f2a43; }
+.qb-service-type-btn.active { background: #0ea5e9; border-color: #0ea5e9; }
+.qb-btn-book { background: #0ea5e9; }
+.qb-btn-book:hover { background: #0284c7; }
+.slot-btn { background: #fff; color: #0f2a43; border-color: #7dd3fc; }
+.slot-btn:hover:not(.selected):not(.full) { background: #e0f2fe; border-color: #0ea5e9; }
+.slot-btn small { color: #475569; }
