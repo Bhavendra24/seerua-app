@@ -472,3 +472,4 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - When ADMIN_MASTER_PASSWORD is set, the old public default password (Seerua@2026) is refused at login and the "still default" nag is hidden.
 - Phone Back button now closes any open popup / bottom sheet (Menu, City, Track, account, date…) or the chat instead of leaving the site (public/js/back-close.js, loaded on all public pages with the chat).
 - Homepage "We currently serve these cities" + brands blocks made compact (smaller chips, less padding/gaps).
+- Site-wide tighter spacing: section padding 16px (12px on phones), empty #track section no longer adds a gap before FAQ, blog hero bottom gap reduced, careers "Technician Jobs" list compact, mobile footer columns/links tighter.

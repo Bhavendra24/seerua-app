@@ -2297,3 +2297,35 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
   #cities .section-head h2, #brands .section-head h2 { font-size: 1.2rem; line-height: 1.3; }
   #brands .brand-strip { justify-content: flex-start !important; }
 }
+
+/* Tighter vertical rhythm across the site */
+section { padding: 16px 0; }
+section.bg-mist + section.bg-mist { padding-top: 0; }
+#track:has(#trackWrap[hidden]) { padding: 0; }
+#brands + #track + #faq, #brands + #faq { padding-top: 6px; }
+.section-head .eyebrow { margin-bottom: 4px; }
+.section-head h2 { margin-bottom: 4px; }
+@media (max-width: 720px) {
+  section { padding: 12px 0; }
+  #brands { padding-bottom: 8px !important; }
+  #sp-links { padding: 10px 0; }
+  .section-head { margin-bottom: 6px; }
+}
+.career-city-jobs { margin: 0 auto 6px !important; padding: 7px 12px !important; border-color: var(--line) !important; }
+.career-city-jobs summary { font-size: 0.92rem; }
+@media (max-width: 720px) {
+  /* footer: less space between its columns */
+  .site-footer { padding-top: 22px; }
+  .sf-grid { gap: 14px 16px !important; margin-bottom: 14px !important; }
+  .site-footer h5 { margin-bottom: 8px; }
+  .site-footer ul li { margin-bottom: 6px; }
+  .sf-contact-list li { margin-bottom: 8px; }
+  .footer-bottom { padding-top: 12px; }
+}
+@media (max-width: 720px) {
+  .site-footer ul li, .site-footer ul li a { line-height: 1.45; }
+  .site-footer ul li { margin-bottom: 8px; }
+  .sf-brand p:last-child { margin-bottom: 0; }
+  .site-footer h5 { margin-top: 0; }
+  .sf-grid > div > ul > li:last-child { margin-bottom: 0; }
+}
