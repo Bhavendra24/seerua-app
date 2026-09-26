@@ -121,8 +121,8 @@
       '     <label class="sp-label" for="spName">Your name</label><input class="sp-input" id="spName" type="text" autocomplete="name" placeholder="Full name" maxlength="80">' +
       '     <label class="sp-label" for="spPhone">Mobile number</label><div class="sp-phone-wrap"><span>+91</span><input class="sp-input" id="spPhone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10 digit mobile number" maxlength="16"></div>' +
       '     <label class="sp-label" for="spAddress" id="spAddressLabel">Full address</label><textarea class="sp-input" id="spAddress" rows="2" autocomplete="street-address" placeholder="House no., street, area, landmark" maxlength="300"></textarea>' +
-      '     <div class="sp-loc"><button type="button" class="sp-loc-btn" id="spLocBtn">📍 Use my current location</button><button type="button" class="sp-loc-btn" id="spMapBtn">🗺️ Pick on map</button><span class="sp-loc-msg" id="spLocMsg">Optional — helps the technician find your home exactly.</span></div>' +
       '    </div>' +
+      '    <div class="sp-loc"><button type="button" class="sp-loc-btn" id="spLocBtn">📍 Use my current location</button><button type="button" class="sp-loc-btn" id="spMapBtn">🗺️ Pick on map</button><span class="sp-loc-msg" id="spLocMsg">Optional — helps the technician find your home exactly.</span></div>' +
       '   </div>' +
       '   <div class="sp-label">Visit date</div><div class="sp-chips" id="spDates"></div>' +
       '   <div class="sp-label">Time slot</div><div class="sp-chips" id="spSlots"><span class="sp-muted">Loading slots…</span></div>' +
