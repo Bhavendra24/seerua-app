@@ -479,3 +479,4 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - All panels (Super Admin, Sub-Admin, Technician): header / sidebar in light lavender-grey (#e8e7ef) with dark text, active item white with orange marker; technician top and bottom bars grey too.
 - Main customer site header now uses the same light lavender-grey (#e8e7ef) as the panels; logo blended into it, darker text for contrast.
 - Chat (Bella) button inside the support fan-out is now a robot with blinking, glancing eyes (the headset support button itself is unchanged).
+- Super Admin on phones: compact top bar (logo + ☰ Menu), bottom tabs (Dashboard, Orders, Customers, Technicians, More); the full menu opens as a 2-column drawer and closes after picking a page. Desktop unchanged.

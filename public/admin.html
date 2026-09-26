@@ -45,6 +45,30 @@
     #view-orders tbody tr:nth-child(even), #view-dashboard tbody tr:nth-child(even) { background: #f3f6fa; }
     #view-orders tbody td, #view-dashboard tbody td { display: block; border: none !important; padding: 3px 0 !important; }
   }
+
+  /* ---- Phone: compact top bar + bottom tabs + full menu as a drawer ---- */
+  .m-menu-btn, .m-bottom-nav, .m-menu-backdrop { display: none; }
+  @media (max-width: 900px) {
+    .sidebar .brand-row { display: flex; align-items: center; }
+    .sidebar .brand-row span { flex: 1; }
+    .m-menu-btn { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 1px solid #d0cedb; color: #0f2a43; font-weight: 700; font-size: 0.85rem; padding: 7px 12px; border-radius: 10px; cursor: pointer; }
+    /* the long list of chips is hidden until the menu is opened */
+    .sidebar:not(.m-open) .side-nav, .sidebar:not(.m-open) .sidebar-foot { display: none !important; }
+    .sidebar.m-open { position: relative !important; z-index: 70 !important; }
+    .sidebar.m-open .side-nav { position: fixed; left: 10px; right: 10px; top: 62px; bottom: 76px; z-index: 60; background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(15,42,67,0.25); padding: 12px !important; overflow-y: auto; display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px !important; align-content: start; }
+    .sidebar.m-open .side-nav > button, .sidebar.m-open #moreSettingsGroup button { background: #f4f3f8 !important; border: 1px solid #e3e1ea !important; border-radius: 10px !important; padding: 11px 10px !important; font-size: 0.86rem !important; color: #0f2a43 !important; justify-content: flex-start; white-space: normal; }
+    .sidebar.m-open .side-nav > button.active, .sidebar.m-open #moreSettingsGroup button.active { background: #e7f1fa !important; border-color: #1b6fb0 !important; color: #14508a !important; }
+    .sidebar.m-open #moreSettingsToggle { display: none !important; }
+    .sidebar.m-open #moreSettingsGroup { display: contents !important; position: static !important; }
+    .sidebar.m-open .sidebar-foot { position: fixed; left: 10px; right: 10px; bottom: 76px; z-index: 61; display: flex !important; background: transparent; border: none !important; padding: 0 12px 12px !important; pointer-events: none; }
+    .sidebar.m-open .sidebar-foot #logoutBtn { pointer-events: auto; background: #fff !important; }
+    .m-menu-backdrop.show { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(15,42,67,0.35); }
+    .m-bottom-nav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 58; background: #e8e7ef; border-top: 1px solid #d0cedb; box-shadow: 0 -4px 14px rgba(15,42,67,0.08); }
+    .m-bottom-nav button { background: none; border: none; padding: 7px 2px 9px; font-size: 0.7rem; font-weight: 700; color: #475569; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+    .m-bottom-nav button span { font-size: 1.2rem; line-height: 1.1; }
+    .m-bottom-nav button.active { color: #14508a; }
+    .main-area { padding-bottom: 84px !important; }
+  }
 </style>
 </head>
 <body class="compact">
@@ -99,6 +123,7 @@
     <div class="brand-row">
       <img src="/images/logo.png" alt="Seerua Appliance Care">
       <span>Super Admin Panel</span>
+      <button type="button" class="m-menu-btn" id="mMenuBtn" aria-label="Open menu">☰ Menu</button>
     </div>
     <nav class="side-nav" id="sideNav">
       <button data-view="dashboard" class="active">📊 Dashboard</button>
@@ -188,6 +213,15 @@
       <button class="btn btn-outline btn-block btn-sm" id="logoutBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);">Logout</button>
     </div>
   </aside>
+  <!-- Phone only: the 4 most-used pages + More (opens the full menu) -->
+  <nav class="m-bottom-nav" id="mBottomNav">
+    <button data-view="dashboard" class="active"><span>📊</span>Dashboard</button>
+    <button data-view="orders"><span>🧾</span>Orders</button>
+    <button data-view="customers"><span>🧑‍🤝‍🧑</span>Customers</button>
+    <button data-view="technicians"><span>👷</span>Technicians</button>
+    <button data-more="1"><span>☰</span>More</button>
+  </nav>
+  <div class="m-menu-backdrop" id="mMenuBackdrop"></div>
 
   <main class="main-area">
 
@@ -1313,6 +1347,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609279"></script>
+<script src="/js/admin.js?v=202609280"></script>
 </body>
 </html>

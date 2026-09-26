@@ -3862,3 +3862,39 @@ document.getElementById('newRecoveryCodeBtn')?.addEventListener('click', async (
     b.disabled = false;
   });
 })();
+
+// ---------------- Phone: menu drawer + bottom tabs ----------------
+(function mobileNav() {
+  const sidebar = document.querySelector('.sidebar');
+  const btn = document.getElementById('mMenuBtn');
+  const back = document.getElementById('mMenuBackdrop');
+  const bottom = document.getElementById('mBottomNav');
+  if (!sidebar || !btn || !bottom) return;
+  const setOpen = (open) => {
+    sidebar.classList.toggle('m-open', open);
+    back.classList.toggle('show', open);
+    btn.textContent = open ? '✕ Close' : '☰ Menu';
+  };
+  const syncBottom = () => {
+    bottom.querySelectorAll('button[data-view]').forEach(b => b.classList.toggle('active', b.getAttribute('data-view') === currentView));
+    const more = bottom.querySelector('[data-more]');
+    if (more) more.classList.toggle('active', !bottom.querySelector(`button[data-view="${currentView}"]`));
+  };
+  btn.addEventListener('click', () => setOpen(!sidebar.classList.contains('m-open')));
+  back.addEventListener('click', () => setOpen(false));
+  document.getElementById('sideNav').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-view]')) { setOpen(false); setTimeout(syncBottom, 0); window.scrollTo(0, 0); }
+  });
+  bottom.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.hasAttribute('data-more')) { setOpen(!sidebar.classList.contains('m-open')); return; }
+    setOpen(false);
+    switchView(b.getAttribute('data-view'));
+    syncBottom();
+    window.scrollTo(0, 0);
+  });
+  // keep the bottom tabs in step when a page is opened from anywhere else (dashboard tiles, links…)
+  const orig = window.switchView;
+  if (typeof orig === 'function') window.switchView = function (v) { const r = orig.apply(this, arguments); try { syncBottom(); } catch (e) { /* ignore */ } return r; };
+})();
