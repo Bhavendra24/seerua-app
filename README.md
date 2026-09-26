@@ -470,3 +470,5 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - `ADMIN_MASTER_PASSWORD` (Render → Environment, 8+ chars): always lets Super Admin log in (username "admin" or current), even if site data was reset by a restart/redeploy. Logged in Activity Log.
 - Dashboard warns "Site data is not saved permanently" when running on Render without MySQL (DB_HOST) or a persistent disk (set PERSISTENT_DISK=1 when DATA_DIR is on a Render disk).
 - When ADMIN_MASTER_PASSWORD is set, the old public default password (Seerua@2026) is refused at login and the "still default" nag is hidden.
+- Phone Back button now closes any open popup / bottom sheet (Menu, City, Track, account, date…) or the chat instead of leaving the site (public/js/back-close.js, loaded on all public pages with the chat).
+- Homepage "We currently serve these cities" + brands blocks made compact (smaller chips, less padding/gaps).
