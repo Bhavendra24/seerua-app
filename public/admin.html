@@ -23,6 +23,12 @@
   .todo-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); font-size: 0.88rem; line-height: 1.45; }
   .todo-row:first-child { border-top: none; }
   .todo-row small { color: var(--slate); }
+  /* Each booking clearly separated: darker border + alternating shade */
+  #ordersTable > tr, #dashLatestOrders > tr { border-bottom: 2px solid #b8c4d2; }
+  #ordersTable > tr:nth-child(even), #dashLatestOrders > tr:nth-child(even) { background: #eef2f7; }
+  #ordersTable > tr:nth-child(odd), #dashLatestOrders > tr:nth-child(odd) { background: #ffffff; }
+  #ordersTable > tr:hover, #dashLatestOrders > tr:hover { background: #e3eaf3; }
+  #ordersTable > tr > td { border-bottom: none; }
   @media (max-width: 900px) {
     /* menu: all main pages visible as chips (no hidden sideways scroll), header scrolls away */
     .sidebar { position: static !important; }
@@ -35,7 +41,8 @@
     /* Orders + latest bookings: one card per booking instead of a cut-off wide table */
     #view-orders table, #view-dashboard table { min-width: 0 !important; }
     #view-orders thead, #view-dashboard thead { display: none; }
-    #view-orders tbody tr, #view-dashboard tbody tr { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
+    #view-orders tbody tr, #view-dashboard tbody tr { display: block; border: 1.5px solid #a9b7c7; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; background: #fff; box-shadow: 0 2px 6px rgba(15,42,67,0.10); }
+    #view-orders tbody tr:nth-child(even), #view-dashboard tbody tr:nth-child(even) { background: #f3f6fa; }
     #view-orders tbody td, #view-dashboard tbody td { display: block; border: none !important; padding: 3px 0 !important; }
   }
 </style>

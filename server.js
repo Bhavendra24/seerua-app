@@ -1777,7 +1777,10 @@ app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too ma
       const sig = (list) => list.map(it => `${it.applianceId}|${it.typeId}|${it.serviceType}|${it.skuId || ''}`).sort().join(',');
       const mySig = sig(resolvedItems);
       const dup = bookings.find(b => b.phone === phone && b.bookingDate === bookingDate && b.timeSlotId === timeSlotId &&
-        b.source === 'online' && (Date.now() - new Date(b.createdAt).getTime()) < 15 * 60 * 1000 && sig(b.items || []) === mySig);
+        b.source === 'online' && (Date.now() - new Date(b.createdAt).getTime()) < 15 * 60 * 1000 && sig(b.items || []) === mySig &&
+        // a cancelled booking is not a duplicate — booking again after
+        // cancelling must create a real new visit
+        !b.cancelledByCustomer && (b.items || []).some(it => it.itemStatus !== 'cancelled'));
       if (dup) return { booking: dup, duplicate: true };
       // Secret "cancel key": kept only in the customer's own browser, so
       // that device can cancel without OTP. Only its hash is stored.
