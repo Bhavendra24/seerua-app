@@ -631,8 +631,11 @@ function openTrackHistory(skipScroll) {
 // openAccountGate() below. A customer who already has a saved account
 // skips straight through with no extra steps.
 document.addEventListener('click', (e) => {
-  const link = e.target.closest('a[href="#track"]');
-  if (link) {
+  // Footer/nav links are written "/#track" so they also work from other
+  // pages — on the homepage itself catch that form too, otherwise the
+  // browser just jumps to the (hidden) section and nothing opens.
+  const link = e.target.closest('a[href="#track"], a[href="/#track"]');
+  if (link && (link.getAttribute('href') === '#track' || location.pathname === '/')) {
     e.preventDefault();
     openTrackBookingModal();
   }
@@ -695,6 +698,8 @@ function bindUrlTriggeredSections() {
       const btn = document.getElementById('trackBtn');
       if (btn) btn.click(); // opens the Track Booking popup directly
     }
+    // one-time link: a refresh shouldn't reopen the popup
+    try { const u = new URL(location.href); u.searchParams.delete('trackPhone'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch (e) {}
   }
   if (window.location.hash === '#book') {
     // FLOW CHANGE (per explicit request): opens the booking form
@@ -728,8 +733,15 @@ if (new URLSearchParams(window.location.search).get('trackPhone')) {
   // handled by bindUrlTriggeredSections() once init() finishes loading
 } else if (window.location.hash === '#track') {
   openTrackBookingModal();
+  clearActionHash();
 } else if (window.location.hash === '#book') {
   openBookingForm();
+  clearActionHash();
+}
+// A #track/#book hash is a one-time action: drop it from the address bar
+// once handled, so a simple refresh doesn't pop the form open again.
+function clearActionHash() {
+  try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) {}
 }
 
 async function fetchJSON(url, opts) {

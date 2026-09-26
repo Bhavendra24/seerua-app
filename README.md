@@ -442,4 +442,5 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - Footer is capped at 6 cities / 6 services per column; beyond that an "All cities →" / "All services →" link goes to the homepage's full city-wise list. On a city page, that city is listed first.
 - Footer: optional GSTIN (Admin → Site Content → Footer) under Contact, and an "independent multi-brand service provider, not affiliated with any manufacturer" disclaimer line at the bottom.
 - Footer switched to a light theme (light grey background, dark text), like Urban Company.
-- Sky theme: white header with a sky-blue bottom line; "Add" is a soft sky pill (white outlined once added); Book / Book Now / cart-bar / confirm buttons are sky blue; "Add" is a sky outline; black header circles, price ribbons and the dark cart bar are now sky/light. Green only for prices, ticks and "verified".
+- Blue theme (logo blue #1b6fb0) across all public pages: CSS tokens (--blue-*, --accent-*) map to one blue family; white header with a blue bottom line; Book/confirm buttons solid blue, "Add" a soft blue pill; prices/ticks stay green. Admin panels unchanged.
+- Footer "Track Booking" / "Cancel a Booking" (/#track) now open the Track popup on the homepage too; #track, #book and ?trackPhone are cleared from the address bar once handled, so a refresh no longer reopens the popup.
