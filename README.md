@@ -43,6 +43,7 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 19) Bella (chat assistant) sudhar:** Bella ab Chimney/Geyser/Microwave ko "hum nahi karte" nahi bolti (purane prompt mein galat likha tha); FAQ mein live appliance list; slot timing, booking cancel, Track Booking aur review ke niyam jaanti hai; privacy — kisi ka number likhne par uska pata/poora naam nahi batati (sirf pehla naam). Apni baatein Admin → AI instructions mein likhein.
 - **(Update 18) Service pages par asli reviews:** har appliance-city page par "<Appliance> Service Reviews" — us appliance ki average rating (sabhi ratings, achhi-buri dono) aur 4 taaza likhe hue 4-5★ review (pehle usi city ke). Koi rating na ho to ye hissa nahi dikhta.
 - **(Update 17) Admin → ⭐ Customer Reviews:** saare star/review ek jagah — average rating, kitne likhe review, 1–3 star wale laal rang mein ("Customer ko call karein"), customer ka naam/phone (tap karke call), city, appliance, technician, Booking ID. Filter: star (ya "1–3 star"), city, "sirf likhe hue review".
 - **(Update 16) Chimney/Microwave/Geyser + review fix:**
