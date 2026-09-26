@@ -2331,9 +2331,18 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 
 /* Main site header: same light grey as the panels */
-.site-header { background: #f1f3f5 !important; border-bottom: 2px solid #1b6fb0; }
+.site-header { background: #e8e7ef !important; border-bottom: 2px solid #1b6fb0; }
 .site-header .brand img { mix-blend-mode: multiply; }   /* logo's white square blends into the grey */
 .site-header .brand-name-sub { color: #b35a00; }         /* orange a bit deeper for contrast on grey */
 .nav-links a { color: #0f172a; }
-@media (max-width: 900px) { .nav-links { background: #f7f8fa !important; } }
+@media (max-width: 900px) { .nav-links { background: #f2f1f7 !important; } }
 .site-header .call-link, .site-header .call-link .call-text { color: #0f3f6e; }
+
+/* Floating chat button: a little robot with blinking, glancing eyes */
+.bot-face { display: block; overflow: visible; }
+.bot-face .bot-eyes { transform-box: fill-box; transform-origin: center; animation: botBlink 4.2s infinite, botGlance 7s ease-in-out infinite; }
+.bot-face .bot-antenna { animation: botPing 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes botBlink { 0%, 90%, 100% { transform: scaleY(1); } 93% { transform: scaleY(0.12); } 96% { transform: scaleY(1); } }
+@keyframes botGlance { 0%, 40%, 100% { translate: 0 0; } 48%, 58% { translate: -1.6px 0; } 66%, 76% { translate: 1.6px 0; } }
+@keyframes botPing { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .bot-face .bot-eyes, .bot-face .bot-antenna { animation: none; } }
