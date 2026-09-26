@@ -1342,7 +1342,8 @@ function readListSafe(name) {
   try { const v = readData(name); return Array.isArray(v) ? v : []; } catch (e) { return []; }
 }
 function auditActor(req) {
-  const s = (req && req.session) || {};
+  if (!req) return 'Server (Render settings)';
+  const s = req.session || {};
   if (s.isAdmin) return 'Super Admin';
   if (s.subAdminId) {
     const a = readListSafe('sub-admins').find(x => x.id === s.subAdminId);
@@ -6821,7 +6822,29 @@ function cleanupOldCompletionPhotos() {
 // files if MySQL isn't configured — into db.js's in-memory cache) before
 // the server starts accepting requests. Without this, the very first
 // request could hit readData() before any data has been loaded.
+// Forgotten Super Admin password: set ADMIN_RESET_PASSWORD (8+ chars) in
+// Render → Environment and redeploy. It is applied ONCE (a fingerprint of
+// the value is remembered, so later restarts don't undo a password changed
+// from the panel). Only someone with access to the Render account can do
+// this. Remove the variable afterwards.
+function applyAdminPasswordReset() {
+  const plain = String(process.env.ADMIN_RESET_PASSWORD || '');
+  if (!plain) return;
+  if (plain.length < 8) { console.error('[startup] ADMIN_RESET_PASSWORD ignored: must be at least 8 characters'); return; }
+  const fp = require('crypto').createHash('sha256').update('seerua-reset:' + plain).digest('hex');
+  const admin = readData('admin');
+  if (admin.lastResetFingerprint === fp) return; // this value was already applied
+  admin.password = hashPassword(plain);
+  const user = String(process.env.ADMIN_RESET_USERNAME || '').trim();
+  if (user) admin.username = user;
+  admin.lastResetFingerprint = fp;
+  writeData('admin', admin);
+  audit(null, 'Super Admin password reset (from Render environment)', { username: admin.username });
+  console.log(`[startup] Super Admin password reset from ADMIN_RESET_PASSWORD (username: ${admin.username}). Remove the variable now.`);
+}
+
 initDb().then(() => {
+  try { applyAdminPasswordReset(); } catch (e) { console.error('[startup] admin password reset failed:', e.message); }
   try { ensurePricingRows(); } catch (e) { console.error('[startup] ensurePricingRows failed:', e.message); }
   app.listen(PORT, () => {
     console.log(`Seerua Appliance Care server is running: http://localhost:${PORT}`);
