@@ -2737,6 +2737,11 @@ app.put('/api/admin/site-content/footer', requireAdmin, (req, res) => {
   if (footerSlogan !== undefined) content.footerSlogan = String(footerSlogan).trim();
   if (footerAddress !== undefined) content.footerAddress = String(footerAddress).trim().slice(0, 300);
   if (footerHours !== undefined) content.footerHours = String(footerHours).trim().slice(0, 80);
+  if (req.body.footerGstin !== undefined) {
+    const g = String(req.body.footerGstin).trim().toUpperCase();
+    if (g && !/^[0-9]{2}[A-Z0-9]{13}$/.test(g)) return res.status(400).json({ error: 'GSTIN must be 15 characters (e.g. 09ABCDE1234F1Z5)' });
+    content.footerGstin = g;
+  }
   for (const k of ['facebook', 'instagram', 'youtube']) {
     const v = req.body[`social_${k}`];
     if (v === undefined) continue;
@@ -5358,6 +5363,7 @@ function buildSiteFooterHtml(currentCitySlug) {
     .join('');
   const hours = String(sc.footerHours || 'Mon – Sun, 9 AM – 8 PM').trim();
   const address = String(sc.footerAddress || '').trim();
+  const gstin = String(sc.footerGstin || '').trim();
   const year = new Date().getFullYear();
   return `<footer class="site-footer">
   <div class="container">
@@ -5403,6 +5409,7 @@ function buildSiteFooterHtml(currentCitySlug) {
           <li><a href="mailto:b4india@gmail.com"><span class="sf-ic">${FOOTER_ICON.email}</span>b4india@gmail.com</a></li>
           <li class="sf-text"><span class="sf-ic">${FOOTER_ICON.clock}</span>${escapeHtml(hours)}</li>
           ${address ? `<li class="sf-text"><span class="sf-ic">${FOOTER_ICON.pin}</span>${escapeHtml(address)}</li>` : ''}
+          ${gstin ? `<li class="sf-text sf-gst">GSTIN: ${escapeHtml(gstin)}</li>` : ''}
         </ul>
         ${socials ? `<div class="footer-contact-icons">${socials}</div>` : ''}
       </div>
@@ -5411,6 +5418,7 @@ function buildSiteFooterHtml(currentCitySlug) {
       <span>© <span id="year">${year}</span> Seerua Appliance Care. All rights reserved.</span>
       <span class="sf-legal"><a href="/terms">Terms &amp; Conditions</a> · <a href="/privacy-policy">Privacy Policy</a> · <a href="/cancellation-policy">Cancellation Policy</a></span>
     </div>
+    <p class="sf-disclaimer">Seerua Appliance Care is an independent service provider for multi-brand home appliances. Brand names are used only to identify appliances; we are not affiliated with or authorised by any manufacturer.</p>
   </div>
 </footer>`;
 }

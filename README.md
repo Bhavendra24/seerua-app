@@ -440,3 +440,5 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - Footer cities/services update automatically when a city or service is added or deleted in Admin.
 - New city rule: an appliance that is switched off in every existing city (e.g. Chimney/Geyser/Microwave, "not started yet") also starts switched off in a newly added city. Tick it in Admin → Appliances when ready.
 - Footer is capped at 6 cities / 6 services per column; beyond that an "All cities →" / "All services →" link goes to the homepage's full city-wise list. On a city page, that city is listed first.
+- Footer: optional GSTIN (Admin → Site Content → Footer) under Contact, and an "independent multi-brand service provider, not affiliated with any manufacturer" disclaimer line at the bottom.
+- Footer switched to a light theme (light grey background, dark text), like Urban Company.

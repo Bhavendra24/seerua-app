@@ -2215,6 +2215,8 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .sf-grid a.sf-more { font-weight: 600; color: #7cc4ff; }
 .sf-contact .sf-text { font-size: 0.88rem; color: #a9c1d6; line-height: 1.5; }
 .sf-legal a { margin: 0 2px; }
+.sf-gst { padding-left: 40px; font-size: 12.5px; opacity: .85; white-space: nowrap; }
+.sf-disclaimer { font-size: 12px; line-height: 1.5; opacity: .6; margin: 14px 0 0; text-align: left; }
 @media (max-width: 960px) {
   .sf-grid { grid-template-columns: 1fr 1fr; gap: 22px; }
   .sf-brand, .sf-contact { grid-column: 1 / -1; }
@@ -2231,3 +2233,24 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .sf-ic svg { width: 15px; height: 15px; }
 .sf-ic-call { color: var(--accent-500); }
 .sf-ic-wa { color: #25D366; }
+
+/* ── Light footer (Urban Company / Dainik style) ── */
+.site-footer { background: #f4f5f7; color: #4b5563; border-top: 1px solid #e5e7eb; }
+.footer-brand img { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.footer-brand span { color: #111827; }
+.footer-slogan { color: var(--blue-700, #1d4ed8); }
+.site-footer h5 { color: #111827; }
+.site-footer p { color: #4b5563; }
+.site-footer ul li a { color: #4b5563; }
+.site-footer ul li a:hover { color: var(--blue-700, #1d4ed8); }
+.sf-grid a.sf-more { color: var(--blue-700, #1d4ed8); }
+.sf-contact .sf-text { color: #4b5563; }
+.sf-ic { background: #fff; color: #374151; border: 1px solid #e5e7eb; }
+.footer-icon-link { background: #fff; color: #374151; border: 1px solid #e5e7eb; }
+.footer-icon-link:hover { background: #eef2f7; }
+.footer-bottom { border-top-color: #e5e7eb; color: #6b7280; }
+.footer-bottom a { color: #4b5563; }
+.footer-bottom a:hover { color: var(--blue-700, #1d4ed8); }
+.sf-disclaimer { color: #6b7280; opacity: 1; }
+.site-footer .sf-disclaimer { font-size: 12px; color: #6b7280; }
+.site-footer h5 { white-space: nowrap; }
