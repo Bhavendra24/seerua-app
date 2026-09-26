@@ -469,3 +469,41 @@ body.compact .btn { padding: 7px 12px; }
   #moreSettingsGroup.open { background: #eceff3; }
   .sidebar .brand-row, .sidebar-foot { border-color: #d9dee5; }
 }
+
+/* ── Medium grey panel header / sidebar (white text) ── */
+.sidebar { background: #78828e; color: #eef2f6; border-right-color: #6c7682; }
+.sidebar .brand-row span { color: #ffffff; }
+.side-nav button { color: #eef2f6; }
+.side-nav button:hover { background: #858e99; }
+.side-nav button.active { background: #ffffff; color: #14508a; border-left-color: #f08419; }
+#moreSettingsToggle { color: #d7dde4; border-top-color: #939ba5; }
+.sidebar-foot { border-top-color: #939ba5; }
+.sidebar-foot .who { color: #d7dde4; }
+.sidebar-foot .who b { color: #fff; }
+.sidebar-foot .btn-outline { color: #ffffff !important; border-color: #a9b2bd !important; background: transparent; }
+.sidebar-foot .btn-outline:hover { background: #858e99; }
+@media (max-width: 900px) {
+  .sidebar { background: #78828e; border-bottom: 2px solid #f08419; }
+  .side-nav > button, .side-nav-more-toggle, #moreSettingsGroup.open button { background: #858e99; color: #fff; border-color: #9aa2ac !important; }
+  .side-nav > button.active, #moreSettingsGroup.open button.active { background: #ffffff !important; color: #14508a !important; border-color: #ffffff !important; }
+  #moreSettingsGroup.open { background: #78828e; }
+  .sidebar .brand-row, .sidebar-foot { border-color: #939ba5; }
+}
+
+/* ── Lighter grey (dark text for readability) ── */
+.sidebar { background: #b3bac3; color: #111827; border-right-color: #a2aab4; }
+.sidebar .brand-row span { color: #0f2a43; }
+.side-nav button { color: #111827; }
+.side-nav button:hover { background: #c3c9d0; }
+#moreSettingsToggle { color: #1f2937; border-top-color: #9ea6b0; }
+.sidebar-foot { border-top-color: #9ea6b0; }
+.sidebar-foot .who { color: #1f2937; }
+.sidebar-foot .who b { color: #0f2a43; }
+.sidebar-foot .btn-outline { color: #0f2a43 !important; border-color: #7f8893 !important; }
+.sidebar-foot .btn-outline:hover { background: #c3c9d0; }
+@media (max-width: 900px) {
+  .sidebar { background: #b3bac3; }
+  .side-nav > button, .side-nav-more-toggle, #moreSettingsGroup.open button { background: #c7cdd4; color: #111827; }
+  #moreSettingsGroup.open { background: #b3bac3; }
+  .sidebar .brand-row, .sidebar-foot { border-color: #9ea6b0; }
+}
