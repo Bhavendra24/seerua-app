@@ -461,3 +461,4 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - All site settings (booking on/off, backup, technician photo, maintenance, admin password, OTP) moved off the dashboard to Settings & more → ⚙️ Site Settings. MSG91 keys are masked (shown only while editing).
 - Phone: menu shows every page as chips (no hidden sideways scroll), header scrolls away, Orders / latest bookings show as one card per booking instead of a cut-off table.
 - SEO fix: removed aggregateRating from the Service JSON-LD on service pages (Search Console "Review snippets — Invalid object type for field <parent_node>": Google does not accept ratings on a Service item).
+- SEO: blog Article JSON-LD now has datePublished / dateModified / image (Google "recommended" fields). Every page in the sitemap was scanned: no other rating-on-unsupported-type or JSON errors.

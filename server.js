@@ -6257,8 +6257,21 @@ app.get('/appliance-repair/:citySlug/blog/:articleSlug', (req, res) => {
     const title = `${personalize(article.title, city.name)}`;
     const metaDescription = personalize(article.metaDescription, city.name);
 
+    // Article dates for Google (datePublished / dateModified). Articles
+    // without a stored date get today's date saved once, so it stays fixed.
+    if (!article.createdAt) {
+      try {
+        const all = readData('blog-articles');
+        const rec = all.find(x => x.slug === article.slug);
+        if (rec && !rec.createdAt) { rec.createdAt = new Date().toISOString(); writeData('blog-articles', all); article.createdAt = rec.createdAt; }
+      } catch (e) { /* non-critical */ }
+    }
+    const datePublished = String(article.createdAt || new Date().toISOString()).slice(0, 10);
+    const dateModified = String(article.updatedAt || article.createdAt || new Date().toISOString()).slice(0, 10);
     const template = fs.readFileSync(BLOG_POST_TEMPLATE_PATH, 'utf-8');
     const html = template
+      .split('{{ARTICLE_DATE_PUBLISHED}}').join(datePublished)
+      .split('{{ARTICLE_DATE_MODIFIED}}').join(dateModified)
       .split('{{CITY_NAME}}').join(city.name)
       .split('{{CITY_ID}}').join(city.id)
       .split('{{CITY_SLUG}}').join(slugify(city.name))
