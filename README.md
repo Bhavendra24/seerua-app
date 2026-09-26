@@ -477,3 +477,4 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - Admin / Sub-Admin / Technician panels: sidebar & login screens switched from dark navy to a light theme (white, blue accents).
 - 404 page text in English, blue button.
 - All panels (Super Admin, Sub-Admin, Technician): header / sidebar in light grey (#b3bac3) with dark text, active item white with orange marker; technician top and bottom bars grey too.
+- Main customer site header now uses the same light grey (#b3bac3) as the panels; logo blended into it, darker text for contrast.
