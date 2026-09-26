@@ -473,3 +473,6 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - Phone Back button now closes any open popup / bottom sheet (Menu, City, Track, account, date…) or the chat instead of leaving the site (public/js/back-close.js, loaded on all public pages with the chat).
 - Homepage "We currently serve these cities" + brands blocks made compact (smaller chips, less padding/gaps).
 - Site-wide tighter spacing: section padding 16px (12px on phones), empty #track section no longer adds a gap before FAQ, blog hero bottom gap reduced, careers "Technician Jobs" list compact, mobile footer columns/links tighter.
+- Fix: tapping a link inside the Menu sheet (e.g. Careers) did nothing — back-close.js undid the navigation. Link taps inside popups/sheets now navigate normally.
+- Admin / Sub-Admin / Technician panels: sidebar & login screens switched from dark navy to a light theme (white, blue accents).
+- 404 page text in English, blue button.

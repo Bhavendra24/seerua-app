@@ -6896,8 +6896,8 @@ app.get(['/city/:slug', '/:slug'], (req, res, next) => {
 app.use((req, res, next) => {
   if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
   res.status(404).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Page not found — Seerua Appliance Care</title>
-<style>body{font-family:system-ui,sans-serif;background:#f5f8fb;color:#1a2b3c;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:20px}a.b{display:inline-block;margin-top:14px;background:#1f8a3b;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600}</style></head>
-<body><div><h1>Page not found</h1><p>Ye page ab maujood nahi hai. AC, washing machine, RO, fridge ki service book karne ke liye home page par jaaiye.</p><a class="b" href="/">Go to Home</a></div></body></html>`);
+<style>body{font-family:system-ui,sans-serif;background:#f5f8fb;color:#1a2b3c;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:20px}a.b{display:inline-block;margin-top:14px;background:#1b6fb0;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600}</style></head>
+<body><div><h1>Page not found</h1><p>This page no longer exists. To book AC, washing machine, RO or fridge service, please go to the home page.</p><a class="b" href="/">Go to Home</a></div></body></html>`);
 });
 
 app.use((err, req, res, next) => {

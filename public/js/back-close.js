@@ -10,6 +10,16 @@
   var ignorePop = 0;
   var closingByBack = false;
   var pendingBack = null;
+  var linkNavAt = 0;
+  // A tap on a real link inside a menu/popup closes it AND navigates —
+  // never undo that navigation with history.back().
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (!href || href === '#' || /^javascript:/i.test(href) || a.target === '_blank') return;
+    linkNavAt = Date.now();
+  }, true);
 
   function closeEl(el) {
     var btn = el.id === 'chatPanel' ? document.getElementById('chatCloseBtn') : el.querySelector('.modal-close');
@@ -34,6 +44,7 @@
       } else if (!isOpen && idx >= 0) {
         stack.splice(idx, 1);
         if (closingByBack) return;
+        if (Date.now() - linkNavAt < 1000) return; // closed because a link was tapped — let it navigate
         // closed with its own X / backdrop: drop our history entry too
         pendingBack = setTimeout(function () {
           pendingBack = null;

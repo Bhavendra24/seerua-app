@@ -13,7 +13,7 @@
 <link rel="icon" href="/images/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/panel.css?v=202609202">
+<link rel="stylesheet" href="/css/panel.css?v=202609271">
 <style>
   /* ---- Simpler Super Admin ---- */
   .dash-stats { grid-template-columns: repeat(3, 1fr); }
@@ -33,10 +33,10 @@
     /* menu: all main pages visible as chips (no hidden sideways scroll), header scrolls away */
     .sidebar { position: static !important; }
     .side-nav { flex-wrap: wrap !important; overflow: visible !important; gap: 6px !important; }
-    .side-nav > button, .side-nav-more-toggle { flex: 0 0 auto; padding: 7px 10px !important; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.18) !important; border-radius: 999px; }
-    .side-nav > button.active { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5) !important; }
+    .side-nav > button, .side-nav-more-toggle { flex: 0 0 auto; padding: 7px 10px !important; font-size: 0.8rem; border: 1px solid #d6e2ee !important; border-radius: 999px; }
+    .side-nav > button.active { background: #e7f1fa; border-color: #1b6fb0 !important; }
     #moreSettingsGroup.open { position: static !important; flex-wrap: wrap !important; overflow: visible !important; width: 100%; box-shadow: none; padding: 6px 0 !important; gap: 6px !important; }
-    #moreSettingsGroup.open button { border: 1px solid rgba(255,255,255,0.18) !important; border-radius: 999px; padding: 7px 10px !important; font-size: 0.8rem; }
+    #moreSettingsGroup.open button { border: 1px solid #d6e2ee !important; border-radius: 999px; padding: 7px 10px !important; font-size: 0.8rem; }
     .dash-stats { grid-template-columns: 1fr 1fr; }
     /* Orders + latest bookings: one card per booking instead of a cut-off wide table */
     #view-orders table, #view-dashboard table { min-width: 0 !important; }
