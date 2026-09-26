@@ -448,3 +448,16 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - Offer price: Admin → Pricing has an optional "Pehle ₹" (regular price) box per service. When it is higher than the real price, the service card shows it crossed out plus a "₹X off" chip (page and booking popup). Empty = no offer. Customers are always charged the real price.
 - Offer %: Admin → Pricing → "Offer % (all services)" auto-computes the crossed-out regular price for every service: regular = real / (1 − %), rounded up to ₹10 (20% → ₹440 shows ~~₹550~~). A per-service "Pehle ₹" wins over it; 0 = off. Applied server-side (withOfferPrices) for the service pages and /api/price.
 - Header brand text matches the logo: "SEERUA" in logo blue (#1868b0), "Appliance Care" in logo orange (#f08419).
+
+### Update 29 — Simple technician panel + anti-fraud
+- Technician panel rebuilt mobile-first: one column, bottom tabs (Jobs / Summary / Rating), job tabs New · Active · Done with counts, sorted by visit time. Each job: visit date ("Today/Tomorrow · slot"), customer, address, problem, "Collect ₹X" (coupon/parts aware), big Call · Map · WhatsApp buttons, and one big step button (Accept → Start → Photo + note → Job complete). Photo and note survive a refresh. Demo login hint removed from the login page.
+- Anti-fraud: every sensitive action is written to an Activity Log (Admin → 🕵️ Activity Log) with who / when / IP / details — order delete & restore, completed job reopened, job assign / reassign, technician turned down / completed, Google review verified (commission waived), commission paid, price & offer % changes, customer / technician deleted, customer cancellations. No endpoint can edit or delete the log.
+- Order delete needs a reason and moves the order to "Deleted Orders" (restorable) — nothing is destroyed. Started or completed jobs cannot be deleted.
+- Customer delete: orders with no work go to Deleted Orders; completed jobs stay on record with name/phone/address removed.
+- Technician delete is blocked while they still have open jobs.
+
+### Update 30 — Simpler Super Admin
+- Dashboard now shows only today's work: 6 tiles (today's visits, needs technician — red & clickable, running, completed today, today's / this month's earnings) and an "Abhi karna hai" to-do list (unassigned jobs with an Assign button, visits past their date but not completed, Google-review claims to verify, 1–3★ ratings, default-password warning), then latest bookings.
+- All site settings (booking on/off, backup, technician photo, maintenance, admin password, OTP) moved off the dashboard to Settings & more → ⚙️ Site Settings. MSG91 keys are masked (shown only while editing).
+- Phone: menu shows every page as chips (no hidden sideways scroll), header scrolls away, Orders / latest bookings show as one card per booking instead of a cut-off table.
+- SEO fix: removed aggregateRating from the Service JSON-LD on service pages (Search Console "Review snippets — Invalid object type for field <parent_node>": Google does not accept ratings on a Service item).

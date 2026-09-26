@@ -14,6 +14,31 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/panel.css?v=202609202">
+<style>
+  /* ---- Simpler Super Admin ---- */
+  .dash-stats { grid-template-columns: repeat(3, 1fr); }
+  .stat-card.clickable { cursor: pointer; }
+  .stat-card.warn { border-color: #fecaca; background: #fff5f5; }
+  .stat-card.warn .val { color: #b42318 !important; -webkit-text-fill-color: #b42318 !important; }
+  .todo-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); font-size: 0.88rem; line-height: 1.45; }
+  .todo-row:first-child { border-top: none; }
+  .todo-row small { color: var(--slate); }
+  @media (max-width: 900px) {
+    /* menu: all main pages visible as chips (no hidden sideways scroll), header scrolls away */
+    .sidebar { position: static !important; }
+    .side-nav { flex-wrap: wrap !important; overflow: visible !important; gap: 6px !important; }
+    .side-nav > button, .side-nav-more-toggle { flex: 0 0 auto; padding: 7px 10px !important; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.18) !important; border-radius: 999px; }
+    .side-nav > button.active { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5) !important; }
+    #moreSettingsGroup.open { position: static !important; flex-wrap: wrap !important; overflow: visible !important; width: 100%; box-shadow: none; padding: 6px 0 !important; gap: 6px !important; }
+    #moreSettingsGroup.open button { border: 1px solid rgba(255,255,255,0.18) !important; border-radius: 999px; padding: 7px 10px !important; font-size: 0.8rem; }
+    .dash-stats { grid-template-columns: 1fr 1fr; }
+    /* Orders + latest bookings: one card per booking instead of a cut-off wide table */
+    #view-orders table, #view-dashboard table { min-width: 0 !important; }
+    #view-orders thead, #view-dashboard thead { display: none; }
+    #view-orders tbody tr, #view-dashboard tbody tr { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
+    #view-orders tbody td, #view-dashboard tbody td { display: block; border: none !important; padding: 3px 0 !important; }
+  }
+</style>
 </head>
 <body class="compact">
 
@@ -56,6 +81,7 @@
       <button data-view="customers">🧑‍🤝‍🧑 Customers</button>
       <button data-view="reviews">⭐ Customer Reviews</button>
       <button data-view="technicians">👷 Technicians</button>
+      <button data-view="activity">🕵️ Activity Log</button>
       <!-- SIMPLIFIED (per explicit request): the remaining items below
            are all things configured occasionally (once at setup, or a
            periodic check-in) rather than used every single day like the
@@ -65,8 +91,9 @@
            are completely unchanged, so anything that already linked
            directly to one of these views (e.g. a dashboard shortcut)
            still works exactly as before. -->
-      <button type="button" id="moreSettingsToggle" class="side-nav-more-toggle">⚙️ More Settings <span id="moreSettingsArrow">▾</span></button>
+      <button type="button" id="moreSettingsToggle" class="side-nav-more-toggle">⚙️ Settings &amp; more <span id="moreSettingsArrow">▾</span></button>
       <div id="moreSettingsGroup">
+        <button data-view="settings">⚙️ Site Settings</button>
         <button data-view="reports">📊 Daily Report</button>
         <button data-view="applications">📋 Career Applications</button>
         <button data-view="subadmins">🧑‍💼 Admins</button>
@@ -140,134 +167,23 @@
 
     <!-- DASHBOARD -->
     <section class="panel-view active" id="view-dashboard">
-      <div class="topbar"><div><h1>Dashboard</h1><div class="sub">Your business at a glance</div></div></div>
+      <div class="topbar"><div><h1>Dashboard</h1><div class="sub" id="dashSub">Aaj ka kaam ek nazar mein</div></div></div>
 
-      <!-- Most important thing on this page — customer bookings — shown
-           first, above the settings cards, with a distinct amber highlight
-           so it can't be missed. -->
+      <div class="stat-row dash-stats" id="dashStats"></div>
+      <div class="card" id="dashTodoCard">
+        <div class="card-head"><h3>✅ Abhi karna hai</h3></div>
+        <div id="dashTodo"></div>
+      </div>
       <div class="card important">
-        <div class="card-head"><h3>🧾 Latest Customer Bookings <span class="badge-important">Important</span></h3><button class="btn btn-outline btn-sm" onclick="switchView('orders')">View All</button></div>
+        <div class="card-head"><h3>🧾 Latest bookings</h3><button class="btn btn-outline btn-sm" onclick="switchView('orders')">View All</button></div>
         <div class="table-wrap"><table>
           <thead><tr><th>ID</th><th>Customer</th><th>Items</th><th>City</th><th>Total</th><th>Status &amp; Technician</th></tr></thead>
           <tbody id="dashLatestOrders"></tbody>
         </table></div>
       </div>
 
-      <div class="stat-row" id="dashStats"></div>
 
-      <div class="section-divider"><span>Site Settings</span></div>
 
-      <div class="card settings-card" id="bookingStatusCard" style="border-left:4px solid var(--line);">
-        <div class="card-head">
-          <h3>🔔 Booking Status</h3>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
-            <input type="checkbox" id="bookingPausedToggle" style="width:18px;height:18px;">
-            <span id="bookingPausedStatusLabel">Accepting Bookings</span>
-          </label>
-        </div>
-        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Pause new customer bookings (e.g. while hiring more technicians) <b>without</b> taking the site offline — unlike Maintenance Mode below, the whole site (SEO pages, careers) stays fully live and searchable, so your Google ranking keeps growing and technicians can still apply, while customers just see a "not accepting bookings" notice instead of the form.</p>
-        <div class="field"><label>Message shown to visitors</label><textarea id="bookingPausedMessage" rows="2" placeholder="e.g. We're expanding our technician team — back to taking bookings within a few weeks!"></textarea></div>
-        <button class="btn btn-primary btn-sm" id="saveBookingStatusBtn">Save</button>
-        <div class="msg-inline" id="bookingStatusMsg"></div>
-      </div>
-
-      <div class="card settings-card" id="backupCard" style="border-left:4px solid var(--line);">
-        <div class="card-head">
-          <h3>💾 Data Backup</h3>
-        </div>
-        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Downloads every booking, customer, technician, and other data on the site right now, as one file. <b>Important on the current hosting plan:</b> redeploying the site resets its data back to what's in the code repository — any real bookings taken since the last deploy only exist here, on the live site, until you download a backup. Do this before every deploy.</p>
-        <a href="/api/admin/backup" class="btn btn-primary btn-sm" download>Download Backup</a>
-        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
-          <label style="font-size:0.85rem;font-weight:700;display:block;margin-bottom:6px;">Restore from a backup file</label>
-          <p style="font-size:0.8rem;color:var(--slate);margin:0 0 8px;">Use this right after a redeploy to bring back the data from your last backup.</p>
-          <input type="file" id="restoreFileInput" accept="application/json" style="margin-bottom:8px;">
-          <br>
-          <button class="btn btn-outline btn-sm" id="restoreBackupBtn">Restore This File</button>
-          <div class="msg-inline" id="restoreMsg"></div>
-        </div>
-      </div>
-
-      <div class="card settings-card" id="techPhotoCard" style="border-left:4px solid var(--line);">
-        <div class="card-head">
-          <h3>📷 Technician Photo Upload</h3>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
-            <input type="checkbox" id="techPhotoToggle" style="width:18px;height:18px;">
-            <span id="techPhotoStatusLabel">Allowed</span>
-          </label>
-        </div>
-        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 0;">When off, technicians can't upload a completion photo for a job — turn off if you don't want this feature active right now.</p>
-        <div class="msg-inline" id="techPhotoMsg"></div>
-      </div>
-
-      <div class="card settings-card" id="maintenanceCard" style="border-left:4px solid var(--line);">
-        <div class="card-head">
-          <h3>🛠️ Site Maintenance Mode</h3>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
-            <input type="checkbox" id="maintenanceToggle" style="width:18px;height:18px;">
-            <span id="maintenanceStatusLabel">Site is Live</span>
-          </label>
-        </div>
-        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Turn this on if the site is broken, being updated, or otherwise needs to go offline temporarily. Visitors will see a friendly notice instead of the normal site. The Super Admin and Technician panels stay accessible either way. <b>⚠️ For anything longer than a couple of days (e.g. "paused until we hire more technicians"), use Booking Status above instead</b> — leaving the whole site down for weeks hurts your Google ranking and stops new technicians from applying.</p>
-        <div class="field"><label>Message shown to visitors</label><textarea id="maintenanceMessage" rows="2"></textarea></div>
-        <div class="field" style="max-width:220px;">
-          <label>Expected downtime (hours)</label>
-          <input type="number" id="maintenanceExpectedHours" min="1" max="72" step="1" value="2">
-        </div>
-        <p style="font-size:0.72rem;color:var(--slate);margin:-4px 0 10px;">📈 Protects your Google ranking — tells search engines exactly how soon to check back instead of assuming the page is gone. Keep this realistic (and the actual downtime short) — Google may start dropping pages from search results if a site stays down for several days straight.</p>
-        <button class="btn btn-primary btn-sm" id="saveMaintenanceBtn">Save</button>
-        <div class="msg-inline" id="maintenanceMsg"></div>
-      </div>
-
-      <div class="card settings-card" id="adminPwCard" style="border-left:4px solid var(--line);">
-        <div class="card-head"><h3>🔑 Admin Login Password</h3></div>
-        <div id="adminPwWarn" class="form-msg error" style="display:none;margin:0 0 10px;">⚠️ Aap abhi purana default password use kar rahe hain jo code mein likha hai. Ise turant badal dijiye.</div>
-        <div class="field"><label>Current password</label><input type="password" id="adminPwCurrent" autocomplete="current-password"></div>
-        <div class="field"><label>New password (kam se kam 8 akshar)</label><input type="password" id="adminPwNew" autocomplete="new-password"></div>
-        <div class="field"><label>New password dobara</label><input type="password" id="adminPwNew2" autocomplete="new-password"></div>
-        <div class="field"><label>New username (khaali chhodein to wahi rahega)</label><input type="text" id="adminPwUser" autocomplete="username"></div>
-        <button class="btn btn-primary btn-sm" id="adminPwSave" type="button">Password badlein</button>
-        <div id="adminPwMsg" class="form-msg" style="margin-top:8px;"></div>
-      </div>
-
-      <div class="card settings-card" id="otpCard" style="border-left:4px solid var(--line);">
-        <div class="card-head">
-          <h3>🔐 OTP Verification</h3>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
-            <input type="checkbox" id="otpToggle" style="width:18px;height:18px;">
-            <span id="otpStatusLabel">OTP Enabled</span>
-          </label>
-        </div>
-        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 0;">When enabled, a customer's mobile number must be OTP-verified the first time they book. Turn this off to let customers book without OTP verification — useful while MSG91 credentials aren't set up yet, or for testing.</p>
-        <!-- ADDED: there was previously no way to actually set/update these
-             two values anywhere in the Admin Panel — whoever configured
-             them originally had to do it by hand, directly in the data
-             file. Get these from MSG91 Dashboard → OTP → your widget →
-             Show Details. -->
-        <div class="field" style="margin-top:12px;">
-          <label>MSG91 Widget ID</label>
-          <input type="text" id="otpWidgetId" placeholder="e.g. 396541xxxxxxxxxxxxxxx" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>MSG91 Token Auth</label>
-          <input type="text" id="otpTokenAuth" placeholder="e.g. 51995Txxxxxxxxxxxxxxxx" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>MSG91 AuthKey</label>
-          <input type="text" id="otpAuthkey" placeholder="e.g. 519975AeuFqVMH46a729a96P1" autocomplete="off">
-          <!-- BUG FIX: this is the account-level secret MSG91 needs to
-               actually verify a completed OTP's access-token — without
-               it, verification always failed even with a fully correct
-               code, because it was only ever saveable under
-               Notifications further down (shared with SMS/WhatsApp
-               sending) and never here, where OTP verification itself
-               looks for it. Same value either way — if it's already
-               set under Notifications, this can be left blank. -->
-          <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;">Needed to actually verify a completed OTP. Same key as under Notifications below (MSG91 → Settings → Auth Key) — only fill in one of the two, it's shared.</p>
-        </div>
-        <button class="btn btn-primary btn-sm" id="saveOtpCredsBtn">Save Widget ID &amp; Token</button>
-        <div class="msg-inline" id="otpCredsMsg"></div>
-        <div class="msg-inline" id="otpMsg"></div>
-      </div>
     </section>
 
     <!-- ANALYTICS -->
@@ -400,6 +316,144 @@
     </script>
 
     <!-- CITIES -->
+    <section class="panel-view" id="view-settings">
+      <div class="topbar"><div><h1>⚙️ Site Settings</h1><div class="sub">Booking band/chalu, maintenance, backup, password, OTP — kabhi-kabhi badalne wali cheezein</div></div></div>
+
+      <div class="card settings-card" id="bookingStatusCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>🔔 Booking Status</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="bookingPausedToggle" style="width:18px;height:18px;">
+            <span id="bookingPausedStatusLabel">Accepting Bookings</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Pause new customer bookings (e.g. while hiring more technicians) <b>without</b> taking the site offline — unlike Maintenance Mode below, the whole site (SEO pages, careers) stays fully live and searchable, so your Google ranking keeps growing and technicians can still apply, while customers just see a "not accepting bookings" notice instead of the form.</p>
+        <div class="field"><label>Message shown to visitors</label><textarea id="bookingPausedMessage" rows="2" placeholder="e.g. We're expanding our technician team — back to taking bookings within a few weeks!"></textarea></div>
+        <button class="btn btn-primary btn-sm" id="saveBookingStatusBtn">Save</button>
+        <div class="msg-inline" id="bookingStatusMsg"></div>
+      </div>
+
+      <div class="card settings-card" id="backupCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>💾 Data Backup</h3>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Downloads every booking, customer, technician, and other data on the site right now, as one file. <b>Important on the current hosting plan:</b> redeploying the site resets its data back to what's in the code repository — any real bookings taken since the last deploy only exist here, on the live site, until you download a backup. Do this before every deploy.</p>
+        <a href="/api/admin/backup" class="btn btn-primary btn-sm" download>Download Backup</a>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
+          <label style="font-size:0.85rem;font-weight:700;display:block;margin-bottom:6px;">Restore from a backup file</label>
+          <p style="font-size:0.8rem;color:var(--slate);margin:0 0 8px;">Use this right after a redeploy to bring back the data from your last backup.</p>
+          <input type="file" id="restoreFileInput" accept="application/json" style="margin-bottom:8px;">
+          <br>
+          <button class="btn btn-outline btn-sm" id="restoreBackupBtn">Restore This File</button>
+          <div class="msg-inline" id="restoreMsg"></div>
+        </div>
+      </div>
+
+      <div class="card settings-card" id="techPhotoCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>📷 Technician Photo Upload</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="techPhotoToggle" style="width:18px;height:18px;">
+            <span id="techPhotoStatusLabel">Allowed</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 0;">When off, technicians can't upload a completion photo for a job — turn off if you don't want this feature active right now.</p>
+        <div class="msg-inline" id="techPhotoMsg"></div>
+      </div>
+
+      <div class="card settings-card" id="maintenanceCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>🛠️ Site Maintenance Mode</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="maintenanceToggle" style="width:18px;height:18px;">
+            <span id="maintenanceStatusLabel">Site is Live</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 12px;">Turn this on if the site is broken, being updated, or otherwise needs to go offline temporarily. Visitors will see a friendly notice instead of the normal site. The Super Admin and Technician panels stay accessible either way. <b>⚠️ For anything longer than a couple of days (e.g. "paused until we hire more technicians"), use Booking Status above instead</b> — leaving the whole site down for weeks hurts your Google ranking and stops new technicians from applying.</p>
+        <div class="field"><label>Message shown to visitors</label><textarea id="maintenanceMessage" rows="2"></textarea></div>
+        <div class="field" style="max-width:220px;">
+          <label>Expected downtime (hours)</label>
+          <input type="number" id="maintenanceExpectedHours" min="1" max="72" step="1" value="2">
+        </div>
+        <p style="font-size:0.72rem;color:var(--slate);margin:-4px 0 10px;">📈 Protects your Google ranking — tells search engines exactly how soon to check back instead of assuming the page is gone. Keep this realistic (and the actual downtime short) — Google may start dropping pages from search results if a site stays down for several days straight.</p>
+        <button class="btn btn-primary btn-sm" id="saveMaintenanceBtn">Save</button>
+        <div class="msg-inline" id="maintenanceMsg"></div>
+      </div>
+
+      <div class="card settings-card" id="adminPwCard" style="border-left:4px solid var(--line);">
+        <div class="card-head"><h3>🔑 Admin Login Password</h3></div>
+        <div id="adminPwWarn" class="form-msg error" style="display:none;margin:0 0 10px;">⚠️ Aap abhi purana default password use kar rahe hain jo code mein likha hai. Ise turant badal dijiye.</div>
+        <div class="field"><label>Current password</label><input type="password" id="adminPwCurrent" autocomplete="current-password"></div>
+        <div class="field"><label>New password (kam se kam 8 akshar)</label><input type="password" id="adminPwNew" autocomplete="new-password"></div>
+        <div class="field"><label>New password dobara</label><input type="password" id="adminPwNew2" autocomplete="new-password"></div>
+        <div class="field"><label>New username (khaali chhodein to wahi rahega)</label><input type="text" id="adminPwUser" autocomplete="username"></div>
+        <button class="btn btn-primary btn-sm" id="adminPwSave" type="button">Password badlein</button>
+        <div id="adminPwMsg" class="form-msg" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card settings-card" id="otpCard" style="border-left:4px solid var(--line);">
+        <div class="card-head">
+          <h3>🔐 OTP Verification</h3>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:700;">
+            <input type="checkbox" id="otpToggle" style="width:18px;height:18px;">
+            <span id="otpStatusLabel">OTP Enabled</span>
+          </label>
+        </div>
+        <p style="font-size:0.85rem;color:var(--slate);margin:-6px 0 0;">When enabled, a customer's mobile number must be OTP-verified the first time they book. Turn this off to let customers book without OTP verification — useful while MSG91 credentials aren't set up yet, or for testing.</p>
+        <!-- ADDED: there was previously no way to actually set/update these
+             two values anywhere in the Admin Panel — whoever configured
+             them originally had to do it by hand, directly in the data
+             file. Get these from MSG91 Dashboard → OTP → your widget →
+             Show Details. -->
+        <div class="field" style="margin-top:12px;">
+          <label>MSG91 Widget ID</label>
+          <input type="password" id="otpWidgetId" class="secret-input" placeholder="e.g. 396541xxxxxxxxxxxxxxx" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>MSG91 Token Auth</label>
+          <input type="password" id="otpTokenAuth" class="secret-input" placeholder="e.g. 51995Txxxxxxxxxxxxxxxx" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>MSG91 AuthKey</label>
+          <input type="password" id="otpAuthkey" class="secret-input" placeholder="e.g. 519975AeuFqVMH46a729a96P1" autocomplete="off">
+          <!-- BUG FIX: this is the account-level secret MSG91 needs to
+               actually verify a completed OTP's access-token — without
+               it, verification always failed even with a fully correct
+               code, because it was only ever saveable under
+               Notifications further down (shared with SMS/WhatsApp
+               sending) and never here, where OTP verification itself
+               looks for it. Same value either way — if it's already
+               set under Notifications, this can be left blank. -->
+          <p style="font-size:0.78rem;color:var(--slate);margin:4px 0 0;">Needed to actually verify a completed OTP. Same key as under Notifications below (MSG91 → Settings → Auth Key) — only fill in one of the two, it's shared.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" id="saveOtpCredsBtn">Save Widget ID &amp; Token</button>
+        <div class="msg-inline" id="otpCredsMsg"></div>
+        <div class="msg-inline" id="otpMsg"></div>
+      </div>
+    </section>
+
+    <section class="panel-view" id="view-activity">
+      <div class="topbar"><div><h1>🕵️ Activity Log</h1><div class="sub">Kisne, kab, kya badla — delete, job reopen, reassign, Google review (commission maafi), commission paid, price change. Ye log koi delete ya edit nahi kar sakta.</div></div></div>
+      <div class="card">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <input type="search" id="activitySearch" placeholder="Search: name, phone, order ID, technician, action…" style="flex:1;min-width:220px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;">
+          <span id="activityCount" style="font-size:0.82rem;color:var(--slate);"></span>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead>
+          <tbody id="activityTable"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>🗑️ Deleted Orders</h3></div>
+        <p style="font-size:0.82rem;color:var(--slate);margin:0 0 10px;">Delete kiya gaya order yahan rehta hai — kabhi mitta nahi. Galti se delete hua ho to "Restore" dabayein. Shuru ho chuki ya complete ho chuki job delete ho hi nahi sakti.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Deleted</th><th>By</th><th>Order</th><th>Reason</th><th></th></tr></thead>
+          <tbody id="deletedOrdersTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
     <section class="panel-view" id="view-reviews">
       <div class="topbar"><div><h1>⭐ Customer Reviews</h1><div class="sub">Job complete hone ke baad customer ne jo star aur review diya — sab ek jagah</div></div></div>
       <div class="stat-row" id="reviewStats"></div>
@@ -1219,6 +1273,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609274"></script>
+<script src="/js/admin.js?v=202609276"></script>
 </body>
 </html>

@@ -3,11 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Tells browsers this site is light-themed only, so Android Chrome's
-     aggressive "Force Dark" auto-inversion (a different, more heavy-handed
-     thing than just following prefers-color-scheme) leaves logos, photos,
-     and brand colors alone instead of algorithmically recoloring them. -->
 <meta name="color-scheme" content="light">
+<meta name="theme-color" content="#1b6fb0">
 <title>Technician Panel | Seerua Appliance Care</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/images/logo.png" type="image/png">
@@ -15,12 +12,90 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/panel.css?v=202609040a">
 <style>
-  .order-card { background: var(--white); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 18px 20px; margin-bottom: 14px; }
-  .order-card .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
-  .order-card h4 { margin: 0 0 4px; font-size: 1.02rem; }
-  .order-card .meta { font-size: 0.84rem; color: var(--slate); margin-bottom: 4px; }
-  .order-card .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .order-card textarea { width: 100%; padding: 10px; border: 1.5px solid var(--line); border-radius: 8px; margin-top: 10px; font-family: inherit; }
+  /* ---------- Technician panel: one simple mobile-first column ---------- */
+  :root { --tp-blue: #1b6fb0; --tp-blue-dark: #14508a; --tp-blue-bg: #e7f1fa; --tp-green: #16a34a; --tp-green-bg: #e8f7ee; }
+  body { background: #f3f6f9; }
+  #appShell { display: none; }
+  #appShell.active { display: block; }
+  .tp-top { position: sticky; top: 0; z-index: 30; background: #fff; border-bottom: 2px solid var(--tp-blue); }
+  .tp-top-in { max-width: 720px; margin: 0 auto; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+  .tp-top img { width: 34px; height: 34px; }
+  .tp-hello { flex: 1; min-width: 0; }
+  .tp-hello b { display: block; font-size: 1rem; color: #0f2a43; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tp-hello span { font-size: 0.74rem; color: #64748b; }
+  .tp-iconbtn { border: 1px solid #d6e2ee; background: #fff; border-radius: 10px; padding: 7px 10px; font-size: 0.8rem; font-weight: 700; color: #334155; cursor: pointer; white-space: nowrap; }
+  .tp-main { max-width: 720px; margin: 0 auto; padding: 12px 12px 96px; }
+  .panel-view { display: none; }
+  .panel-view.active { display: block; }
+  .tp-h1 { font-family: var(--font-display); font-size: 1.2rem; margin: 4px 2px 10px; color: #0f2a43; }
+
+  /* bottom navigation */
+  .tp-bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: #fff; border-top: 1px solid #e2e8f0; box-shadow: 0 -4px 16px rgba(15,42,67,0.06); }
+  .tp-bottom-in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .tp-bottom button { background: none; border: none; padding: 9px 4px 11px; font-size: 0.75rem; font-weight: 700; color: #64748b; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .tp-bottom button .ic { font-size: 1.25rem; line-height: 1; }
+  .tp-bottom button.active { color: var(--tp-blue); }
+
+  /* job tabs */
+  .tp-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: #e6edf4; padding: 4px; border-radius: 12px; margin-bottom: 12px; }
+  .tp-tabs button { border: none; background: transparent; border-radius: 9px; padding: 10px 4px; font-weight: 700; font-size: 0.88rem; color: #475569; cursor: pointer; }
+  .tp-tabs button.active { background: #fff; color: var(--tp-blue); box-shadow: 0 1px 4px rgba(15,42,67,0.12); }
+  .tp-tabs .n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: #cbd5e1; color: #fff; font-size: 0.72rem; margin-left: 4px; }
+  .tp-tabs button.active .n { background: var(--tp-blue); }
+  .tp-tabs button.has-new .n { background: #e11d48; }
+
+  /* job card */
+  .job { background: #fff; border-radius: 14px; box-shadow: 0 1px 6px rgba(15,42,67,0.08); padding: 14px; margin-bottom: 12px; border-left: 5px solid #cbd5e1; }
+  .job.st-assigned { border-left-color: #e11d48; }
+  .job.st-accepted { border-left-color: var(--tp-blue); }
+  .job.st-in-progress { border-left-color: #f59e0b; }
+  .job.st-completed { border-left-color: var(--tp-green); }
+  .job-when { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; color: #0f2a43; margin-bottom: 6px; }
+  .job-when .today { color: #e11d48; }
+  .job-st { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .job-st.assigned { background: #ffe4e6; color: #be123c; }
+  .job-st.accepted { background: var(--tp-blue-bg); color: var(--tp-blue-dark); }
+  .job-st.in-progress { background: #fef3c7; color: #b45309; }
+  .job-st.completed { background: var(--tp-green-bg); color: #15803d; }
+  .job h3 { margin: 0; font-size: 1.12rem; color: #0f172a; }
+  .job-svc { font-size: 0.86rem; color: #475569; margin: 2px 0 8px; }
+  .job-line { font-size: 0.92rem; color: #1e293b; margin: 4px 0; line-height: 1.4; }
+  .job-problem { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 10px; padding: 8px 10px; font-size: 0.88rem; margin: 8px 0; }
+  .job-money { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; background: #f1f5f9; border-radius: 10px; padding: 9px 11px; margin: 10px 0; font-size: 0.9rem; color: #334155; }
+  .job-money b { font-size: 1.25rem; color: #0f172a; }
+  .job-money small { color: #64748b; font-size: 0.78rem; width: 100%; }
+  .job-contact { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 4px; }
+  .job-contact a { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 10px 4px; border-radius: 10px; font-weight: 700; font-size: 0.86rem; text-decoration: none; border: 1.5px solid #d6e2ee; color: #0f2a43; background: #fff; }
+  .job-contact a.call { border-color: var(--tp-blue); color: var(--tp-blue); }
+  .job-contact a.wa { border-color: #25d366; color: #15803d; }
+  .big-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 1.02rem; font-weight: 800; cursor: pointer; margin-top: 10px; color: #fff; background: var(--tp-blue); }
+  .big-btn.green { background: var(--tp-green); }
+  .big-btn.ghost { background: #fff; color: var(--tp-blue); border: 2px dashed #93bde6; }
+  .big-btn.ghost.ok { border-style: solid; border-color: var(--tp-green); color: #15803d; background: var(--tp-green-bg); }
+  .big-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .link-btn { display: block; margin: 10px auto 0; background: none; border: none; color: #b42318; font-size: 0.84rem; font-weight: 600; text-decoration: underline; cursor: pointer; }
+  .step-lbl { font-size: 0.78rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .04em; margin: 14px 0 0; }
+  .job textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1.5px solid #d6e2ee; border-radius: 10px; margin-top: 6px; font-family: inherit; font-size: 0.92rem; min-height: 64px; }
+  .photo-thumb { display: block; width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; margin-top: 8px; }
+  .job-done { font-size: 0.86rem; color: #15803d; font-weight: 700; margin-top: 8px; }
+  .job-note { font-size: 0.86rem; color: #475569; margin-top: 6px; }
+  .job-warn { font-size: 0.8rem; color: #b42318; margin-top: 6px; }
+  .tp-empty { background: #fff; border-radius: 14px; padding: 28px 16px; text-align: center; color: #64748b; font-size: 0.95rem; }
+
+  /* summary + rating */
+  .tp-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+  .tp-stat { background: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(15,42,67,0.06); }
+  .tp-stat .v { font-family: var(--font-display); font-size: 1.3rem; font-weight: 800; color: #0f172a; }
+  .tp-stat .l { font-size: 0.76rem; color: #64748b; font-weight: 600; margin-top: 2px; }
+  .tp-card { background: #fff; border-radius: 14px; padding: 14px; box-shadow: 0 1px 4px rgba(15,42,67,0.06); margin-bottom: 12px; }
+  .tp-card h3 { margin: 0 0 8px; font-size: 1rem; }
+  .tp-row { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid #eef2f6; font-size: 0.88rem; }
+  .tp-row:first-of-type { border-top: none; }
+  .tp-row small { color: #64748b; }
+  .tp-muted { font-size: 0.82rem; color: #64748b; line-height: 1.5; text-align: left; }
+  .tp-main p { text-align: left; }
+  .tp-date { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .tp-date input { flex: 1; padding: 9px; border: 1.5px solid #d6e2ee; border-radius: 10px; font-family: inherit; }
 </style>
 </head>
 <body class="compact">
@@ -33,116 +108,96 @@
       <span>Seerua Appliance Care</span>
     </div>
     <h2>Technician Login</h2>
-    <p class="sub">View your assigned orders and update progress.</p>
+    <p class="sub">See your jobs and update them from your phone.</p>
     <form id="loginForm">
       <div class="field">
-        <label for="techPhoneLogin">Phone Number</label>
-        <input type="text" id="techPhoneLogin" required maxlength="10">
+        <label for="techPhoneLogin">Mobile number</label>
+        <input type="tel" id="techPhoneLogin" required maxlength="10" inputmode="numeric" autocomplete="username">
       </div>
       <div class="field">
         <label for="techPassLogin">Password</label>
-        <input type="password" id="techPassLogin" required>
+        <input type="password" id="techPassLogin" required autocomplete="current-password">
       </div>
       <button type="submit" class="btn btn-primary btn-block">Login</button>
       <div class="login-error" id="loginError"></div>
     </form>
-    <div class="demo-hint">Demo login — Phone: <b>9389585479</b> · Password: <b>tech123</b><br>(New technicians can be added from the Super Admin Panel.)</div>
+    <p class="sub" style="margin:14px 0 0;font-size:0.8rem;">Forgot your password? Call the Seerua office.</p>
   </div>
 </div>
 
-<!-- APP SHELL -->
-<div class="app-shell" id="appShell">
-  <aside class="sidebar">
-    <div class="brand-row">
-      <img src="/images/logo.png" alt="Seerua Appliance Care">
-      <span>Technician Panel</span>
+<!-- APP -->
+<div id="appShell">
+  <header class="tp-top">
+    <div class="tp-top-in">
+      <img src="/images/logo.png" alt="">
+      <div class="tp-hello"><b id="whoAmI">Hello</b><span>Seerua Technician</span></div>
+      <button class="tp-iconbtn" id="enableAlertsBtn">🔔 Alerts</button>
+      <button class="tp-iconbtn" id="logoutBtn">Logout</button>
     </div>
-    <nav class="side-nav" id="sideNav">
-      <button data-view="orders" class="active">🧾 My Orders</button>
-      <button data-view="reports">📊 Today's Summary</button>
-      <button data-view="rating">⭐ My Rating</button>
-    </nav>
-    <div class="sidebar-foot">
-      <button class="btn btn-outline btn-block btn-sm" id="enableAlertsBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);margin-bottom:10px;">🔔 Enable Job Alerts</button>
-      <div class="who" id="whoAmI">Logged in</div>
-      <button class="btn btn-outline btn-block btn-sm" id="logoutBtn" style="color:#fff;border-color:rgba(255,255,255,0.3);">Logout</button>
-    </div>
-  </aside>
+  </header>
 
-  <main class="main-area">
-
-    <!-- ORDERS -->
+  <main class="tp-main">
+    <!-- JOBS -->
     <section class="panel-view active" id="view-orders">
-      <div class="topbar"><div><h1>My Orders</h1><div class="sub">Accept assigned orders and update their progress</div></div></div>
-      <div class="filters">
-        <select id="techOrderFilter">
-          <option value="">All Statuses</option>
-          <option value="assigned">Newly Assigned</option>
-          <option value="accepted">Accepted</option>
-          <option value="in-progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="rejected">Rejected</option>
-        </select>
+      <div class="tp-tabs" id="jobTabs">
+        <button data-tab="new">New <span class="n" id="nNew">0</span></button>
+        <button data-tab="active">Active <span class="n" id="nActive">0</span></button>
+        <button data-tab="done">Done <span class="n" id="nDone">0</span></button>
       </div>
       <div id="ordersList"></div>
     </section>
 
-    <!-- REPORTS -->
+    <!-- TODAY -->
     <section class="panel-view" id="view-reports">
-      <div class="topbar"><div><h1>Today's Summary</h1><div class="sub">Report of the work completed today</div></div></div>
-      <p style="font-size:0.85rem;color:var(--slate);margin-top:-6px;">A company commission applies per completed order (shown per order below — the rate can vary by appliance). If the customer leaves a Google review, tick "Google review liya" — this is sent to Admin for confirmation, and the commission is waived once Admin verifies it.</p>
-      <div class="filters" style="justify-content:space-between;">
+      <h1 class="tp-h1">📊 Work summary</h1>
+      <div class="tp-date">
         <input type="date" id="techReportDate">
-        <a class="btn btn-outline btn-sm" id="techExportBtn" href="#" target="_blank">⬇ Export to Excel (CSV)</a>
+        <a class="tp-iconbtn" id="techExportBtn" href="#" target="_blank" style="text-decoration:none;">⬇ Excel</a>
       </div>
-      <div class="stat-row" id="techReportStats"></div>
-      <div class="card">
-        <div class="card-head"><h3>Today's Orders</h3></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>ID</th><th>Customer</th><th>Appliance</th><th>Status</th><th>Price</th><th>Commission</th><th>Review</th></tr></thead>
-          <tbody id="techReportTable"></tbody>
-        </table></div>
+      <div class="tp-stats" id="techReportStats"></div>
+      <div class="tp-card">
+        <h3>Jobs on this day</h3>
+        <div id="techReportTable"></div>
       </div>
+      <p class="tp-muted">Company commission is charged on each completed job. If the customer gives a Google review, tick "Got Google review" — once the office confirms it, you pay no commission on that job.</p>
     </section>
 
-    <!-- MY RATING -->
+    <!-- RATING -->
     <section class="panel-view" id="view-rating">
-      <div class="topbar"><div><h1>My Rating</h1><div class="sub">How customers have rated your completed jobs — overall and per appliance</div></div></div>
-      <div class="stat-row" id="techRatingStats"></div>
-
-      <div class="card">
-        <div class="card-head"><h3>💰 My Earnings</h3></div>
-        <div class="stat-row" id="techEarningsStats"></div>
-        <p style="font-size:0.82rem;color:var(--slate);margin-top:12px;" id="techEarningsNote"></p>
+      <h1 class="tp-h1">⭐ My rating &amp; earnings</h1>
+      <div class="tp-stats" id="techRatingStats"></div>
+      <div class="tp-card">
+        <h3>💰 Earnings</h3>
+        <div class="tp-stats" id="techEarningsStats" style="margin-bottom:6px;"></div>
+        <p class="tp-muted" id="techEarningsNote" style="margin:0;"></p>
       </div>
-
-      <div class="card">
-        <div class="card-head"><h3>Rating by Appliance</h3></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Appliance</th><th>Rating</th><th>Rated Jobs</th><th>Completed Jobs</th></tr></thead>
-          <tbody id="techRatingByApplianceTable"></tbody>
-        </table></div>
-        <p style="font-size:0.82rem;color:var(--slate);margin-top:12px;">This is the same appliance-wise rating Super Admin sees when assigning new jobs — the better you're rated on an appliance, the more likely you are to be picked for that kind of job.</p>
+      <div class="tp-card">
+        <h3>Rating by appliance</h3>
+        <div id="techRatingByApplianceTable"></div>
+        <p class="tp-muted" style="margin:8px 0 0;">Better rating on an appliance = more jobs of that appliance for you.</p>
       </div>
     </section>
-
   </main>
+
+  <nav class="tp-bottom" id="sideNav">
+    <div class="tp-bottom-in">
+      <button data-view="orders" class="active"><span class="ic">🧾</span>Jobs</button>
+      <button data-view="reports"><span class="ic">📊</span>Summary</button>
+      <button data-view="rating"><span class="ic">⭐</span>Rating</button>
+    </div>
+  </nav>
 </div>
 
-<!-- Brief success overlay shown right after marking a job complete —
-     per request: a checkmark, a sound, and the word "Complete", so the
-     technician gets clear, immediate confirmation the tap actually
-     registered, instead of just watching the list silently re-render. -->
+<!-- Success overlay after marking a job complete -->
 <div id="completeSuccessOverlay" style="display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;background:rgba(15,42,67,0.35);">
   <div style="background:#fff;border-radius:20px;padding:36px 44px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.2);animation:completeOverlayPop 0.3s ease;">
-    <div style="width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--green,#16a34a);color:#fff;font-size:2rem;display:flex;align-items:center;justify-content:center;">✓</div>
-    <div style="font-size:1.15rem;font-weight:700;color:var(--green,#16a34a);">Complete</div>
+    <div style="width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:#16a34a;color:#fff;font-size:2rem;display:flex;align-items:center;justify-content:center;">✓</div>
+    <div style="font-size:1.15rem;font-weight:700;color:#16a34a;">Job complete</div>
   </div>
 </div>
 <style>
 @keyframes completeOverlayPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 </style>
-
-<script src="/js/technician.js?v=202609250d"></script>
+<script src="/js/technician.js?v=202609270"></script>
 </body>
 </html>

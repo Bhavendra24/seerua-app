@@ -76,6 +76,7 @@ async function api(url, opts = {}) {
 let currentView = 'dashboard';
 async function checkLogin() {
   const { loggedIn, usingDefaultPassword } = await api('/api/admin/check');
+  window.__usingDefaultPassword = !!usingDefaultPassword;
   const pwWarn = document.getElementById('adminPwWarn');
   if (pwWarn) pwWarn.style.display = usingDefaultPassword ? 'block' : 'none';
   const pwCard = document.getElementById('adminPwCard');
@@ -172,7 +173,62 @@ function switchView(view) {
   if (view === 'reports') renderReport();
   if (view === 'commission') renderCommission();
   if (view === 'sitecontent') renderSiteContent();
+  if (view === 'activity') renderActivity();
+  if (view === 'settings') renderSettingsView();
 }
+
+// ---------------- ACTIVITY LOG (anti-fraud) ----------------
+function fmtIst(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+function activityDetails(d) {
+  if (!d || typeof d !== 'object') return '';
+  return Object.entries(d).filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => {
+    const val = Array.isArray(v) ? v.join(' | ') : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+    return `<b>${esc(k)}:</b> ${esc(val)}`;
+  }).join('<br>');
+}
+const ACTIVITY_RED = /deleted|reopened|un-verified|waived|reassigned|Price changed|Offer/i;
+async function renderActivity() {
+  const q = (document.getElementById('activitySearch') || {}).value || '';
+  try {
+    const [log, bin] = await Promise.all([
+      api('/api/admin/activity-log' + (q ? `?q=${encodeURIComponent(q)}` : '')),
+      api('/api/admin/bookings-deleted')
+    ]);
+    document.getElementById('activityCount').textContent = `${log.total} entries${log.total > 500 ? ' (latest 500 shown)' : ''}`;
+    document.getElementById('activityTable').innerHTML = log.entries.length ? log.entries.map(e => `
+      <tr>
+        <td style="white-space:nowrap;">${esc(fmtIst(e.at))}</td>
+        <td>${esc(e.actor)}<div style="font-size:0.72rem;color:var(--slate);">${esc(e.ip || '')}</div></td>
+        <td><b style="color:${ACTIVITY_RED.test(e.action) ? '#b42318' : 'inherit'};">${esc(e.action)}</b></td>
+        <td style="font-size:0.8rem;line-height:1.45;">${activityDetails(e.details)}</td>
+      </tr>`).join('') : '<tr class="empty-row"><td colspan="4">No activity yet.</td></tr>';
+    document.getElementById('deletedOrdersTable').innerHTML = bin.length ? bin.map(b => `
+      <tr>
+        <td style="white-space:nowrap;">${esc(fmtIst(b.deletedAt))}</td>
+        <td>${esc(b.deletedBy || '')}</td>
+        <td><b>${esc(b.name)}</b> · ${esc(b.phone)}<br><span style="font-size:0.78rem;color:var(--slate);">${esc(b.id)} · ${esc(b.cityName || '')} · ${esc(b.bookingDate || '')} ${esc(b.timeSlot || '')}</span><br><span style="font-size:0.8rem;">${(b.items || []).map(it => `${it.qty}x ${esc(it.applianceName)} ₹${it.lineTotal}`).join(', ')} — total ₹${b.totalPrice}</span></td>
+        <td style="font-size:0.82rem;">${esc(b.deleteReason || '')}</td>
+        <td><button class="btn btn-outline btn-sm" onclick="restoreDeletedOrder('${esc(b.id)}')">↩ Restore</button></td>
+      </tr>`).join('') : '<tr class="empty-row"><td colspan="5">No deleted orders.</td></tr>';
+  } catch (e) {
+    document.getElementById('activityTable').innerHTML = `<tr class="empty-row"><td colspan="4">${esc(e.message)}</td></tr>`;
+  }
+}
+async function restoreDeletedOrder(id) {
+  if (!confirm('Restore this order back into Orders?')) return;
+  try {
+    await api(`/api/admin/bookings-deleted/${encodeURIComponent(id)}/restore`, { method: 'POST' });
+    BOOKINGS = await api('/api/admin/bookings');
+    renderActivity();
+  } catch (e) { alert(e.message); }
+}
+let activitySearchTimer = null;
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'activitySearch') { clearTimeout(activitySearchTimer); activitySearchTimer = setTimeout(renderActivity, 350); }
+});
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
@@ -409,24 +465,64 @@ document.getElementById('otpToggle').addEventListener('change', async (e) => {
   }
 });
 
-function renderDashboard(opts) {
-  // The 15-second auto refresh only updates the numbers and latest
-  // orders — re-drawing the settings cards wiped whatever the admin was
-  // typing into them (maintenance message, OTP keys...).
-  if (!(opts && opts.statsOnly)) {
-    renderMaintenanceCard();
-    renderBookingStatusCard();
-    renderOtpCard();
-  }
-  const totalOrders = BOOKINGS.length;
-  const { pending, completed, revenue } = itemStatusCounts(BOOKINGS);
+// Site settings (booking on/off, maintenance, backup, password, OTP) now
+// live on their own page (Settings & more → Site Settings) instead of
+// crowding the dashboard.
+function renderSettingsView() {
+  renderMaintenanceCard();
+  renderBookingStatusCard();
+  renderOtpCard();
+  renderTechPhotoCard().catch(() => {});
+}
 
-  document.getElementById('dashStats').innerHTML = `
-    <div class="stat-card"><div class="val">${totalOrders}</div><div class="lbl">Total Orders</div></div>
-    <div class="stat-card"><div class="val">${pending}</div><div class="lbl">Pending Items</div></div>
-    <div class="stat-card"><div class="val">${completed}</div><div class="lbl">Completed Items</div></div>
-    <div class="stat-card"><div class="val">₹${fmtInr(revenue)}</div><div class="lbl">Total Revenue</div></div>
-  `;
+function istDay(iso) { return iso ? new Date(new Date(iso).getTime() + 5.5 * 3600000).toISOString().slice(0, 10) : ''; }
+function openOrdersFiltered(status) {
+  const f = document.getElementById('orderStatusFilter');
+  if (f) f.value = status || '';
+  switchView('orders');
+}
+
+// Dashboard = "what needs me today": today's numbers + a to-do list.
+function renderDashboard(opts) {
+  const today = istToday();
+  const month = today.slice(0, 7);
+  let todayVisits = 0, needTech = 0, running = 0, doneToday = 0, revToday = 0, revMonth = 0;
+  const todo = [];
+  BOOKINGS.forEach(b => (b.items || []).forEach(it => {
+    const st = it.itemStatus;
+    if (b.bookingDate === today && st !== 'cancelled') todayVisits++;
+    if (st === 'pending') needTech++;
+    if (['assigned', 'accepted', 'in-progress'].includes(st)) running++;
+    if (st === 'completed') {
+      const d = istDay(it.completedAt || it.updatedAt);
+      if (d === today) { doneToday++; revToday += Number(it.lineTotal) || 0; }
+      if (d.slice(0, 7) === month) revMonth += Number(it.lineTotal) || 0;
+    }
+    const job = `${it.qty > 1 ? it.qty + '× ' : ''}${esc(it.applianceName)} — ${esc(b.name)}, ${esc(b.cityName)}`;
+    const when = b.bookingDate ? `${fmtDate(b.bookingDate)}${b.timeSlot ? ' · ' + esc(b.timeSlot) : ''}` : '';
+    if (st === 'pending') {
+      todo.push({ rank: 0, key: b.bookingDate || '', html: `<b style="color:#b42318;">👷 Technician lagana hai</b> · ${job}<br><small>${when}${it.rejectionHistory && it.rejectionHistory.length ? ' · ⚠️ pehle mana kiya gaya' : ''}</small>`, btn: `<button class="btn btn-primary btn-sm" onclick="openOrdersFiltered('pending')">Assign</button>` });
+    } else if (['assigned', 'accepted', 'in-progress'].includes(st) && b.bookingDate && b.bookingDate < today) {
+      todo.push({ rank: 1, key: b.bookingDate, html: `<b style="color:#b45309;">⏰ Visit ki taareekh nikal gayi, kaam complete nahi</b> · ${job}<br><small>${when} · ${esc(it.technicianName || '')} · ${esc(st)}</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="openOrdersFiltered('${st}')">Dekhein</button>` });
+    } else if (st === 'completed' && it.reviewBrought && !it.reviewVerifiedByStaff) {
+      todo.push({ rank: 2, key: it.completedAt || '', html: `<b>⭐ Google review check karein</b> (technician ka daava — confirm hone par commission maaf) · ${job}<br><small>${esc(it.technicianName || '')}</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="switchView('commission')">Check</button>` });
+    } else if (st === 'completed' && it.rating && it.rating <= 3 && istDay(it.ratedAt || it.completedAt) >= new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)) {
+      todo.push({ rank: 3, key: it.completedAt || '', html: `<b style="color:#b42318;">😟 ${it.rating}★ rating mili</b> · ${job}<br><small>${esc(it.technicianName || '')} — customer ko call karein</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="switchView('reviews')">Dekhein</button>` });
+    }
+  }));
+  const card = (v, l, onclick, warn) => `<div class="stat-card${onclick ? ' clickable' : ''}${warn ? ' warn' : ''}"${onclick ? ` onclick="${onclick}"` : ''}><div class="val">${v}</div><div class="lbl">${l}</div></div>`;
+  document.getElementById('dashStats').innerHTML =
+    card(todayVisits, 'Aaj ke visit', "switchView('orders')") +
+    card(needTech, 'Technician lagana hai', "openOrdersFiltered('pending')", needTech > 0) +
+    card(running, 'Kaam chal raha', "switchView('orders')") +
+    card(doneToday, 'Aaj complete') +
+    card('₹' + fmtInr(revToday), 'Aaj ki kamai') +
+    card('₹' + fmtInr(revMonth), 'Is mahine ki kamai');
+  todo.sort((a, b) => a.rank - b.rank || String(a.key).localeCompare(String(b.key)));
+  if (window.__usingDefaultPassword) todo.unshift({ html: '<b style="color:#b42318;">🔑 Admin password abhi bhi default hai</b> — turant badlein (Site Settings → Admin Login Password)', btn: `<button class="btn btn-primary btn-sm" onclick="switchView('settings')">Badlein</button>` });
+  document.getElementById('dashTodo').innerHTML = todo.length
+    ? todo.slice(0, 25).map(t => `<div class="todo-row"><div>${t.html}</div><div>${t.btn || ''}</div></div>`).join('') + (todo.length > 25 ? `<div class="todo-row"><small>+ ${todo.length - 25} aur…</small></div>` : '')
+    : '<div class="todo-row"><div>🎉 Sab kaam poora hai — abhi kuch baaki nahi.</div></div>';
 
   const latest = sortOrdersByBookingTime(BOOKINGS).slice(0, 8);
   document.getElementById('dashLatestOrders').innerHTML = latest.length ? latest.map(b => `
@@ -934,9 +1030,11 @@ document.getElementById('assignConfirmBtn').addEventListener('click', async () =
 });
 
 async function deleteBooking(id) {
-  if (!confirm('Are you sure you want to delete this booking?')) return;
+  const reason = prompt('Why are you deleting this order? (required — saved in Activity Log)\n\nThe order goes to "Deleted Orders" and can be restored. Started / completed jobs cannot be deleted.');
+  if (reason === null) return;
+  if (reason.trim().length < 4) { alert('Please write a proper reason.'); return; }
   try {
-    await api(`/api/admin/bookings/${id}`, { method: 'DELETE' });
+    await api(`/api/admin/bookings/${id}`, { method: 'DELETE', body: JSON.stringify({ reason: reason.trim() }) });
     BOOKINGS = await api('/api/admin/bookings');
     renderOrders(); renderDashboard();
 
@@ -2644,10 +2742,11 @@ async function deleteCustomer(phone) {
   // customer-typed name there could break out and run script).
   const found = CUSTOMERS.find(c => c.phone === phone);
   const name = found ? found.name : 'this customer';
-  const ok = confirm(`Delete ${name} (${phone})?\n\nThis permanently removes them AND all of their booking history. This cannot be undone.`);
-  if (!ok) return;
+  const reason = prompt(`Delete ${name} (${phone})?\n\nOrders with no work done go to "Deleted Orders" (can be restored). Completed jobs stay on record, only the customer's name / number / address are removed.\n\nReason (required — saved in Activity Log):`);
+  if (reason === null) return;
+  if (reason.trim().length < 4) { alert('Please write a proper reason.'); return; }
   try {
-    await api(`/api/admin/customers/${phone}`, { method: 'DELETE' });
+    await api(`/api/admin/customers/${phone}`, { method: 'DELETE', body: JSON.stringify({ reason: reason.trim() }) });
     renderCustomers();
   } catch (e) {
     alert('Could not delete this customer: ' + (e.message || 'Unknown error'));
@@ -3623,3 +3722,14 @@ function renderReviews() {
       </div>`;
   }).join('') : '<p style="color:var(--slate);">Abhi koi review nahi hai. Technician job complete karega, uske baad customer "Track Booking" se star/review de sakta hai.</p>';
 }
+
+// Secret keys stay hidden (••••) unless the field is being edited.
+document.addEventListener('focusin', (e) => { if (e.target.classList && e.target.classList.contains('secret-input')) e.target.type = 'text'; });
+document.addEventListener('focusout', (e) => { if (e.target.classList && e.target.classList.contains('secret-input')) e.target.type = 'password'; });
+// On a phone, close the "Settings & more" chips after picking a page and jump to the top.
+document.getElementById('moreSettingsGroup')?.addEventListener('click', (e) => {
+  if (!e.target.closest('button[data-view]') || !window.matchMedia('(max-width: 900px)').matches) return;
+  document.getElementById('moreSettingsGroup').classList.remove('open');
+  const arrow = document.getElementById('moreSettingsArrow'); if (arrow) arrow.textContent = '▾';
+  window.scrollTo(0, 0);
+});

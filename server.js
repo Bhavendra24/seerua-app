@@ -1328,6 +1328,87 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   res.json({ reply: result.reply, knownCustomer: knownCustomerPublic });
 });
 
+// =======================================================
+// ACTIVITY LOG (anti-fraud)
+// Every sensitive action — deleting / restoring an order, reopening a
+// completed job, reassigning, verifying a Google review (waives
+// commission), marking commission paid, changing prices, deleting a
+// customer or technician — is written here with WHO did it, WHEN, from
+// which IP, and what exactly changed. There is deliberately NO endpoint
+// to edit or delete log entries, so nobody can quietly remove a job and
+// pocket the money without it showing up in Admin → Activity Log.
+// =======================================================
+function readListSafe(name) {
+  try { const v = readData(name); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+function auditActor(req) {
+  const s = (req && req.session) || {};
+  if (s.isAdmin) return 'Super Admin';
+  if (s.subAdminId) {
+    const a = readListSafe('sub-admins').find(x => x.id === s.subAdminId);
+    return `Admin: ${a ? a.name : s.subAdminId}`;
+  }
+  if (s.technicianId) {
+    const t = readListSafe('technicians').find(x => x.id === s.technicianId);
+    return `Technician: ${t ? t.name : s.technicianId}`;
+  }
+  return 'Customer (website)';
+}
+function audit(req, action, details) {
+  try {
+    const log = readListSafe('audit-log');
+    log.push({
+      id: genId('log'),
+      at: new Date().toISOString(),
+      actor: auditActor(req),
+      ip: String((req && (req.headers['x-forwarded-for'] || req.ip)) || '').split(',')[0].trim(),
+      action,
+      details: details || {}
+    });
+    if (log.length > 20000) log.splice(0, log.length - 20000);
+    writeData('audit-log', log);
+  } catch (e) { console.error('audit log write failed:', e.message); }
+}
+// Short, human-readable summary of an order for the log.
+function bookingBrief(b) {
+  if (!b) return {};
+  return {
+    bookingId: b.id, customer: b.name, phone: b.phone, city: b.cityName, visit: `${b.bookingDate || ''} ${b.timeSlot || ''}`.trim(),
+    total: b.totalPrice,
+    items: (b.items || []).map(it => `${it.qty}x ${it.applianceName} ${it.typeName || ''} ${it.serviceName || it.serviceType || ''} ₹${it.lineTotal} [${it.itemStatus}${it.technicianName ? ' · ' + it.technicianName : ''}]`.replace(/\s+/g, ' '))
+  };
+}
+
+app.get('/api/admin/activity-log', requireAdmin, (req, res) => {
+  const q = String(req.query.q || '').toLowerCase().trim();
+  let log = readListSafe('audit-log').slice().reverse();
+  if (q) log = log.filter(e => JSON.stringify(e).toLowerCase().includes(q));
+  res.json({ total: log.length, entries: log.slice(0, 500) });
+});
+
+// Recycle bin: deleted orders are kept here (never destroyed) and can be
+// restored by Super Admin.
+app.get('/api/admin/bookings-deleted', requireAdmin, (req, res) => {
+  res.json(readListSafe('bookings-deleted').slice().reverse().slice(0, 300));
+});
+app.post('/api/admin/bookings-deleted/:id/restore', requireAdmin, (req, res) => {
+  const bin = readListSafe('bookings-deleted');
+  const idx = bin.findIndex(b => b.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ error: 'Not found in deleted orders.' });
+  const b = bin[idx];
+  const bookings = readData('bookings');
+  if (bookings.some(x => x.id === b.id)) return res.status(409).json({ error: 'This order already exists in Orders.' });
+  const restored = { ...b };
+  delete restored.deletedAt; delete restored.deletedBy; delete restored.deleteReason;
+  restored.restoredAt = new Date().toISOString();
+  bookings.push(restored);
+  bin.splice(idx, 1);
+  writeData('bookings', bookings);
+  writeData('bookings-deleted', bin);
+  audit(req, 'Order restored from deleted', bookingBrief(restored));
+  res.json({ success: true });
+});
+
 // Offer price: the crossed-out "regular" price shown next to the real one.
 // A price typed for a single service in Admin (row.mrpPrices) wins;
 // otherwise Admin's global "Offer %" (site-content.offerPercent) is applied
@@ -1350,6 +1431,7 @@ app.put('/api/admin/offer-percent', requireAdmin, (req, res) => {
   const n = Math.round(Number(req.body.offerPercent));
   if (isNaN(n) || n < 0 || n > 80) return res.status(400).json({ error: 'Offer % must be between 0 and 80.' });
   const content = readData('site-content');
+  if (Number(content.offerPercent || 0) !== n) audit(req, 'Offer % changed', { from: Number(content.offerPercent || 0), to: n });
   content.offerPercent = n;
   writeData('site-content', content);
   res.json({ success: true, offerPercent: n });
@@ -1851,6 +1933,7 @@ app.post('/api/bookings/:bookingId/cancel', simpleRateLimit('cancel', 15, 10 * 6
     return { booking: b, techIds };
   });
   if (result.error) return res.status(result.status).json({ error: result.error });
+  audit(req, 'Customer cancelled order', { ...bookingBrief(result.booking), reason: result.booking.cancelReason });
 
   // Give the coupon use back — the service never happened.
   const bk = result.booking;
@@ -3124,6 +3207,15 @@ app.put('/api/admin/pricing/:id', requireAdmin, (req, res) => {
   const pricing = readData('pricing');
   const row = pricing.find(p => p.id === req.params.id);
   if (!row) return res.status(404).json({ error: 'Price row not found' });
+  const beforePrices = JSON.stringify({ s: row.servicePrice, r: row.repairPrice, sp: row.servicePrices, m: row.mrpPrices });
+  res.on('finish', () => {
+    if (res.statusCode < 400 && JSON.stringify({ s: row.servicePrice, r: row.repairPrice, sp: row.servicePrices, m: row.mrpPrices }) !== beforePrices) {
+      const c = readListSafe('cities').find(x => x.id === row.cityId);
+      const a = readListSafe('appliances').find(x => x.id === row.applianceId);
+      const t = a && (a.types || []).find(x => x.id === row.typeId);
+      audit(req, 'Price changed', { city: c ? c.name : row.cityId, appliance: a ? a.name : row.applianceId, type: t ? t.name : row.typeId, before: JSON.parse(beforePrices), after: { s: row.servicePrice, r: row.repairPrice, sp: row.servicePrices, m: row.mrpPrices } });
+    }
+  });
   if (req.body.servicePrice !== undefined) row.servicePrice = Number(req.body.servicePrice);
   if (req.body.repairPrice !== undefined) row.repairPrice = Number(req.body.repairPrice);
   // Per-SKU pricing (Service/Repair/Installation/Uninstallation/Gas Filling
@@ -4128,12 +4220,19 @@ app.put('/api/admin/technicians/:id/commission-paid', requireAdmin, (req, res) =
     if (!/^\d{4}-\d{2}-\d{2}$/.test(paidUpToDate)) return res.status(400).json({ error: 'Invalid date.' });
     tech.commissionPaidUpTo = paidUpToDate;
   }
+  audit(req, 'Commission marked paid', { technician: tech.name, paidUpTo: tech.commissionPaidUpTo });
   writeData('technicians', technicians);
   res.json({ success: true, commissionPaidUpTo: tech.commissionPaidUpTo });
 });
 
 app.delete('/api/admin/technicians/:id', requireAdmin, (req, res) => {
   let technicians = readData('technicians');
+  const gone = technicians.find(t => t.id === req.params.id);
+  if (gone) {
+    const open = readData('bookings').reduce((n, b) => n + (b.items || []).filter(it => it.technicianId === gone.id && ['assigned', 'accepted', 'in-progress'].includes(it.itemStatus)).length, 0);
+    if (open) return res.status(400).json({ error: `${gone.name} still has ${open} open job(s). Reassign them first.` });
+    audit(req, 'Technician deleted', { name: gone.name, phone: gone.phone });
+  }
   technicians = technicians.filter(t => t.id !== req.params.id);
   writeData('technicians', technicians);
   res.json({ success: true });
@@ -4386,6 +4485,9 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/reactivate', requireStaff,
   if (item.itemStatus !== 'completed') {
     return res.status(400).json({ error: 'Only a completed job can be reactivated.' });
   }
+  audit(req, 'Completed job reopened', { ...bookingBrief(booking), job: `${item.applianceName} ${item.typeName || ''}`, technician: item.technicianName, completedAt: item.completedAt, rating: item.rating || null });
+  if (!Array.isArray(item.reopenHistory)) item.reopenHistory = [];
+  item.reopenHistory.push({ at: new Date().toISOString(), by: auditActor(req), completedAt: item.completedAt || null });
   item.itemStatus = 'in-progress';
   item.rating = null;
   item.ratingSource = null;
@@ -4447,6 +4549,7 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/google-review', requireAdm
     return res.status(400).json({ error: 'Only a completed job can be marked for a Google review.' });
   }
   const submitted = !!req.body.submitted;
+  if (!!item.reviewVerifiedByStaff !== submitted) audit(req, submitted ? 'Google review verified (commission waived)' : 'Google review un-verified', { bookingId: booking.id, customer: booking.name, job: item.applianceName, technician: item.technicianName, amount: item.lineTotal });
   item.reviewBrought = submitted;
   item.reviewVerifiedByStaff = submitted; // the one flag that actually waives commission
   item.reviewMarkedBy = submitted ? getStaffDisplayName(req) : null;
@@ -4576,6 +4679,9 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/assign', requireStaff, (re
     return res.status(400).json({ error: `${tech.name} does not have ${item.applianceName} listed as a speciality. Assignment blocked.` });
   }
 
+  if (item.technicianId !== tech.id) {
+    audit(req, item.technicianId ? 'Job reassigned' : 'Job assigned', { bookingId: booking.id, customer: booking.name, job: `${item.applianceName} ${item.typeName || ''}`, from: item.technicianName || null, to: tech.name });
+  }
   item.technicianId = tech.id;
   item.technicianName = tech.name;
   item.itemStatus = 'assigned';
@@ -4589,12 +4695,27 @@ app.put('/api/admin/bookings/:bookingId/items/:itemId/assign', requireStaff, (re
   res.json({ success: true, booking });
 });
 
+// ANTI-FRAUD: an order is never destroyed. It moves to the recycle bin
+// ("bookings-deleted") with who/when/why, shows up in Activity Log, and can
+// be restored. A job that was started or completed can't be deleted at
+// all — that's real work (and real money) that must stay on record.
 app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
   let bookings = readData('bookings');
   const booking = bookings.find(b => b.id === req.params.id);
-  if (booking && blockIfBookingDateLocked(booking, res)) return;
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (blockIfBookingDateLocked(booking, res)) return;
+  const reason = String((req.body && req.body.reason) || req.query.reason || '').trim().slice(0, 300);
+  if (reason.length < 4) return res.status(400).json({ error: 'Please write the reason for deleting this order.' });
+  const worked = (booking.items || []).find(it => ['in-progress', 'completed'].includes(it.itemStatus));
+  if (worked) {
+    return res.status(400).json({ error: `This order has a job that is ${worked.itemStatus === 'completed' ? 'completed' : 'in progress'} (${worked.applianceName}). Started or completed jobs cannot be deleted — cancel only what hasn't been done.` });
+  }
   bookings = bookings.filter(b => b.id !== req.params.id);
+  const bin = readListSafe('bookings-deleted');
+  bin.push({ ...booking, deletedAt: new Date().toISOString(), deletedBy: auditActor(req), deleteReason: reason });
+  writeData('bookings-deleted', bin);
   writeData('bookings', bookings);
+  audit(req, 'Order deleted', { ...bookingBrief(booking), reason });
   res.json({ success: true });
 });
 
@@ -4678,10 +4799,28 @@ app.get('/api/admin/customers', requireStaff, (req, res) => {
 // the read-only Customers list Sub-Admins can already see.
 app.delete('/api/admin/customers/:phone', requireAdmin, async (req, res) => {
   const phone = req.params.phone;
+  const reason = String((req.body && req.body.reason) || req.query.reason || '').trim().slice(0, 300);
+  if (reason.length < 4) return res.status(400).json({ error: 'Please write the reason for deleting this customer.' });
+  // ANTI-FRAUD: orders with real work done (in progress / completed) are
+  // NOT deleted — the customer's personal details are wiped from them
+  // (privacy) but the job, amount, technician and dates stay on record.
+  // Orders with no work done go to the recycle bin (restorable).
+  const worked = (b) => (b.items || []).some(it => ['in-progress', 'completed'].includes(it.itemStatus));
+  const anonymize = (b) => ({ ...b, name: 'Deleted customer', phone: `deleted-${b.id}`, address: '(removed on request)', customerDeletedAt: new Date().toISOString() });
+  let binned = 0, kept = 0;
   await withLock('bookings', async () => {
-    const bookings = readData('bookings').filter(b => b.phone !== phone);
-    writeData('bookings', bookings);
+    const all = readData('bookings');
+    const bin = readListSafe('bookings-deleted');
+    const out = [];
+    all.forEach(b => {
+      if (b.phone !== phone) { out.push(b); return; }
+      if (worked(b)) { out.push(anonymize(b)); kept++; }
+      else { bin.push({ ...b, deletedAt: new Date().toISOString(), deletedBy: auditActor(req), deleteReason: `Customer deleted: ${reason}` }); binned++; }
+    });
+    writeData('bookings-deleted', bin);
+    writeData('bookings', out);
   });
+  audit(req, 'Customer deleted', { phone, reason, ordersMovedToDeleted: binned, completedOrdersKeptWithoutPersonalDetails: kept });
   // BUG FIX: a booking doesn't disappear just because it's old — it
   // moves into this separate 'bookings-archive' collection (see
   // /api/admin/bookings/archive-old) and stays fully intact there. This
@@ -4689,7 +4828,8 @@ app.delete('/api/admin/customers/:phone', requireAdmin, async (req, res) => {
   // archived booking kept showing up as "already known" (customer-lookup
   // checks archive too) even after being "deleted".
   await withLock('bookings-archive', async () => {
-    const archived = readData('bookings-archive').filter(b => b.phone !== phone);
+    // archived orders are all finished — keep the record, drop personal details
+    const archived = readData('bookings-archive').map(b => (b.phone === phone ? anonymize(b) : b));
     writeData('bookings-archive', archived);
   });
   await withLock('customers', async () => {
@@ -4982,6 +5122,14 @@ app.get('/api/technician/orders', requireTechnician, (req, res) => {
           qty: it.qty,
           unitPrice: it.unitPrice,
           lineTotal: it.lineTotal,
+          serviceName: it.serviceName || '',
+          // booking-level coupon / referral discount, so the technician
+          // knows exactly how much to collect
+          bookingDiscount: (Number(b.discountAmount) || 0) + (Number(b.referralDiscount) || 0),
+          bookingTotal: b.totalPrice,
+          bookingItemCount: (b.items || []).filter(x => x.itemStatus !== 'cancelled').length,
+          completedAt: it.completedAt || null,
+          completionPhotoUrl: it.completionPhotoUrl || '',
           problem: it.problem,
           photoUrl: it.photoUrl,
           itemStatus: it.itemStatus,
@@ -5051,6 +5199,7 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/reject', requireTechnic
     rejectedAt: new Date().toISOString()
   });
 
+  audit(req, 'Technician turned down job', { bookingId: booking.id, customer: booking.name, job: item.applianceName, wasStatus: item.itemStatus });
   item.itemStatus = 'pending';
   item.technicianId = null;
   item.technicianName = null;
@@ -5116,7 +5265,11 @@ app.put('/api/technician/orders/:bookingId/items/:itemId/progress', requireTechn
       item.completionPhotoUploadedAt = new Date().toISOString();
     }
     item.itemStatus = status; // e.g. 'in-progress', 'completed'
-    if (status === 'completed') item.completedAt = new Date().toISOString(); // fixed completion day for reports/commission
+    if (status === 'in-progress' && !item.startedAt) item.startedAt = new Date().toISOString();
+    if (status === 'completed') {
+      item.completedAt = new Date().toISOString(); // fixed completion day for reports/commission
+      audit(req, 'Job completed', { bookingId: booking.id, customer: booking.name, job: `${item.applianceName} ${item.typeName || ''}`, amount: item.lineTotal });
+    }
   }
   if (report !== undefined) item.technicianReport = report;
   item.updatedAt = new Date().toISOString();
@@ -5737,7 +5890,6 @@ function buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRan
   // appliance+city pages can also show star rich-snippets — but only once
   // this city actually has at least one real "Rate this service" entry,
   // same no-fake-data rule as everywhere else.
-  const cityRating = computeSiteRating(city.id);
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Service',
@@ -5753,16 +5905,11 @@ function buildApplianceServiceSchemaJson(appliance, city, canonicalUrl, priceRan
     areaServed: { '@type': 'City', name: city.name },
     url: canonicalUrl,
     ...(appliance.photoUrl ? { image: `${SITE_URL}${appliance.photoUrl}` } : {}),
-    ...(priceRange ? { offers: { '@type': 'Offer', priceCurrency: 'INR', priceRange } } : {}),
-    ...(cityRating.ratingCount && cityRating.avgRating ? {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: String(cityRating.avgRating),
-        reviewCount: String(cityRating.ratingCount),
-        bestRating: '5',
-        worstRating: '1'
-      }
-    } : {})
+    ...(priceRange ? { offers: { '@type': 'Offer', priceCurrency: 'INR', priceRange } } : {})
+    // NOTE: no aggregateRating here. Google's review snippets don't accept a
+    // rating on a "Service" item (Search Console: "Invalid object type for
+    // field <parent_node>"), so it made the page's structured data invalid.
+    // Real customer reviews are still shown on the page itself.
   };
   return ldJson(schema);
 }

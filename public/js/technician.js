@@ -67,7 +67,7 @@ async function checkLogin() {
     CURRENT_TECH = data.technician;
     document.getElementById('loginWrap').style.display = 'none';
     document.getElementById('appShell').classList.add('active');
-    document.getElementById('whoAmI').textContent = `Logged in as ${CURRENT_TECH.name}`;
+    document.getElementById('whoAmI').textContent = `Hello, ${CURRENT_TECH.name}`;
     // ADDED: fetched once here so setProgress()'s completion-photo check
     // (below) knows whether the admin has turned photo uploads off —
     // without this, the requirement stayed hardcoded on client-side even
@@ -82,7 +82,7 @@ async function checkLogin() {
     sendHeartbeat();
     startAlertPolling();
     if (Notification && Notification.permission === 'granted') {
-      document.getElementById('enableAlertsBtn').textContent = '🔔 Alerts On';
+      document.getElementById('enableAlertsBtn').textContent = '🔔 On';
     }
   } else {
     document.getElementById('loginWrap').style.display = 'flex';
@@ -142,11 +142,16 @@ async function loadOrders(isFirstLoad) {
   const previousAssignedIds = new Set(
     ORDERS.filter(o => o.itemStatus === 'assigned').map(o => o.taskId)
   );
+  const before = JSON.stringify(ORDERS);
   ORDERS = await api('/api/technician/orders');
 
   if (!isFirstLoad) {
     const newlyAssigned = ORDERS.filter(o => o.itemStatus === 'assigned' && !previousAssignedIds.has(o.taskId));
     newlyAssigned.forEach(o => notifyNewJob(o));
+    // something changed at the office (reassigned, cancelled…) — refresh the
+    // list, but not while the technician is typing a note
+    const typing = document.activeElement && /^report-/.test(document.activeElement.id || '');
+    if (!newlyAssigned.length && before !== JSON.stringify(ORDERS) && !typing) renderOrders();
   }
 }
 
@@ -196,6 +201,7 @@ function playBeep() {
 
 function notifyNewJob(order) {
   playBeep();
+  JOB_TAB = 'new';
   if (window.Notification && Notification.permission === 'granted') {
     new Notification('New job assigned!', {
       body: `${order.qty}x ${order.applianceName} (${order.typeName}) — ${order.cityName}`,
@@ -213,10 +219,10 @@ document.getElementById('enableAlertsBtn').addEventListener('click', async () =>
   }
   const permission = await Notification.requestPermission();
   if (permission === 'granted') {
-    btn.textContent = '🔔 Alerts On';
+    btn.textContent = '🔔 On';
     playBeep();
   } else {
-    btn.textContent = '🔕 Alerts Blocked';
+    btn.textContent = '🔕 Blocked';
   }
 });
 
@@ -236,96 +242,161 @@ function startAlertPolling() {
   alertPollTimer = setInterval(() => { loadOrders(false); sendHeartbeat(); }, 25000);
 }
 
-function renderOrders() {
-  const filter = document.getElementById('techOrderFilter').value;
-  let list = ORDERS;
-  if (filter) list = list.filter(o => o.itemStatus === filter);
-  list = [...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+// ---------------- JOBS (simple mobile layout) ----------------
+// Three tabs: New (just assigned — accept or turn down), Active (accepted /
+// in progress, soonest visit first), Done (latest first).
+let JOB_TAB = null;
+const TAB_OF = { assigned: 'new', accepted: 'active', 'in-progress': 'active', completed: 'done' };
 
+function slotStartHour(slot) {
+  const m = String(slot || '').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  if (!m) return 0;
+  let h = Number(m[1]) % 12; if (/pm/i.test(m[3])) h += 12;
+  return h + (Number(m[2]) || 0) / 60;
+}
+function visitKey(o) { return `${o.bookingDate || '9999-12-31'}_${slotStartHour(o.timeSlot).toFixed(2).padStart(5, '0')}`; }
+function niceVisit(o) {
+  if (!o.bookingDate) return { text: 'Visit time not set', today: false };
+  const today = istToday();
+  const tmr = new Date(Date.parse(today + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+  const d = new Date(o.bookingDate + 'T00:00:00Z');
+  const dm = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const day = o.bookingDate === today ? `Today, ${dm}` : o.bookingDate === tmr ? `Tomorrow, ${dm}` : d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return { text: `${day}${o.timeSlot ? ' · ' + String(o.timeSlot).replace(' - ', ' – ') : ''}`, today: o.bookingDate <= today };
+}
+function mapLink(o) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${o.address || ''}, ${o.cityName || ''}`)}`; }
+function waLink(o) {
+  const p = String(o.phone || '').replace(/\D/g, '');
+  const me = CURRENT_TECH ? CURRENT_TECH.name : 'your technician';
+  const msg = `Hello ${o.name}, this is ${me} from Seerua Appliance Care. I'm coming for your ${o.applianceName} ${o.serviceName || (o.serviceType === 'repair' ? 'repair' : 'service')}.`;
+  return `https://wa.me/${p.length === 10 ? '91' + p : p}?text=${encodeURIComponent(msg)}`;
+}
+function collectHtml(o) {
+  const parts = o.serviceType === 'repair' || /repair|gas/i.test(o.serviceName || '');
+  let amount = Number(o.lineTotal) || 0;
+  let note = '';
+  if (o.bookingDiscount > 0) {
+    if (o.bookingItemCount <= 1) { amount = Math.max(0, amount - o.bookingDiscount); note = `₹${fmtInr(o.bookingDiscount)} coupon already taken off.`; }
+    else note = `This booking has a ₹${fmtInr(o.bookingDiscount)} coupon on the full bill (total ₹${fmtInr(o.bookingTotal)}).`;
+  }
+  return `<div class="job-money">Collect <b>₹${fmtInr(amount)}</b>${parts ? ' + parts (only if customer agrees)' : ''}${note ? `<small>${esc(note)}</small>` : ''}</div>`;
+}
+
+// Completion photo + note survive a page refresh / app switch (kept per job on this phone).
+const PHOTO_KEY = 'seerua_tech_photos_v1';
+function loadPendingPhotos() { try { return JSON.parse(localStorage.getItem(PHOTO_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function savePendingPhotos() { try { localStorage.setItem(PHOTO_KEY, JSON.stringify(pendingCompletionPhotos)); } catch (e) { /* ignore */ } }
+const NOTE_KEY = 'seerua_tech_notes_v1';
+function loadNotes() { try { return JSON.parse(localStorage.getItem(NOTE_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function saveNote(taskId, val) { const n = loadNotes(); if (val) n[taskId] = val; else delete n[taskId]; try { localStorage.setItem(NOTE_KEY, JSON.stringify(n)); } catch (e) { /* ignore */ } }
+
+function jobCardHtml(o) {
+  const v = niceVisit(o);
+  const stLabel = { assigned: 'New job', accepted: 'Accepted', 'in-progress': 'Working', completed: 'Done' }[o.itemStatus] || o.itemStatus;
+  const svc = [o.typeName, o.serviceName || (o.serviceType === 'repair' ? 'Repair' : 'Service')].filter(Boolean).join(' · ');
+  const photo = pendingCompletionPhotos[o.taskId] || o.completionPhotoUrl || '';
+  const notes = loadNotes();
+  const tel = String(o.phone || '').replace(/\D/g, '').slice(-10);
+  const contact = o.itemStatus !== 'completed' ? `
+      <div class="job-contact">
+        <a class="call" href="tel:+91${esc(tel)}">📞 Call</a>
+        <a href="${esc(mapLink(o))}" target="_blank" rel="noopener">🗺️ Map</a>
+        <a class="wa" href="${esc(waLink(o))}" target="_blank" rel="noopener">💬 WhatsApp</a>
+      </div>` : '';
+  let steps = '';
+  if (o.itemStatus === 'assigned') {
+    steps = `
+      <button class="big-btn green" onclick="acceptOrder('${o.bookingId}','${o.itemId}')">✓ Accept job</button>
+      <button class="link-btn" onclick="rejectOrder('${o.bookingId}','${o.itemId}')">I can't do this job</button>`;
+  } else if (o.itemStatus === 'accepted') {
+    steps = `
+      <button class="big-btn" onclick="setProgress('${o.bookingId}','${o.itemId}', 'in-progress')">▶ Start job — I have reached</button>
+      <button class="link-btn" onclick="rejectOrder('${o.bookingId}','${o.itemId}')">I can't do this job</button>`;
+  } else if (o.itemStatus === 'in-progress') {
+    const needPhoto = !PHOTO_UPLOAD_DISABLED;
+    steps = `
+      ${needPhoto ? `
+      <div class="step-lbl">Step 1 · Photo of finished work</div>
+      <label class="big-btn ghost ${photo ? 'ok' : ''}" style="margin-top:6px;">
+        <span id="photoLabel-${o.taskId}">${photo ? '✓ Photo added — tap to change' : '📷 Take photo'}</span>
+        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="uploadCompletionPhoto('${o.bookingId}','${o.itemId}', this)">
+      </label>
+      ${photo ? `<img class="photo-thumb" src="${esc(photo)}" alt="Work photo">` : ''}` : ''}
+      <div class="step-lbl">${needPhoto ? 'Step 2 · ' : ''}What did you do? (optional)</div>
+      <textarea id="report-${o.taskId}" placeholder="e.g. Gas filled, capacitor changed ₹350" oninput="saveNote('${o.taskId}', this.value)">${esc(notes[o.taskId] != null ? notes[o.taskId] : (o.technicianReport || ''))}</textarea>
+      <button class="big-btn green" ${needPhoto && !photo ? 'disabled' : ''} onclick="setProgress('${o.bookingId}','${o.itemId}', 'completed')">✓ Job complete</button>
+      ${needPhoto && !photo ? '<div class="job-warn">Add the photo first, then tap Job complete.</div>' : ''}`;
+  } else if (o.itemStatus === 'completed') {
+    steps = `
+      <div class="job-done">✅ Completed${o.completedAt ? ' · ' + esc(formatAssignedAt(o.completedAt)) : ''}</div>
+      ${o.technicianReport ? `<div class="job-note">📝 ${esc(o.technicianReport)}</div>` : ''}
+      ${o.completionPhotoUrl ? `<div class="job-note"><a href="${esc(o.completionPhotoUrl)}" target="_blank" rel="noopener">📷 Work photo</a></div>` : ''}
+      ${GOOGLE_REVIEW_URL ? `<button class="big-btn ghost" onclick="sendGoogleReviewLink('${o.bookingId}','${o.itemId}')">⭐ Ask for Google review (WhatsApp)</button>` : ''}`;
+  }
+  return `
+    <div class="job st-${o.itemStatus}">
+      <div class="job-when"><span class="${v.today && o.itemStatus !== 'completed' ? 'today' : ''}">📅 ${esc(v.text)}</span><span class="job-st ${o.itemStatus}">${stLabel}</span></div>
+      <h3>${o.qty > 1 ? o.qty + '× ' : ''}${esc(o.applianceName)}</h3>
+      <div class="job-svc">${esc(svc)}</div>
+      <div class="job-line">👤 ${esc(o.name)}</div>
+      <div class="job-line">📍 ${esc(o.address)}, ${esc(o.cityName)}</div>
+      ${o.problem ? `<div class="job-problem">🗣️ Customer says: "${esc(o.problem)}"</div>` : ''}
+      ${o.photoUrl ? `<div class="job-line"><a href="${esc(o.photoUrl)}" target="_blank" rel="noopener">📷 Customer's photo</a></div>` : ''}
+      ${o.itemStatus !== 'completed' ? collectHtml(o) : `<div class="job-line">💰 ₹${fmtInr(o.lineTotal)}</div>`}
+      ${contact}
+      ${steps}
+    </div>`;
+}
+
+function renderOrders() {
+  const groups = { new: [], active: [], done: [] };
+  ORDERS.forEach(o => { const t = TAB_OF[o.itemStatus]; if (t) groups[t].push(o); });
+  groups.new.sort((a, b) => visitKey(a).localeCompare(visitKey(b)));
+  groups.active.sort((a, b) => visitKey(a).localeCompare(visitKey(b)));
+  groups.done.sort((a, b) => String(b.completedAt || b.updatedAt || '').localeCompare(String(a.completedAt || a.updatedAt || '')));
+  if (!JOB_TAB) { try { JOB_TAB = sessionStorage.getItem('seerua_tech_tab'); } catch (e) { /* ignore */ } }
+  // a job already being worked on always wins; otherwise new jobs first
+  if (!JOB_TAB) JOB_TAB = groups.active.some(o => o.itemStatus === 'in-progress') ? 'active' : (groups.new.length ? 'new' : 'active');
+  try { sessionStorage.setItem('seerua_tech_tab', JOB_TAB); } catch (e) { /* ignore */ }
+  document.getElementById('nNew').textContent = groups.new.length;
+  document.getElementById('nActive').textContent = groups.active.length;
+  document.getElementById('nDone').textContent = groups.done.length;
+  document.querySelectorAll('#jobTabs button').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-tab') === JOB_TAB);
+    b.classList.toggle('has-new', b.getAttribute('data-tab') === 'new' && groups.new.length > 0);
+  });
+  const list = JOB_TAB === 'done' ? groups.done.slice(0, 40) : groups[JOB_TAB];
   const wrap = document.getElementById('ordersList');
+  const focusedId = document.activeElement && document.activeElement.id;
   if (!list.length) {
-    wrap.innerHTML = `<div class="card" style="text-align:center;color:var(--slate);">No orders found.</div>`;
+    const msg = { new: 'No new jobs right now. 🔔 You will hear a beep when one comes.', active: 'No active jobs. Accept a job from the "New" tab.', done: 'No completed jobs yet.' }[JOB_TAB];
+    wrap.innerHTML = `<div class="tp-empty">${msg}</div>`;
     return;
   }
-
-  // Keep anything the technician is typing when the list refreshes
-  // (new job arriving every few seconds used to wipe the report box).
-  const drafts = {};
-  let focusedId = document.activeElement && document.activeElement.id;
-  wrap.querySelectorAll('textarea[id^="report-"]').forEach(t => { drafts[t.id] = t.value; });
-  setTimeout(() => {
-    Object.keys(drafts).forEach(id => { const t = document.getElementById(id); if (t) t.value = drafts[id]; });
-    if (focusedId && focusedId.startsWith('report-')) { const t = document.getElementById(focusedId); if (t) t.focus(); }
-  }, 0);
-  wrap.innerHTML = list.map(o => `
-    <div class="order-card">
-      <div class="top-row">
-        <div>
-          <h4>${o.qty}x ${esc(o.applianceName)} (${esc(o.typeName)}) <span class="pill pill-${o.itemStatus}">${o.itemStatus.replace('-', ' ')}</span></h4>
-          <div class="meta">👤 ${esc(o.name)} · ${phoneLink(o.phone)}</div>
-          <div class="meta">📍 ${esc(o.address)}, ${esc(o.cityName)}</div>
-          <div class="meta">🛠️ ${o.serviceType === 'repair' ? 'Repair' : 'Service'}${o.problem ? `: ${esc(o.problem)}` : ''}</div>
-          ${o.photoUrl ? `<div class="meta"><a href="${o.photoUrl}" target="_blank" rel="noopener">📷 View customer's photo</a></div>` : ''}
-          <div class="meta">💰 Visit Charge: ₹${fmtInr(o.lineTotal)} ${o.timeSlot ? `· 🕐 ${esc(o.bookingDate)} · ${esc(o.timeSlot)}` : ''}</div>
-          ${o.rejectionHistory && o.rejectionHistory.length ? `<div class="meta" style="color:var(--red);">⚠️ Earlier turned down by: ${o.rejectionHistory.map(r => `${esc(r.technicianName)} (${formatAssignedAt(r.rejectedAt)})`).join(', ')}</div>` : ''}
-        </div>
-      </div>
-
-      ${o.itemStatus === 'assigned' ? `
-        <div class="actions">
-          <button class="btn btn-success btn-sm" onclick="acceptOrder('${o.bookingId}','${o.itemId}')">Accept</button>
-          <button class="btn btn-danger btn-sm" onclick="rejectOrder('${o.bookingId}','${o.itemId}')">Reject</button>
-        </div>
-      ` : ''}
-
-      ${o.itemStatus === 'accepted' ? `
-        <div class="actions">
-          <button class="btn btn-outline btn-sm" onclick="setProgress('${o.bookingId}','${o.itemId}', 'in-progress')">Start Job</button>
-        </div>
-      ` : ''}
-
-      ${o.itemStatus === 'in-progress' ? `
-        <textarea id="report-${o.taskId}" placeholder="Progress report (e.g. gas refill done, part replaced, etc.)">${esc(o.technicianReport || '')}</textarea>
-        <div class="meta" style="margin-top:8px;">
-          ${!PHOTO_UPLOAD_DISABLED ? `
-          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--blue-600);font-weight:600;">
-            📷 <span id="photoLabel-${o.taskId}">${o.completionPhotoUrl ? 'Photo attached ✓ — tap to replace' : 'Add photo of completed work (required)'}</span>
-            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="uploadCompletionPhoto('${o.bookingId}','${o.itemId}', this)">
-          </label>
-          ` : ''}
-        </div>
-        <div class="actions">
-          <button class="btn btn-outline btn-sm" onclick="saveReport('${o.bookingId}','${o.itemId}')">Save Report</button>
-          <button class="btn btn-success btn-sm" onclick="setProgress('${o.bookingId}','${o.itemId}', 'completed')">Mark as Completed</button>
-        </div>
-      ` : ''}
-
-      ${o.itemStatus === 'completed' && o.technicianReport ? `<div class="meta" style="margin-top:8px;">📝 Report: ${esc(o.technicianReport)}</div>` : ''}
-      ${o.itemStatus === 'completed' && o.completionPhotoUrl ? `<div class="meta"><a href="${o.completionPhotoUrl}" target="_blank" rel="noopener">📷 View completion photo</a></div>` : ''}
-      ${o.itemStatus === 'completed' && !o.completionPhotoUrl && o.completionPhotoExpired ? `<div class="meta" style="color:var(--slate);">📷 Completion photo auto-removed after 35 days</div>` : ''}
-
-      ${o.itemStatus === 'completed' && GOOGLE_REVIEW_URL ? `
-        <div class="actions" style="align-items:center;">
-          <button class="btn btn-outline btn-sm" onclick="sendGoogleReviewLink('${o.bookingId}','${o.itemId}')">💬 Send Google Review Link</button>
-          <span class="meta" style="margin:0;">Sending to: ${maskPhone(o.phone)}</span>
-        </div>
-      ` : ''}
-    </div>
-  `).join('');
+  wrap.innerHTML = list.map(jobCardHtml).join('');
+  if (focusedId && focusedId.startsWith('report-')) { const t = document.getElementById(focusedId); if (t) { t.focus(); t.selectionStart = t.selectionEnd = t.value.length; } }
 }
-document.getElementById('techOrderFilter').addEventListener('change', renderOrders);
+document.getElementById('jobTabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]');
+  if (!b) return;
+  JOB_TAB = b.getAttribute('data-tab');
+  renderOrders();
+  window.scrollTo(0, 0);
+});
 
 async function acceptOrder(bookingId, itemId) {
   try {
     await api(`/api/technician/orders/${bookingId}/items/${itemId}/accept`, { method: 'PUT' });
-    await loadOrders(); renderOrders();
+    await loadOrders();
+    JOB_TAB = 'active';
+    renderOrders();
 
   } catch (err) {
     alert(err.message || 'Something went wrong. Please try again.');
   }
 }
 async function rejectOrder(bookingId, itemId) {
-  if (!confirm('Are you sure you want to reject this order?')) return;
+  if (!confirm("Turn down this job? The office will give it to another technician.")) return;
   try {
     await api(`/api/technician/orders/${bookingId}/items/${itemId}/reject`, { method: 'PUT' });
     await loadOrders(); renderOrders();
@@ -339,7 +410,7 @@ async function rejectOrder(bookingId, itemId) {
 // by setProgress() when the technician actually taps "Mark as Completed".
 // Cleared implicitly whenever loadOrders()/renderOrders() re-fetches from
 // the server (a fresh render always reflects o.completionPhotoUrl instead).
-const pendingCompletionPhotos = {};
+const pendingCompletionPhotos = loadPendingPhotos();
 
 async function uploadCompletionPhoto(bookingId, itemId, inputEl) {
   const taskId = `${bookingId}__${itemId}`;
@@ -354,9 +425,10 @@ async function uploadCompletionPhoto(bookingId, itemId, inputEl) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
     pendingCompletionPhotos[taskId] = data.url;
-    if (label) label.textContent = 'Photo attached ✓ — tap to replace';
+    savePendingPhotos();
+    renderOrders();
   } catch (e) {
-    if (label) label.textContent = 'Add photo of completed work (required)';
+    if (label) label.textContent = '📷 Take photo';
     alert(e.message || 'Could not upload photo. Please try again.');
   }
 }
@@ -403,15 +475,20 @@ async function setProgress(bookingId, itemId, status) {
   // impossible to ever complete a job. Skipped when uploads are off.
   if (status === 'completed' && !PHOTO_UPLOAD_DISABLED) {
     if (!pendingCompletionPhotos[taskId]) {
-      alert('Please add a photo of the completed work first — tap "Add photo of completed work" above.');
+      alert('Please take a photo of the finished work first.');
       return;
     }
     body.completionPhotoUrl = pendingCompletionPhotos[taskId];
   }
+  if (status === 'completed' && !confirm('Mark this job as complete?')) return;
   try {
     await api(`/api/technician/orders/${bookingId}/items/${itemId}/progress`, { method: 'PUT', body: JSON.stringify(body) });
-    delete pendingCompletionPhotos[taskId];
-    if (status === 'completed') showCompleteSuccessOverlay();
+    if (status === 'completed') {
+      delete pendingCompletionPhotos[taskId];
+      savePendingPhotos();
+      saveNote(taskId, '');
+      showCompleteSuccessOverlay();
+    }
   } catch (e) {
     alert(e.message || 'Could not update this job. Please try again.');
     return;
@@ -444,7 +521,7 @@ function sendGoogleReviewLink(bookingId, itemId) {
   }
   // The technician only ever sees the masked number, here and on the order
   // card — the full number is used only internally to open WhatsApp.
-  if (!confirm(`Send Google review link on WhatsApp to ${o.name} (${maskPhone(o.phone)})?`)) return;
+  if (!confirm(`Send the Google review link to ${o.name} on WhatsApp?`)) return;
   const message = `Hi ${o.name}, thank you for choosing Seerua Appliance Care! We hope you're happy with the ${o.applianceName} ${o.serviceType === 'repair' ? 'repair' : 'service'}. If you have a moment, it would really help us if you could share a quick review on Google: ${GOOGLE_REVIEW_URL}`;
   const waPhone = /^[0-9]{10}$/.test(o.phone) ? `91${o.phone}` : o.phone;
   window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`, '_blank');
@@ -456,27 +533,22 @@ async function renderReport() {
   document.getElementById('techExportBtn').href = `/api/technician/reports/daily/export?date=${dateInput.value}`;
   const data = await api(`/api/technician/reports/daily?date=${dateInput.value}`);
   document.getElementById('techReportStats').innerHTML = `
-    <div class="stat-card"><div class="val">${data.totalAssigned}</div><div class="lbl">Total Assigned Orders</div></div>
-    <div class="stat-card"><div class="val">${data.completedToday}</div><div class="lbl">Completed Today</div></div>
-    <div class="stat-card"><div class="val">₹${fmtInr(data.earningsToday)}</div><div class="lbl">Today's Earnings</div></div>
-    <div class="stat-card"><div class="val">₹${fmtInr(data.commissionOwedToday)}</div><div class="lbl">Commission Owed Today</div></div>
+    <div class="tp-stat"><div class="v">${data.completedToday}</div><div class="l">Jobs completed</div></div>
+    <div class="tp-stat"><div class="v">${data.totalAssigned}</div><div class="l">Jobs given</div></div>
+    <div class="tp-stat"><div class="v">₹${fmtInr(data.earningsToday)}</div><div class="l">Work done (₹)</div></div>
+    <div class="tp-stat"><div class="v">₹${fmtInr(data.commissionOwedToday)}</div><div class="l">Commission to pay</div></div>
   `;
+  const stName = { assigned: 'New', accepted: 'Accepted', 'in-progress': 'Working', completed: 'Done', pending: 'Pending', cancelled: 'Cancelled' };
   document.getElementById('techReportTable').innerHTML = data.orders.length ? data.orders.map(o => `
-    <tr>
-      <td>${o.bookingId}</td>
-      <td>${esc(o.name)}</td>
-      <td>${o.qty}x ${esc(o.applianceName)}</td>
-      <td><span class="pill pill-${o.itemStatus}">${o.itemStatus.replace('-', ' ')}</span></td>
-      <td>₹${fmtInr(o.lineTotal)}</td>
-      <td>${o.itemStatus === 'completed' ? `₹${fmtInr(o.commission)}${o.reviewVerifiedByStaff ? ' <span style="color:var(--green);font-size:0.78rem;">(waived)</span>' : (o.reviewBrought ? ' <span style="color:var(--amber);font-size:0.78rem;">(pending admin confirmation)</span>' : '')}` : '—'}</td>
-      <td>${o.itemStatus === 'completed' ? `
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+    <div class="tp-row">
+      <div><b>${esc(o.name)}</b> · ${o.qty > 1 ? o.qty + '× ' : ''}${esc(o.applianceName)}<br><small>${stName[o.itemStatus] || esc(o.itemStatus)} · ₹${fmtInr(o.lineTotal)}${o.itemStatus === 'completed' ? ` · commission ₹${fmtInr(o.commission)}${o.reviewVerifiedByStaff ? ' (waived ✓)' : (o.reviewBrought ? ' (waiting for office)' : '')}` : ''}</small></div>
+      ${o.itemStatus === 'completed' ? `
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer;white-space:nowrap;">
           <input type="checkbox" ${o.reviewBrought ? 'checked' : ''} onchange="toggleReviewBrought('${o.bookingId}','${o.id}',this.checked)">
-          Google review liya
-        </label>
-      ` : ''}</td>
-    </tr>
-  `).join('') : `<tr class="empty-row"><td colspan="7">No activity on this date.</td></tr>`;
+          Got Google review
+        </label>` : ''}
+    </div>
+  `).join('') : `<div class="tp-muted">No work on this day.</div>`;
 }
 document.getElementById('techReportDate').addEventListener('change', renderReport);
 
@@ -498,42 +570,26 @@ async function toggleReviewBrought(bookingId, itemId, checked) {
 async function renderMyRating() {
   const stats = await api('/api/technician/stats');
   document.getElementById('techRatingStats').innerHTML = `
-    <div class="stat-card"><div class="val">${stats.avgRating ? `⭐ ${stats.avgRating}` : 'Not rated yet'}</div><div class="lbl">Overall Rating</div></div>
-    <div class="stat-card"><div class="val">${stats.completedJobs}</div><div class="lbl">Completed Jobs</div></div>
-    <div class="stat-card"><div class="val">${stats.rejectedJobs}</div><div class="lbl">Rejected Jobs</div></div>
-    <div class="stat-card"><div class="val">₹${fmtInr(stats.totalEarningsGenerated)}</div><div class="lbl">Total Earnings Generated</div></div>
+    <div class="tp-stat"><div class="v">${stats.avgRating ? `⭐ ${stats.avgRating}` : '—'}</div><div class="l">My rating</div></div>
+    <div class="tp-stat"><div class="v">${stats.completedJobs}</div><div class="l">Jobs completed</div></div>
+    <div class="tp-stat"><div class="v">${stats.rejectedJobs}</div><div class="l">Jobs turned down</div></div>
+    <div class="tp-stat"><div class="v">₹${fmtInr(stats.totalEarningsGenerated)}</div><div class="l">Total work (₹)</div></div>
   `;
-
-  // The company keeps a commission out of every completed job — EXCEPT
-  // jobs where staff has verified a Google review, where this technician
-  // keeps 100%. Verification is done manually by Super Admin/Admin in
-  // Orders/Commission (ticking "Google review liya" here only sends a
-  // claim for them to confirm — see the Daily Report note above). This
-  // section makes the current rate and the incentive to ask for a review
-  // visible to the technician.
   const rateLabel = stats.variableAmountMode === 'percent' ? `${stats.variableAmount}%` : `₹${fmtInr(stats.variableAmount)}`;
   document.getElementById('techEarningsStats').innerHTML = `
-    <div class="stat-card"><div class="val">${stats.variableAmount !== null ? rateLabel : 'Shared rate'}</div><div class="lbl">Your Commission Rate</div></div>
-    <div class="stat-card"><div class="val">${stats.googleReviewJobs} / ${stats.completedJobs}</div><div class="lbl">Jobs with a Verified Google Review</div></div>
-    <div class="stat-card"><div class="val">₹${fmtInr(stats.adminCommission)}</div><div class="lbl">Total Commission Deducted</div></div>
-    <div class="stat-card"><div class="val">₹${fmtInr(stats.technicianEarning)}</div><div class="lbl">Your Net Earning</div></div>
+    <div class="tp-stat"><div class="v">₹${fmtInr(stats.technicianEarning)}</div><div class="l">My earning</div></div>
+    <div class="tp-stat"><div class="v">₹${fmtInr(stats.adminCommission)}</div><div class="l">Commission</div></div>
+    <div class="tp-stat"><div class="v">${stats.variableAmount !== null ? rateLabel : 'Standard'}</div><div class="l">Commission rate</div></div>
+    <div class="tp-stat"><div class="v">${stats.googleReviewJobs} / ${stats.completedJobs}</div><div class="l">Jobs with Google review</div></div>
   `;
   document.getElementById('techEarningsNote').textContent = stats.adminCommission > 0
-    ? `Tip: Ask every customer to leave you a Google review after the job. Once your office confirms it, you keep the full amount for that job instead of paying the usual commission.`
-    : `Your commission is currently ₹0 — you keep 100% of every completed job.`;
-
+    ? 'Tip: ask every customer for a Google review. Once the office confirms it, you pay no commission on that job.'
+    : 'Your commission is ₹0 — you keep 100% of every job.';
   const appliances = Object.keys(stats.applianceBreakdown || {});
   document.getElementById('techRatingByApplianceTable').innerHTML = appliances.length ? appliances.map(id => {
     const a = stats.applianceBreakdown[id];
-    return `
-      <tr>
-        <td>${esc(a.applianceName)}</td>
-        <td>${a.avgRating ? `⭐ ${a.avgRating}` : '<span style="color:var(--slate)">Not rated yet</span>'}</td>
-        <td>${a.ratingCount}</td>
-        <td>${a.completedJobs}</td>
-      </tr>
-    `;
-  }).join('') : `<tr class="empty-row"><td colspan="4">No completed jobs yet. Once you complete a job, it'll show up here by appliance.</td></tr>`;
+    return `<div class="tp-row"><div><b>${esc(a.applianceName)}</b><br><small>${a.completedJobs} jobs · ${a.ratingCount} rated</small></div><div><b>${a.avgRating ? '⭐ ' + a.avgRating : '—'}</b></div></div>`;
+  }).join('') : '<div class="tp-muted">No completed jobs yet.</div>';
 }
 
 checkLogin();
