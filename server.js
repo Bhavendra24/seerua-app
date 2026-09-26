@@ -2340,6 +2340,116 @@ app.put('/api/admin/password', requireAdmin, loginRateLimit('admin-pw'), (req, r
 });
 
 // =======================================================
+// FORGOT SUPER ADMIN PASSWORD — two ways, both from the login page:
+//  1. OTP on the owner's recovery mobile (MSG91, same widget as customer
+//     OTP). The number is typed by the person (never shown by the site) and
+//     must match admin.recoveryPhone (default: the business number).
+//  2. One-time recovery code generated earlier from Site Settings
+//     (stored only as a hash; used once, then a new one must be made).
+// Both are rate-limited and written to the Activity Log.
+// (Render env ADMIN_RESET_PASSWORD remains as the last-resort fallback.)
+// =======================================================
+const DEFAULT_RECOVERY_PHONE = '9389585479';
+function recoveryPhoneOf(admin) { return /^[0-9]{10}$/.test(String(admin.recoveryPhone || '')) ? admin.recoveryPhone : DEFAULT_RECOVERY_PHONE; }
+function validNewAdminPassword(pw) {
+  if (typeof pw !== 'string' || pw.length < 8 || pw.length > 100) return 'New password must be at least 8 characters.';
+  if (pw === 'Seerua@2026') return 'Please choose a different password.';
+  return null;
+}
+function applyForgotReset(req, admin, newPassword, how) {
+  admin.password = hashPassword(newPassword);
+  admin.passwordChangedAt = new Date().toISOString();
+  admin.forceResetApplied = true;
+  writeData('admin', admin);
+  clearLoginFailures('admin', req);
+  clearLoginFailures('admin-forgot', req);
+  audit(req, `Super Admin password reset (${how})`, { username: admin.username });
+}
+
+// Public: tells the login page which recovery options exist (no secrets).
+app.get('/api/admin/forgot/options', (req, res) => {
+  const cfg = (() => { try { return readData('otp-config'); } catch (e) { return {}; } })();
+  const admin = readData('admin');
+  res.json({
+    otp: !!(cfg.widgetId && cfg.tokenAuth),
+    widgetId: cfg.widgetId || '', tokenAuth: cfg.tokenAuth || '',
+    recoveryCode: !!admin.recoveryCodeHash
+  });
+});
+
+app.post('/api/admin/forgot/otp', loginRateLimit('admin-forgot'), async (req, res) => {
+  const { phone, accessToken, newPassword } = req.body || {};
+  const admin = readData('admin');
+  const p = String(phone || '').replace(/\D/g, '').slice(-10);
+  const bad = validNewAdminPassword(newPassword);
+  if (bad) return res.status(400).json({ error: bad });
+  if (p !== recoveryPhoneOf(admin)) {
+    recordLoginFailure('admin-forgot', req);
+    audit(req, 'Failed Super Admin password reset (wrong mobile number)', { tried: p ? `••••••${p.slice(-4)}` : '' });
+    return res.status(401).json({ error: 'This is not the registered recovery number.' });
+  }
+  let ok = false;
+  try { ok = typeof accessToken === 'string' && accessToken && await verifyOtpAccessToken(accessToken, p); } catch (e) { ok = false; }
+  if (!ok) {
+    recordLoginFailure('admin-forgot', req);
+    return res.status(401).json({ error: 'OTP could not be verified. Please try again.' });
+  }
+  applyForgotReset(req, admin, newPassword, 'OTP on mobile');
+  res.json({ success: true, username: admin.username });
+});
+
+app.post('/api/admin/forgot/code', loginRateLimit('admin-forgot'), (req, res) => {
+  const { code, newPassword } = req.body || {};
+  const admin = readData('admin');
+  const bad = validNewAdminPassword(newPassword);
+  if (bad) return res.status(400).json({ error: bad });
+  const clean = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!admin.recoveryCodeHash || !clean || !verifyAndUpgrade(clean, admin.recoveryCodeHash)) {
+    recordLoginFailure('admin-forgot', req);
+    audit(req, 'Failed Super Admin password reset (wrong recovery code)', {});
+    return res.status(401).json({ error: 'Recovery code is wrong.' });
+  }
+  admin.recoveryCodeHash = null; // one-time
+  admin.recoveryCodeCreatedAt = null;
+  applyForgotReset(req, admin, newPassword, 'recovery code');
+  res.json({ success: true, username: admin.username, codeUsed: true });
+});
+
+// Logged-in Super Admin: see / change the recovery mobile, make a new code.
+app.get('/api/admin/recovery', requireAdmin, (req, res) => {
+  const admin = readData('admin');
+  const p = recoveryPhoneOf(admin);
+  res.json({ recoveryPhone: p, isDefault: !admin.recoveryPhone, hasCode: !!admin.recoveryCodeHash, codeCreatedAt: admin.recoveryCodeCreatedAt || null });
+});
+app.put('/api/admin/recovery', requireAdmin, loginRateLimit('admin-pw'), (req, res) => {
+  const { currentPassword, recoveryPhone, newCode } = req.body || {};
+  const admin = readData('admin');
+  if (typeof currentPassword !== 'string' || !verifyAndUpgrade(currentPassword, admin.password)) {
+    recordLoginFailure('admin-pw', req);
+    return res.status(401).json({ error: 'Current password is wrong.' });
+  }
+  const out = { success: true };
+  if (recoveryPhone !== undefined && recoveryPhone !== '') {
+    const p = String(recoveryPhone).replace(/\D/g, '').slice(-10);
+    if (!/^[6-9][0-9]{9}$/.test(p)) return res.status(400).json({ error: 'Enter a valid 10-digit mobile number.' });
+    admin.recoveryPhone = p;
+    audit(req, 'Recovery mobile changed', { to: `••••••${p.slice(-4)}` });
+  }
+  if (newCode) {
+    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = require('crypto').randomBytes(12);
+    const raw = Array.from(bytes, b => A[b % A.length]).join('');
+    admin.recoveryCodeHash = hashPassword(raw);
+    admin.recoveryCodeCreatedAt = new Date().toISOString();
+    out.code = raw.match(/.{4}/g).join('-');
+    audit(req, 'New recovery code generated', {});
+  }
+  writeData('admin', admin);
+  clearLoginFailures('admin-pw', req);
+  res.json(out);
+});
+
+// =======================================================
 // SUB-ADMIN — a limited staff account (created by the Admin) that can only
 // assign technicians to bookings, control booking time slots, and register
 // new customers. It cannot touch pricing, coupons, technicians, maintenance

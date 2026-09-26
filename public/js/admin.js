@@ -469,6 +469,7 @@ document.getElementById('otpToggle').addEventListener('change', async (e) => {
 // live on their own page (Settings & more → Site Settings) instead of
 // crowding the dashboard.
 function renderSettingsView() {
+  renderRecoveryCard();
   renderMaintenanceCard();
   renderBookingStatusCard();
   renderOtpCard();
@@ -501,28 +502,28 @@ function renderDashboard(opts) {
     const job = `${it.qty > 1 ? it.qty + '× ' : ''}${esc(it.applianceName)} — ${esc(b.name)}, ${esc(b.cityName)}`;
     const when = b.bookingDate ? `${fmtDate(b.bookingDate)}${b.timeSlot ? ' · ' + esc(b.timeSlot) : ''}` : '';
     if (st === 'pending') {
-      todo.push({ rank: 0, key: b.bookingDate || '', html: `<b style="color:#b42318;">👷 Technician lagana hai</b> · ${job}<br><small>${when}${it.rejectionHistory && it.rejectionHistory.length ? ' · ⚠️ pehle mana kiya gaya' : ''}</small>`, btn: `<button class="btn btn-primary btn-sm" onclick="openOrdersFiltered('pending')">Assign</button>` });
+      todo.push({ rank: 0, key: b.bookingDate || '', html: `<b style="color:#b42318;">👷 Needs a technician</b> · ${job}<br><small>${when}${it.rejectionHistory && it.rejectionHistory.length ? ' · ⚠️ turned down earlier' : ''}</small>`, btn: `<button class="btn btn-primary btn-sm" onclick="openOrdersFiltered('pending')">Assign</button>` });
     } else if (['assigned', 'accepted', 'in-progress'].includes(st) && b.bookingDate && b.bookingDate < today) {
-      todo.push({ rank: 1, key: b.bookingDate, html: `<b style="color:#b45309;">⏰ Visit ki taareekh nikal gayi, kaam complete nahi</b> · ${job}<br><small>${when} · ${esc(it.technicianName || '')} · ${esc(st)}</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="openOrdersFiltered('${st}')">Dekhein</button>` });
+      todo.push({ rank: 1, key: b.bookingDate, html: `<b style="color:#b45309;">⏰ Visit date has passed, job not completed</b> · ${job}<br><small>${when} · ${esc(it.technicianName || '')} · ${esc(st)}</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="openOrdersFiltered('${st}')">View</button>` });
     } else if (st === 'completed' && it.reviewBrought && !it.reviewVerifiedByStaff) {
-      todo.push({ rank: 2, key: it.completedAt || '', html: `<b>⭐ Google review check karein</b> (technician ka daava — confirm hone par commission maaf) · ${job}<br><small>${esc(it.technicianName || '')}</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="switchView('commission')">Check</button>` });
+      todo.push({ rank: 2, key: it.completedAt || '', html: `<b>⭐ Check Google review</b> (technician says they got one — confirming waives commission) · ${job}<br><small>${esc(it.technicianName || '')}</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="switchView('commission')">Check</button>` });
     } else if (st === 'completed' && it.rating && it.rating <= 3 && istDay(it.ratedAt || it.completedAt) >= new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)) {
-      todo.push({ rank: 3, key: it.completedAt || '', html: `<b style="color:#b42318;">😟 ${it.rating}★ rating mili</b> · ${job}<br><small>${esc(it.technicianName || '')} — customer ko call karein</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="switchView('reviews')">Dekhein</button>` });
+      todo.push({ rank: 3, key: it.completedAt || '', html: `<b style="color:#b42318;">😟 ${it.rating}★ rating received</b> · ${job}<br><small>${esc(it.technicianName || '')} — call the customer</small>`, btn: `<button class="btn btn-outline btn-sm" onclick="switchView('reviews')">View</button>` });
     }
   }));
   const card = (v, l, onclick, warn) => `<div class="stat-card${onclick ? ' clickable' : ''}${warn ? ' warn' : ''}"${onclick ? ` onclick="${onclick}"` : ''}><div class="val">${v}</div><div class="lbl">${l}</div></div>`;
   document.getElementById('dashStats').innerHTML =
-    card(todayVisits, 'Aaj ke visit', "switchView('orders')") +
-    card(needTech, 'Technician lagana hai', "openOrdersFiltered('pending')", needTech > 0) +
-    card(running, 'Kaam chal raha', "switchView('orders')") +
-    card(doneToday, 'Aaj complete') +
-    card('₹' + fmtInr(revToday), 'Aaj ki kamai') +
-    card('₹' + fmtInr(revMonth), 'Is mahine ki kamai');
+    card(todayVisits, "Today's visits", "switchView('orders')") +
+    card(needTech, 'Needs a technician', "openOrdersFiltered('pending')", needTech > 0) +
+    card(running, 'Jobs in progress', "switchView('orders')") +
+    card(doneToday, 'Completed today') +
+    card('₹' + fmtInr(revToday), "Today's earnings") +
+    card('₹' + fmtInr(revMonth), "This month's earnings");
   todo.sort((a, b) => a.rank - b.rank || String(a.key).localeCompare(String(b.key)));
-  if (window.__usingDefaultPassword) todo.unshift({ html: '<b style="color:#b42318;">🔑 Admin password abhi bhi default hai</b> — turant badlein (Site Settings → Admin Login Password)', btn: `<button class="btn btn-primary btn-sm" onclick="switchView('settings')">Badlein</button>` });
+  if (window.__usingDefaultPassword) todo.unshift({ html: '<b style="color:#b42318;">🔑 Admin password is still the default</b> — change it now (Site Settings → Admin Login Password)', btn: `<button class="btn btn-primary btn-sm" onclick="switchView('settings')">Change</button>` });
   document.getElementById('dashTodo').innerHTML = todo.length
-    ? todo.slice(0, 25).map(t => `<div class="todo-row"><div>${t.html}</div><div>${t.btn || ''}</div></div>`).join('') + (todo.length > 25 ? `<div class="todo-row"><small>+ ${todo.length - 25} aur…</small></div>` : '')
-    : '<div class="todo-row"><div>🎉 Sab kaam poora hai — abhi kuch baaki nahi.</div></div>';
+    ? todo.slice(0, 25).map(t => `<div class="todo-row"><div>${t.html}</div><div>${t.btn || ''}</div></div>`).join('') + (todo.length > 25 ? `<div class="todo-row"><small>+ ${todo.length - 25} more…</small></div>` : '')
+    : '<div class="todo-row"><div>🎉 All caught up — nothing pending right now.</div></div>';
 
   const latest = sortOrdersByBookingTime(BOOKINGS).slice(0, 8);
   document.getElementById('dashLatestOrders').innerHTML = latest.length ? latest.map(b => `
@@ -790,7 +791,7 @@ function renderOrders() {
             ${it.completionPhotoUrl ? `<a href="${it.completionPhotoUrl}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--green);">✅ View completion photo</a><br>` : (it.itemStatus === 'completed' && it.completionPhotoExpired ? `<small style="color:var(--slate);">📷 Completion photo auto-removed after 35 days</small><br>` : '')}
             <span class="pill pill-${it.itemStatus}">${it.itemStatus.replace('-', ' ')}</span>
             ${it.technicianName ? ` <small style="color:var(--slate)">→ ${esc(it.technicianName)}${it.assignedAt ? ` · assigned ${formatAssignedAt(it.assignedAt)}` : ''}</small>` : ''}
-            ${it.cancelledBy === 'customer' ? `<br><small style="color:var(--red);font-weight:600;">❌ Customer ne cancel kiya${b.cancelReason ? ': ' + esc(b.cancelReason) : ''} (${formatAssignedAt(it.cancelledAt)})</small>` : ''}
+            ${it.cancelledBy === 'customer' ? `<br><small style="color:var(--red);font-weight:600;">❌ Cancelled by customer${b.cancelReason ? ': ' + esc(b.cancelReason) : ''} (${formatAssignedAt(it.cancelledAt)})</small>` : ''}
             ${it.rejectionHistory && it.rejectionHistory.length ? `<br><small style="color:var(--red);">⚠️ Previously rejected by: ${it.rejectionHistory.map(r => `${esc(r.technicianName)} (${formatAssignedAt(r.rejectedAt)})`).join(', ')}</small>` : ''}
             <br>
             ${it.itemStatus === 'completed' ? `
@@ -1522,21 +1523,21 @@ function renderCities() {
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <strong style="font-size:1rem;">${esc(c.name)}</strong>
         <span class="pill ${c.active ? 'pill-completed' : 'pill-rejected'}">${c.active ? 'Active' : 'Inactive'}</span>
-        ${c.localInfo ? '<span style="font-size:0.78rem;color:#1f8a3b;font-weight:600;">✓ Local info likha hai</span>' : '<span style="font-size:0.78rem;color:#b45309;font-weight:600;">⚠️ Local info baaki</span>'}
+        ${c.localInfo ? '<span style="font-size:0.78rem;color:#1f8a3b;font-weight:600;">✓ Local info added</span>' : '<span style="font-size:0.78rem;color:#b45309;font-weight:600;">⚠️ Local info missing</span>'}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-        <button class="btn ${c.localInfo ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="toggleCityInfo('${c.id}')">📍 Local info${c.localInfo ? ' ✓' : ' likhein'}</button>
+        <button class="btn ${c.localInfo ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="toggleCityInfo('${c.id}')">📍 Local info${c.localInfo ? ' ✓' : ' — add'}</button>
         <button class="btn btn-outline btn-sm" onclick="toggleCity('${c.id}', ${!c.active})">${c.active ? 'Deactivate' : 'Activate'}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCity('${c.id}')">Delete</button>
       </div>
       <div id="cityInfoRow-${c.id}" style="display:none;margin-top:10px;">
-        <label style="font-size:0.85rem;font-weight:600;display:block;">${esc(c.name)} — local jaankari (SEO ke liye, is city ke har service page par dikhegi)</label>
-        <textarea id="cityInfo-${c.id}" rows="6" maxlength="3000" style="width:100%;box-sizing:border-box;margin-top:6px;font-size:0.95rem;padding:8px;" placeholder="Jaise: Hum ${esc(c.name)} ke Civil Lines, Station Road, Rampur Road aur aas-paas ke gaon mein roz service dete hain. Yahan ka paani khaara hai, isliye RO filter jaldi badalne padte hain. Garmi mein AC service ki maang sabse zyada hoti hai...">${esc(c.localInfo || '')}</textarea>
+        <label style="font-size:0.85rem;font-weight:600;display:block;">${esc(c.name)} — local info (for SEO, shown on every service page of this city)</label>
+        <textarea id="cityInfo-${c.id}" rows="6" maxlength="3000" style="width:100%;box-sizing:border-box;margin-top:6px;font-size:0.95rem;padding:8px;" placeholder="Example: We serve Civil Lines, Station Road, Rampur Road and nearby villages of ${esc(c.name)} every day. The water here is hard, so RO filters need changing sooner. AC service demand peaks in summer...">${esc(c.localInfo || '')}</textarea>
         <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
           <button class="btn btn-primary btn-sm" onclick="saveCityInfo('${c.id}')">Save</button>
           <span class="msg-inline" id="cityInfoMsg-${c.id}"></span>
         </div>
-        <p style="font-size:0.78rem;color:var(--slate);margin:6px 0 0;">Tip: asli, apne shabdon mein likhiye — mohalle/area, aas-paas ke gaon, wahan ki aam problems. Har city ka alag text Google ko sabse zyada pasand aata hai. Khaali chhodne par ye hissa page par nahi dikhega.</p>
+        <p style="font-size:0.78rem;color:var(--slate);margin:6px 0 0;">Tip: write it in your own words — localities, nearby villages, common local problems. A different text for each city works best on Google. Leave it empty to hide this section on the page.</p>
       </div>
     </div>
   `).join('') : `<p style="color:var(--slate);">No cities found.</p>`;
@@ -1619,8 +1620,8 @@ function renderAppliances() {
         </div>
       </div>
       <details class="svc-photos" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;" ontoggle="if(this.open) renderServicePhotos('${a.id}')">
-        <summary style="cursor:pointer;font-weight:700;">📷 Photos — ${esc(a.name)} (main photo + har service ki photo)</summary>
-        <p style="font-size:0.82rem;color:var(--slate);margin:8px 0;">Yahan ${esc(a.name)} ki saari photos add / change / remove karein. <b>Main photo</b> homepage, "Select a Product" line aur har card par default dikhti hai. Neeche har type + service (jaise "Split AC Gas Filling") ki alag photo. Photo apne aap chhoti (800px) ho jaati hai. Jis service ki photo nahi, wahan main photo dikhegi.</p>
+        <summary style="cursor:pointer;font-weight:700;">📷 Photos — ${esc(a.name)} (main photo + a photo for each service)</summary>
+        <p style="font-size:0.82rem;color:var(--slate);margin:8px 0;">Add / change / remove all ${esc(a.name)} photos here. The <b>main photo</b> is shown on the homepage, the "Select a Product" row and every card by default. Below, a separate photo for each type + service (e.g. "Split AC Gas Filling"). Photos are resized to 800px automatically. Services without their own photo use the main photo.</p>
         <div id="svcPhotos-${a.id}"><p style="font-size:0.85rem;color:var(--slate);">Loading…</p></div>
       </details>
       <div class="field" style="margin-top:14px;">
@@ -1841,7 +1842,7 @@ function renderPricing() {
             <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;">
               <span style="flex:1;color:var(--slate);">${esc(svc.name)}</span>
               <input type="number" min="0" value="${(p.servicePrices && p.servicePrices[svc.id]) ?? ''}" id="sku-${p.id}-${svc.id}" title="Price the customer pays" style="width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">
-              <input type="number" min="0" value="${(p.mrpPrices && p.mrpPrices[svc.id]) ?? ''}" id="mrp-${p.id}-${svc.id}" placeholder="Pehle ₹" title="Optional: regular price, shown crossed out (leave empty for no offer)" style="width:110px;padding:5px 7px;border:1px dashed #cbd5e1;border-radius:6px;color:#6b7280;">
+              <input type="number" min="0" value="${(p.mrpPrices && p.mrpPrices[svc.id]) ?? ''}" id="mrp-${p.id}-${svc.id}" placeholder="Regular ₹" title="Optional: regular price, shown crossed out (leave empty for no offer)" style="width:110px;padding:5px 7px;border:1px dashed #cbd5e1;border-radius:6px;color:#6b7280;">
             </label>
           `).join('')}
         </div>`
@@ -1886,7 +1887,7 @@ async function savePrice(id, skuIdsCsv) {
           if (mrpPrices[skuId] && servicePrices[skuId] !== undefined && mrpPrices[skuId] <= servicePrices[skuId]) badOffer = badOffer || skuId;
         }
       });
-      if (badOffer) { alert('"Offer se pehle" price must be MORE than the real price (or leave it empty).'); return; }
+      if (badOffer) { alert('"Regular" price must be MORE than the real price (or leave it empty).'); return; }
       await api(`/api/admin/pricing/${id}`, { method: 'PUT', body: JSON.stringify({ servicePrices, mrpPrices }) });
     } else {
       const servicePrice = document.getElementById(`svc-${id}`).value;
@@ -3514,7 +3515,7 @@ async function renderServicePhotos(applianceId) {
       ${a.photoUrl ? `<img src="${a.photoUrl}" alt="" style="width:90px;height:90px;object-fit:cover;border-radius:8px;">` : `<div style="width:90px;height:90px;border-radius:8px;background:var(--mist);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--slate);">No photo</div>`}
       <div style="flex:1;">
         <div style="font-weight:700;">Main photo — ${esc(a.name)}</div>
-        <div style="font-size:0.78rem;color:var(--slate);margin:2px 0 8px;">${mainOwn ? 'Aapki upload ki hui photo' : (a.photoUrl ? 'Default (built-in) photo' : 'Abhi koi photo nahi')}</div>
+        <div style="font-size:0.78rem;color:var(--slate);margin:2px 0 8px;">${mainOwn ? 'Your uploaded photo' : (a.photoUrl ? 'Default (built-in) photo' : 'No photo yet')}</div>
         <label class="btn btn-outline btn-sm" style="cursor:pointer;">
           ${a.photoUrl ? 'Change' : 'Upload'}
           <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="uploadAppliancePhoto('${a.id}', this)">
@@ -3523,7 +3524,7 @@ async function renderServicePhotos(applianceId) {
         <div class="msg-inline" id="applPhotoMsg-${a.id}" style="font-size:0.75rem;margin-top:4px;"></div>
       </div>
     </div>`;
-  if (!a.types.length) { box.innerHTML = mainHtml + '<p style="font-size:0.85rem;color:var(--slate);">Is appliance mein abhi koi type nahi hai — "+ Add Type" se type jodne par yahan uski services ke photo box aa jayenge.</p>'; return; }
+  if (!a.types.length) { box.innerHTML = mainHtml + '<p style="font-size:0.85rem;color:var(--slate);">This appliance has no type yet — add one with "+ Add Type" and its service photo boxes will appear here.</p>'; return; }
   box.innerHTML = mainHtml + a.types.map(t => `
     <div style="margin:10px 0 4px;font-weight:700;font-size:0.9rem;">${esc(t.name)}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
@@ -3654,13 +3655,13 @@ document.getElementById('adminPwSave')?.addEventListener('click', async () => {
   const nw2 = document.getElementById('adminPwNew2').value;
   const user = document.getElementById('adminPwUser').value.trim();
   msg.className = 'form-msg';
-  if (nw !== nw2) { msg.className = 'form-msg error'; msg.textContent = 'Dono naye password ek jaise nahi hain.'; return; }
+  if (nw !== nw2) { msg.className = 'form-msg error'; msg.textContent = 'The two new passwords do not match.'; return; }
   const btn = document.getElementById('adminPwSave');
   btn.disabled = true;
   try {
     const r = await api('/api/admin/password', { method: 'PUT', body: JSON.stringify({ currentPassword: cur, newPassword: nw, newUsername: user }) });
     msg.className = 'form-msg success';
-    msg.textContent = `Password badal gaya. Agli baar username "${r.username}" aur naye password se login karein.`;
+    msg.textContent = `Password changed. Next time log in with username "${r.username}" and the new password.`;
     ['adminPwCurrent', 'adminPwNew', 'adminPwNew2', 'adminPwUser'].forEach(id => { document.getElementById(id).value = ''; });
     const w = document.getElementById('adminPwWarn'); if (w) w.style.display = 'none';
     document.getElementById('adminPwCard').style.borderLeftColor = 'var(--line)';
@@ -3685,7 +3686,7 @@ function reviewRows() {
 function renderReviews() {
   const cityF = document.getElementById('reviewCityFilter');
   if (cityF && !cityF.options.length) {
-    cityF.innerHTML = '<option value="">Sabhi city</option>' + CITIES.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    cityF.innerHTML = '<option value="">All cities</option>' + CITIES.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     ['reviewStarFilter', 'reviewCityFilter', 'reviewTextOnly'].forEach(id => document.getElementById(id).addEventListener('change', renderReviews));
   }
   const all = reviewRows();
@@ -3695,7 +3696,7 @@ function renderReviews() {
     <div class="stat-card"><div class="val">${all.length ? avg.toFixed(1) + ' ⭐' : '—'}</div><div class="lbl">Average rating</div></div>
     <div class="stat-card"><div class="val">${all.length}</div><div class="lbl">Total ratings</div></div>
     <div class="stat-card"><div class="val">${all.filter(r => r.it.reviewText).length}</div><div class="lbl">Likhe hue review</div></div>
-    <div class="stat-card"><div class="val" style="color:${all.some(r => r.it.rating <= 3) ? 'var(--red)' : 'inherit'}">${count(1) + count(2) + count(3)}</div><div class="lbl">1–3 star (dhyan dein)</div></div>`;
+    <div class="stat-card"><div class="val" style="color:${all.some(r => r.it.rating <= 3) ? 'var(--red)' : 'inherit'}">${count(1) + count(2) + count(3)}</div><div class="lbl">1–3 star (needs attention)</div></div>`;
   const star = document.getElementById('reviewStarFilter').value;
   const city = document.getElementById('reviewCityFilter').value;
   const textOnly = document.getElementById('reviewTextOnly').checked;
@@ -3709,18 +3710,18 @@ function renderReviews() {
       <div style="border:1px solid ${low ? '#f0b4ad' : 'var(--line)'};background:${low ? '#fff5f4' : '#fff'};border-radius:10px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <strong style="font-size:1.05rem;color:${low ? 'var(--red)' : '#b7791f'};">${'★'.repeat(it.rating)}${'☆'.repeat(5 - it.rating)}</strong>
-          <small style="color:var(--slate);">${fmtDate(when)}${it.ratingSource === 'admin' ? ' · admin ne diya' : ''}</small>
+          <small style="color:var(--slate);">${fmtDate(when)}${it.ratingSource === 'admin' ? ' · given by admin' : ''}</small>
         </div>
-        ${it.reviewText ? `<p style="margin:6px 0;font-style:italic;">"${esc(it.reviewText)}"</p>` : '<p style="margin:6px 0;color:var(--slate);font-size:0.85rem;">(sirf star, kuch likha nahi)</p>'}
+        ${it.reviewText ? `<p style="margin:6px 0;font-style:italic;">"${esc(it.reviewText)}"</p>` : '<p style="margin:6px 0;color:var(--slate);font-size:0.85rem;">(stars only, no text)</p>'}
         <div style="font-size:0.85rem;color:var(--slate);line-height:1.5;">
           👤 ${esc(b.name)} · <a href="tel:+91${esc(b.phone)}">${esc(b.phone)}</a> · 📍 ${esc(b.cityName || '')}<br>
           🔧 ${esc(it.applianceName)} (${esc(it.typeName)}) — ${it.serviceName ? esc(it.serviceName) : (it.serviceType === 'repair' ? 'Repair' : 'Service')}
           ${it.technicianName ? ` · 👷 ${esc(it.technicianName)}` : ''}<br>
           Booking ID: ${esc(b.id)}
         </div>
-        ${low ? `<div style="margin-top:6px;font-size:0.82rem;color:var(--red);font-weight:600;">📞 Customer ko call karke dikkat poochh lijiye.</div>` : ''}
+        ${low ? `<div style="margin-top:6px;font-size:0.82rem;color:var(--red);font-weight:600;">📞 Call the customer and ask what went wrong.</div>` : ''}
       </div>`;
-  }).join('') : '<p style="color:var(--slate);">Abhi koi review nahi hai. Technician job complete karega, uske baad customer "Track Booking" se star/review de sakta hai.</p>';
+  }).join('') : '<p style="color:var(--slate);">No reviews yet. After a technician completes a job, the customer can leave stars / a review from "Track Booking".</p>';
 }
 
 // Secret keys stay hidden (••••) unless the field is being edited.
@@ -3733,3 +3734,129 @@ document.getElementById('moreSettingsGroup')?.addEventListener('click', (e) => {
   const arrow = document.getElementById('moreSettingsArrow'); if (arrow) arrow.textContent = '▾';
   window.scrollTo(0, 0);
 });
+
+// ---------------- PASSWORD RECOVERY ----------------
+async function renderRecoveryCard() {
+  try {
+    const r = await api('/api/admin/recovery');
+    document.getElementById('recoveryPhoneInput').value = r.recoveryPhone || '';
+    document.getElementById('recoveryStatus').innerHTML =
+      `📱 Recovery mobile: <b>${esc(r.recoveryPhone)}</b>${r.isDefault ? ' (business number — you can change it)' : ''}<br>` +
+      (r.hasCode ? `🔑 A recovery code exists (created ${esc(fmtDate(r.codeCreatedAt))}).` : '<span style="color:#b42318;">🔑 No recovery code yet — create one and write it down.</span>');
+  } catch (e) { /* ignore */ }
+}
+async function saveRecovery(body) {
+  const msg = document.getElementById('recoveryMsg');
+  const currentPassword = document.getElementById('recoveryPwInput').value;
+  if (!currentPassword) { msg.textContent = 'Enter your current password.'; msg.className = 'msg-inline error'; return null; }
+  try {
+    const r = await api('/api/admin/recovery', { method: 'PUT', body: JSON.stringify({ currentPassword, ...body }) });
+    msg.textContent = '✓ Saved'; msg.className = 'msg-inline success';
+    document.getElementById('recoveryPwInput').value = '';
+    renderRecoveryCard();
+    return r;
+  } catch (e) { msg.textContent = e.message; msg.className = 'msg-inline error'; return null; }
+}
+document.getElementById('saveRecoveryPhoneBtn')?.addEventListener('click', () => saveRecovery({ recoveryPhone: document.getElementById('recoveryPhoneInput').value.trim() }));
+document.getElementById('newRecoveryCodeBtn')?.addEventListener('click', async () => {
+  if (!confirm('Create a new recovery code? The old code (if any) will stop working.')) return;
+  const r = await saveRecovery({ newCode: true });
+  if (r && r.code) {
+    const box = document.getElementById('recoveryCodeShow');
+    box.style.display = 'block';
+    box.innerHTML = `<div style="font-size:0.82rem;color:#166534;font-weight:700;">Write this code down now — it will not be shown again:</div><div style="font-family:monospace;font-size:1.5rem;font-weight:800;letter-spacing:2px;margin:6px 0;">${esc(r.code)}</div><div style="font-size:0.78rem;color:var(--slate);">Use it on the login page ("Forgot password? → With recovery code") to set a new password (works once).</div>`;
+  }
+});
+
+(function forgotPassword() {
+  const link = document.getElementById('forgotLink');
+  if (!link) return;
+  const box = document.getElementById('forgotBox');
+  const msg = document.getElementById('fgMsg');
+  let mode = 'otp', opts = null, otpToken = null;
+  const say = (t, ok) => { msg.textContent = t; msg.style.display = t ? 'block' : 'none'; msg.style.color = ok ? '#15803d' : ''; };
+  function setMode(m) {
+    mode = m;
+    document.getElementById('fgOtpPane').style.display = m === 'otp' ? '' : 'none';
+    document.getElementById('fgCodePane').style.display = m === 'code' ? '' : 'none';
+    document.getElementById('fgTabOtp').className = 'btn btn-sm ' + (m === 'otp' ? 'btn-primary' : 'btn-outline');
+    document.getElementById('fgTabCode').className = 'btn btn-sm ' + (m === 'code' ? 'btn-primary' : 'btn-outline');
+    document.getElementById('fgTabOtp').style.flex = document.getElementById('fgTabCode').style.flex = '1';
+    say('');
+  }
+  link.addEventListener('click', async (e) => {
+    e.preventDefault();
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    try { opts = await api('/api/admin/forgot/options'); } catch (er) { opts = { otp: false, recoveryCode: false }; }
+    setMode(opts.otp ? 'otp' : 'code');
+    if (!opts.otp) document.getElementById('fgTabOtp').disabled = true;
+  });
+  document.getElementById('fgTabOtp').addEventListener('click', () => setMode('otp'));
+  document.getElementById('fgTabCode').addEventListener('click', () => setMode('code'));
+
+  function loadOtpScript() {
+    if (typeof window.initSendOTP === 'function') return Promise.resolve();
+    const urls = ['https://verify.msg91.com/otp-provider.js', 'https://verify.phone91.com/otp-provider.js'];
+    return new Promise((resolve, reject) => {
+      let i = 0;
+      (function attempt() {
+        const s = document.createElement('script'); s.src = urls[i]; s.async = true;
+        s.onload = () => (typeof window.initSendOTP === 'function' ? resolve() : reject(new Error('OTP service did not load.')));
+        s.onerror = () => { i++; i < urls.length ? attempt() : reject(new Error('Could not load the OTP service. Check your internet.')); };
+        document.head.appendChild(s);
+      })();
+    });
+  }
+  function waitFor(ms) {
+    return new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      (function poll() { if (typeof window.sendOtp === 'function' && typeof window.verifyOtp === 'function') resolve(); else if (Date.now() - t0 > ms) reject(new Error('The OTP service did not start.')); else setTimeout(poll, 150); })();
+    });
+  }
+  document.getElementById('fgSendOtp').addEventListener('click', async () => {
+    const phone = document.getElementById('fgPhone').value.replace(/\D/g, '');
+    if (!/^[0-9]{10}$/.test(phone)) { say('Enter a 10-digit mobile number.'); return; }
+    const b = document.getElementById('fgSendOtp'); b.disabled = true; b.textContent = 'Sending…';
+    try {
+      await loadOtpScript();
+      if (!window.__fgOtpInit) {
+        window.initSendOTP({ widgetId: opts.widgetId, tokenAuth: opts.tokenAuth, exposeMethods: true, success: () => {}, failure: () => {} });
+        window.__fgOtpInit = true;
+      }
+      await waitFor(10000);
+      window.sendOtp('91' + phone, () => { say('OTP sent.', true); document.getElementById('fgOtpField').style.display = ''; b.textContent = 'Resend OTP'; b.disabled = false; },
+        (er) => { say('Could not send OTP: ' + ((er && (er.message || er.type)) || 'error') + '. Try the recovery code option.'); b.textContent = 'Send OTP'; b.disabled = false; });
+    } catch (er) { say(er.message); b.textContent = 'Send OTP'; b.disabled = false; }
+  });
+  function verifyOtpCode(code) {
+    return new Promise((resolve, reject) => {
+      if (typeof window.verifyOtp !== 'function') { reject(new Error('Send the OTP first.')); return; }
+      window.verifyOtp(code, (d) => { const t = d && (d.message || d.token || d['access-token']); t ? resolve(t) : reject(new Error('OTP could not be verified.')); }, () => reject(new Error('Wrong or expired OTP.')));
+    });
+  }
+  document.getElementById('fgSubmit').addEventListener('click', async () => {
+    const pw = document.getElementById('fgNew').value, pw2 = document.getElementById('fgNew2').value;
+    if (pw.length < 8) { say('The new password must be at least 8 characters.'); return; }
+    if (pw !== pw2) { say('The two passwords do not match.'); return; }
+    const b = document.getElementById('fgSubmit'); b.disabled = true;
+    try {
+      let r;
+      if (mode === 'otp') {
+        const phone = document.getElementById('fgPhone').value.replace(/\D/g, '');
+        const code = document.getElementById('fgOtp').value.trim();
+        if (!/^[0-9]{4,6}$/.test(code)) throw new Error('Enter the OTP.');
+        otpToken = otpToken || await verifyOtpCode(code);
+        r = await api('/api/admin/forgot/otp', { method: 'POST', body: JSON.stringify({ phone, accessToken: otpToken, newPassword: pw }) });
+      } else {
+        const code = document.getElementById('fgCode').value.trim();
+        if (!code) throw new Error('Enter the recovery code.');
+        r = await api('/api/admin/forgot/code', { method: 'POST', body: JSON.stringify({ code, newPassword: pw }) });
+      }
+      say(`✓ Password changed. Now log in above with username "${r.username}" and the new password.` + (r.codeUsed ? ' (The recovery code is now used up — create a new one after logging in.)' : ''), true);
+      document.getElementById('adminUser').value = r.username || '';
+      document.getElementById('adminPass').value = '';
+      document.getElementById('adminPass').focus();
+    } catch (er) { say(er.message); otpToken = null; }
+    b.disabled = false;
+  });
+})();

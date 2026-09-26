@@ -63,7 +63,26 @@
       <button type="submit" class="btn btn-primary btn-block">Login</button>
       <div class="login-error" id="loginError"></div>
     </form>
-    <div class="demo-hint">Default login — Username: <b>admin</b> · Password: <b>seerua@admin123</b><br>(Pehli baar login karke isse admin.json file mein badal dein.)</div>
+    <p style="text-align:center;margin:14px 0 0;"><a href="#" id="forgotLink" style="font-size:0.88rem;font-weight:600;">Forgot password?</a></p>
+    <div id="forgotBox" style="display:none;margin-top:16px;border-top:1px solid var(--line);padding-top:14px;">
+      <h3 style="margin:0 0 6px;font-size:1.02rem;">🔓 Set a new password</h3>
+      <div style="display:flex;gap:6px;margin:0 0 12px;">
+        <button type="button" class="btn btn-outline btn-sm" id="fgTabOtp" style="flex:1;">📱 With mobile OTP</button>
+        <button type="button" class="btn btn-outline btn-sm" id="fgTabCode" style="flex:1;">🔑 With recovery code</button>
+      </div>
+      <div id="fgOtpPane">
+        <div class="field"><label>Registered mobile number</label><input type="tel" id="fgPhone" maxlength="10" inputmode="numeric" placeholder="10 digit"></div>
+        <button type="button" class="btn btn-outline btn-block btn-sm" id="fgSendOtp">Send OTP</button>
+        <div class="field" id="fgOtpField" style="display:none;margin-top:10px;"><label>OTP</label><input type="text" id="fgOtp" maxlength="6" inputmode="numeric" autocomplete="one-time-code"></div>
+      </div>
+      <div id="fgCodePane" style="display:none;">
+        <div class="field"><label>Recovery code</label><input type="text" id="fgCode" placeholder="XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off"></div>
+      </div>
+      <div class="field"><label>New password (at least 8 characters)</label><input type="password" id="fgNew" autocomplete="new-password"></div>
+      <div class="field"><label>Repeat new password</label><input type="password" id="fgNew2" autocomplete="new-password"></div>
+      <button type="button" class="btn btn-primary btn-block" id="fgSubmit">Change password</button>
+      <div class="login-error" id="fgMsg"></div>
+    </div>
   </div>
 </div>
 
@@ -167,11 +186,11 @@
 
     <!-- DASHBOARD -->
     <section class="panel-view active" id="view-dashboard">
-      <div class="topbar"><div><h1>Dashboard</h1><div class="sub" id="dashSub">Aaj ka kaam ek nazar mein</div></div></div>
+      <div class="topbar"><div><h1>Dashboard</h1><div class="sub" id="dashSub">Today's work at a glance</div></div></div>
 
       <div class="stat-row dash-stats" id="dashStats"></div>
       <div class="card" id="dashTodoCard">
-        <div class="card-head"><h3>✅ Abhi karna hai</h3></div>
+        <div class="card-head"><h3>✅ To do now</h3></div>
         <div id="dashTodo"></div>
       </div>
       <div class="card important">
@@ -317,7 +336,7 @@
 
     <!-- CITIES -->
     <section class="panel-view" id="view-settings">
-      <div class="topbar"><div><h1>⚙️ Site Settings</h1><div class="sub">Booking band/chalu, maintenance, backup, password, OTP — kabhi-kabhi badalne wali cheezein</div></div></div>
+      <div class="topbar"><div><h1>⚙️ Site Settings</h1><div class="sub">Booking on/off, maintenance, backup, password, OTP — things you change once in a while</div></div></div>
 
       <div class="card settings-card" id="bookingStatusCard" style="border-left:4px solid var(--line);">
         <div class="card-head">
@@ -380,14 +399,28 @@
         <div class="msg-inline" id="maintenanceMsg"></div>
       </div>
 
+      <div class="card settings-card" id="recoveryCard" style="border-left:4px solid var(--line);">
+        <div class="card-head"><h3>🔐 Password recovery</h3></div>
+        <p style="font-size:0.84rem;color:var(--slate);margin:0 0 10px;">If you forget your password, use "Forgot password?" on the login page — with a <b>mobile OTP</b> (to the number below) or a <b>recovery code</b>. A code works only once; write it down somewhere safe.</p>
+        <div id="recoveryStatus" style="font-size:0.86rem;margin-bottom:10px;"></div>
+        <div class="field"><label>Recovery mobile (OTP is sent here)</label><input type="tel" id="recoveryPhoneInput" maxlength="10" inputmode="numeric"></div>
+        <div class="field"><label>Current password (required)</label><input type="password" id="recoveryPwInput" autocomplete="current-password"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" id="saveRecoveryPhoneBtn">Save mobile</button>
+          <button class="btn btn-primary btn-sm" id="newRecoveryCodeBtn">Create new recovery code</button>
+        </div>
+        <div id="recoveryCodeShow" style="display:none;margin-top:12px;padding:12px;border:2px dashed #16a34a;border-radius:10px;background:#f0fdf4;"></div>
+        <div class="msg-inline" id="recoveryMsg"></div>
+      </div>
+
       <div class="card settings-card" id="adminPwCard" style="border-left:4px solid var(--line);">
         <div class="card-head"><h3>🔑 Admin Login Password</h3></div>
-        <div id="adminPwWarn" class="form-msg error" style="display:none;margin:0 0 10px;">⚠️ Aap abhi purana default password use kar rahe hain jo code mein likha hai. Ise turant badal dijiye.</div>
+        <div id="adminPwWarn" class="form-msg error" style="display:none;margin:0 0 10px;">⚠️ You are still using the old default password. Please change it now.</div>
         <div class="field"><label>Current password</label><input type="password" id="adminPwCurrent" autocomplete="current-password"></div>
-        <div class="field"><label>New password (kam se kam 8 akshar)</label><input type="password" id="adminPwNew" autocomplete="new-password"></div>
-        <div class="field"><label>New password dobara</label><input type="password" id="adminPwNew2" autocomplete="new-password"></div>
-        <div class="field"><label>New username (khaali chhodein to wahi rahega)</label><input type="text" id="adminPwUser" autocomplete="username"></div>
-        <button class="btn btn-primary btn-sm" id="adminPwSave" type="button">Password badlein</button>
+        <div class="field"><label>New password (at least 8 characters)</label><input type="password" id="adminPwNew" autocomplete="new-password"></div>
+        <div class="field"><label>Repeat new password</label><input type="password" id="adminPwNew2" autocomplete="new-password"></div>
+        <div class="field"><label>New username (leave empty to keep the same)</label><input type="text" id="adminPwUser" autocomplete="username"></div>
+        <button class="btn btn-primary btn-sm" id="adminPwSave" type="button">Change password</button>
         <div id="adminPwMsg" class="form-msg" style="margin-top:8px;"></div>
       </div>
 
@@ -433,7 +466,7 @@
     </section>
 
     <section class="panel-view" id="view-activity">
-      <div class="topbar"><div><h1>🕵️ Activity Log</h1><div class="sub">Kisne, kab, kya badla — delete, job reopen, reassign, Google review (commission maafi), commission paid, price change. Ye log koi delete ya edit nahi kar sakta.</div></div></div>
+      <div class="topbar"><div><h1>🕵️ Activity Log</h1><div class="sub">Who changed what, and when — deletes, reopened jobs, reassignments, Google review (commission waived), commission paid, price changes. Nobody can edit or delete this log.</div></div></div>
       <div class="card">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
           <input type="search" id="activitySearch" placeholder="Search: name, phone, order ID, technician, action…" style="flex:1;min-width:220px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;">
@@ -446,7 +479,7 @@
       </div>
       <div class="card">
         <div class="card-head"><h3>🗑️ Deleted Orders</h3></div>
-        <p style="font-size:0.82rem;color:var(--slate);margin:0 0 10px;">Delete kiya gaya order yahan rehta hai — kabhi mitta nahi. Galti se delete hua ho to "Restore" dabayein. Shuru ho chuki ya complete ho chuki job delete ho hi nahi sakti.</p>
+        <p style="font-size:0.82rem;color:var(--slate);margin:0 0 10px;">Deleted orders stay here — they are never erased. If one was deleted by mistake, tap "Restore". Started or completed jobs cannot be deleted at all.</p>
         <div class="table-wrap"><table>
           <thead><tr><th>Deleted</th><th>By</th><th>Order</th><th>Reason</th><th></th></tr></thead>
           <tbody id="deletedOrdersTable"></tbody>
@@ -455,12 +488,12 @@
     </section>
 
     <section class="panel-view" id="view-reviews">
-      <div class="topbar"><div><h1>⭐ Customer Reviews</h1><div class="sub">Job complete hone ke baad customer ne jo star aur review diya — sab ek jagah</div></div></div>
+      <div class="topbar"><div><h1>⭐ Customer Reviews</h1><div class="sub">Stars and reviews customers gave after their job was completed — all in one place</div></div></div>
       <div class="stat-row" id="reviewStats"></div>
       <div class="card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
           <select id="reviewStarFilter" style="padding:8px;border:1px solid var(--line);border-radius:8px;">
-            <option value="">Sabhi star</option><option value="low">😟 1–3 star (dhyan dein)</option><option value="5">5 star</option><option value="4">4 star</option><option value="3">3 star</option><option value="2">2 star</option><option value="1">1 star</option>
+            <option value="">All stars</option><option value="low">😟 1–3 star (needs attention)</option><option value="5">5 star</option><option value="4">4 star</option><option value="3">3 star</option><option value="2">2 star</option><option value="1">1 star</option>
           </select>
           <select id="reviewCityFilter" style="padding:8px;border:1px solid var(--line);border-radius:8px;"></select>
           <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;"><input type="checkbox" id="reviewTextOnly"> Sirf likhe hue review</label>
@@ -510,7 +543,7 @@
       <div class="topbar"><div><h1>Pricing</h1><div class="sub">Set a different price for each city and appliance type</div></div></div>
       <div class="card" style="margin-bottom:14px;">
         <h3 style="margin:0 0 6px;">🏷️ Offer % (all services)</h3>
-        <p style="font-size:0.82rem;color:var(--slate);margin:0 0 10px;">Har card par ek kata hua "pehle ka" price dikhega, jisse asli price itne % kam dikhe. Jaise 20% → asli ₹440 dikhega <s>₹550</s> ₹440 "₹110 off" (₹10 tak upar round). Customer se hamesha asli price hi liya jaata hai. A "Pehle ₹" price typed for a single service below wins over this. 0 = no offer anywhere (only the ones typed below).</p>
+        <p style="font-size:0.82rem;color:var(--slate);margin:0 0 10px;">Every card shows a crossed-out "regular" price so the real price looks this % lower. E.g. 20% → real ₹440 shows as <s>₹550</s> ₹440 "₹110 off" (rounded up to ₹10). The customer always pays the real price. A "Regular ₹" price typed for a single service below wins over this. 0 = no offer anywhere (only the ones typed below).</p>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <input type="number" id="offerPercentInput" min="0" max="80" step="1" style="width:90px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;"> <b>%</b>
           <button class="btn btn-success btn-sm" onclick="saveOfferPercent()">Save</button>
@@ -523,7 +556,7 @@
           <select id="priceApplianceFilter"></select>
         </div>
         <div class="table-wrap"><table>
-          <thead><tr><th>City</th><th>Appliance</th><th>Type</th><th>Price (₹) · Pehle ₹ (optional, sirf is service ka offer)</th><th>Repair Price (₹)</th><th>Save</th></tr></thead>
+          <thead><tr><th>City</th><th>Appliance</th><th>Type</th><th>Price (₹) · Regular ₹ (optional, offer for this service only)</th><th>Repair Price (₹)</th><th>Save</th></tr></thead>
           <tbody id="pricingTable"></tbody>
         </table></div>
       </div>
@@ -1012,7 +1045,7 @@
         <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Teach Bella new behaviors, tone preferences, or things to always say/avoid — write it here in plain language (Hindi or English, either works). No code needed — this gets added to Bella's instructions on every chat, and takes effect for the very next message a customer sends. Leave it blank if you don't need anything extra right now.</p>
         <div class="field">
           <label>Additional Instructions</label>
-          <textarea id="aiInstructionsInput" rows="6" placeholder="Example: Jab koi customer AMC ke baare mein poochhe, hamesha yearly plan ka discount bhi mention karo. / Never suggest DIY repair for gas leak issues — always say a technician visit is required."></textarea>
+          <textarea id="aiInstructionsInput" rows="6" placeholder="Example: When a customer asks about AMC, always mention the yearly plan discount. / Never suggest DIY repair for gas leak issues — always say a technician visit is required."></textarea>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
           <button class="btn btn-primary btn-sm" id="saveAiInstructionsBtn">Save Instructions</button>
@@ -1273,6 +1306,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609276"></script>
+<script src="/js/admin.js?v=202609278"></script>
 </body>
 </html>
