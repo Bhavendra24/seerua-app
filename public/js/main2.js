@@ -85,6 +85,7 @@ if (bottomNavCityBtn) {
     // sheet — confusing since it looks like a plain city switcher.
     // Now sets #fCity directly and stays on this page.
     populateCitySheetGrid();
+    document.getElementById('citySheetBackdrop')?.classList.remove('as-dropdown'); // phone: bottom sheet
     openBottomSheet('citySheetBackdrop');
   });
 }
@@ -96,12 +97,21 @@ if (navCityBtn) {
   navCityBtn.addEventListener('click', () => {
     populateCitySheetGrid();
     openBottomSheet('citySheetBackdrop');
+    // Desktop: show it as a dropdown right under the button.
+    const bd = document.getElementById('citySheetBackdrop');
+    if (bd) {
+      const r = navCityBtn.getBoundingClientRect();
+      bd.classList.add('as-dropdown');
+      bd.style.setProperty('--dd-left', Math.max(8, Math.min(r.left, window.innerWidth - 290)) + 'px');
+      bd.style.setProperty('--dd-top', (r.bottom + 8) + 'px');
+    }
   });
 }
 function populateCitySheetGrid() {
   const grid = document.getElementById('bottomSheetCityGrid');
   if (!grid || typeof CITIES === 'undefined') return;
-  grid.innerHTML = CITIES.map(c => `<button type="button" class="bottom-sheet-city-btn" data-city-id="${c.id}">${c.name}</button>`).join('');
+  const current = (document.getElementById('fCity') || {}).value;
+  grid.innerHTML = CITIES.map(c => `<button type="button" class="bottom-sheet-city-btn${c.id === current ? ' active' : ''}" data-city-id="${escapeHtml(c.id)}">${escapeHtml(c.name)}</button>`).join('');
 }
 // Event delegation on the grid's container (bound ONCE, ever) instead of
 // re-attaching a listener to each button every time the sheet reopens —
@@ -120,7 +130,7 @@ function updateCityButtonLabels(cityId) {
   const bottomBtnSpan = document.querySelector('#bottomNavCityBtn span');
   if (bottomBtnSpan) bottomBtnSpan.textContent = city.name;
   const desktopBtn = document.getElementById('navCityBtn');
-  if (desktopBtn) desktopBtn.textContent = city.name;
+  if (desktopBtn) desktopBtn.textContent = `📍 ${city.name} ▾`;
 }
 document.getElementById('bottomSheetCityGrid')?.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-city-id]');

@@ -957,7 +957,7 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><h3>Footer Description</h3></div>
+        <div class="card-head"><h3>Footer (description, address, hours, social links)</h3></div>
         <p style="font-size:0.85rem;color:var(--slate);margin-top:-8px;">Shown under the logo in the website footer. Use <code>{{APPLIANCE_LIST_TEXT}}</code> and <code>{{CITY_LIST_TEXT}}</code> anywhere in the text to automatically insert your current appliance/city list.</p>
         <div class="field">
           <label>Slogan (short, trust-related line — shown just above the description)</label>
@@ -967,8 +967,28 @@
           <label>Description</label>
           <textarea id="footerDescriptionInput" rows="5"></textarea>
         </div>
+        <div class="field">
+          <label>Business address (shown in the footer — keep it the same as on Google Business Profile; leave empty to hide)</label>
+          <textarea id="footerAddressInput" rows="2" maxlength="300" placeholder="e.g. Shop 12, Civil Lines, Moradabad, Uttar Pradesh 244001"></textarea>
+        </div>
+        <div class="field">
+          <label>Working hours</label>
+          <input type="text" id="footerHoursInput" maxlength="80" placeholder="Mon – Sun, 9 AM – 8 PM">
+        </div>
+        <div class="field">
+          <label>Facebook page link (optional)</label>
+          <input type="url" id="socialFacebookInput" placeholder="https://facebook.com/...">
+        </div>
+        <div class="field">
+          <label>Instagram link (optional)</label>
+          <input type="url" id="socialInstagramInput" placeholder="https://instagram.com/...">
+        </div>
+        <div class="field">
+          <label>YouTube link (optional)</label>
+          <input type="url" id="socialYoutubeInput" placeholder="https://youtube.com/...">
+        </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
-          <button class="btn btn-primary btn-sm" id="saveFooterBtn">Save Footer Text</button>
+          <button class="btn btn-primary btn-sm" id="saveFooterBtn">Save Footer</button>
           <span class="msg-inline" id="footerMsg" style="margin:0;"></span>
         </div>
       </div>
@@ -1186,6 +1206,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609254"></script>
+<script src="/js/admin.js?v=202609270"></script>
 </body>
 </html>

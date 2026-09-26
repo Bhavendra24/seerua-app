@@ -129,7 +129,7 @@
         pendingOtpVerify = { resolve, reject };
         await waitForOtpMethods(10000);
         window.sendOtp(identifier, () => {
-          addBotMessage('📲 Aapke number par ek OTP bhej diya hai. Wo code yahan type karke bhej dein (agar na mile to "resend" likhein).');
+          addBotMessage('📲 We have sent an OTP to your number. Please type the code here (type "resend" if you didn\'t get it).');
         }, (error) => {
           pendingOtpVerify = null;
           console.log('OTP send failure:', error);
@@ -205,6 +205,14 @@
         }
       });
     });
+  }
+
+  // Same store the booking popup uses (service-page.js): bookingId -> secret key.
+  function seeruaDeviceKeys() {
+    try { const all = JSON.parse(localStorage.getItem('seerua_cancel_keys_v1') || '{}') || {}; return Object.keys(all).map(k => all[k] && all[k].k).filter(Boolean).slice(0, 40); } catch (e) { return []; }
+  }
+  function seeruaSaveDeviceKey(id, key) {
+    try { const all = JSON.parse(localStorage.getItem('seerua_cancel_keys_v1') || '{}') || {}; all[id] = { k: key, t: Date.now() }; localStorage.setItem('seerua_cancel_keys_v1', JSON.stringify(all)); } catch (e) { /* ignore */ }
   }
 
   function addBotMessage(html) {
@@ -300,8 +308,8 @@
   // enough booking detail (see presentBookingConfirmation below). Opens
   // the site's own structured booking form instead.
   function startBookFlow() {
-    addBotMessage('Chaliye booking form khol dete hain — city, appliance aur date/time chunkar seedha book kar sakte hain.');
-    addQuickReplies([{ label: '🛒 Booking Form Kholein', onClick: () => goToBooking({}) }]);
+    addBotMessage('Let\'s open the booking form — pick your city, appliance and date/time to book directly.');
+    addQuickReplies([{ label: '🛒 Open Booking Form', onClick: () => goToBooking({}) }]);
   }
 
   // ---------------- AI chat (free-text, always open) ----------------
@@ -330,33 +338,33 @@
     if (pendingOtpVerify) {
       addUserMessage(text);
       if (/^(resend|dobara|phir se bhejo)/i.test(text)) {
-        addBotMessage('🔁 Dobara OTP bhej rahe hain...');
+        addBotMessage('🔁 Sending the OTP again...');
         window.retryOtp(null, () => {
-          addBotMessage('📲 Naya code bhej diya hai — kripya wo yahan type karein.');
+          addBotMessage('📲 A new code has been sent — please type it here.');
         }, () => {
-          addBotMessage('❌ Dobara bhejne mein dikkat aayi. Kripya thodi der baad try karein.');
+          addBotMessage('❌ Could not resend the code. Please try again in a little while.');
         });
         return;
       }
       const code = text.replace(/\D/g, '');
       if (!/^[0-9]{4,6}$/.test(code)) {
-        addBotMessage('Ye OTP jaisa nahi lag raha — kripya SMS mein aaya hua 4-6 digit ka code type karein, ya "resend" likhein.');
+        addBotMessage('That doesn\'t look like an OTP — please type the 4-6 digit code from the SMS, or type "resend".');
         return;
       }
       const { resolve, reject } = pendingOtpVerify;
-      addBotMessage('⏳ Verify kar rahe hain...');
+      addBotMessage('⏳ Verifying...');
       window.verifyOtp(code, (data) => {
         const accessToken = data && (data.message || data.token || data['access-token']);
         pendingOtpVerify = null;
         if (!accessToken) {
-          addBotMessage('Verify to ho gaya lekin token nahi mila. Kripya dobara try karein.');
+          addBotMessage('Verification finished but something went wrong. Please try again.');
           reject(new Error('No access token received.'));
           return;
         }
-        addBotMessage('✅ Number verify ho gaya!');
+        addBotMessage('✅ Your number is verified!');
         resolve(accessToken);
       }, () => {
-        addBotMessage('❌ Code galat ya expire ho gaya hai. Kripya SMS wala code dubara type karein, ya "resend" likhein.');
+        addBotMessage('❌ The code is wrong or has expired. Please type the code from the SMS again, or type "resend".');
         // pendingOtpVerify stays set so the customer can retry
       });
       return;
@@ -369,12 +377,15 @@
       const res = await fetch('/api/chatbot/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: aiChatHistory })
+        // The secret booking keys saved on THIS phone prove it's the
+        // customer's own device, so the server may offer their saved
+        // address back. Another device typing the same number gets nothing.
+        body: JSON.stringify({ message: text, history: aiChatHistory, deviceKeys: seeruaDeviceKeys() })
       });
       const data = await res.json();
       typingRow.remove();
       if (!res.ok) {
-        addBotMessage(data.error || `Maaf kijiye, ${ASSISTANT_NAME} abhi jawab nahi de pa rahi. Thodi der baad try karein, ya humse call pe baat karein: 📞 <a href="${PHONE_TEL}">9389585479</a>`);
+        addBotMessage(data.error || `Sorry, ${ASSISTANT_NAME} can\'t reply right now. Please try again in a little while, or call us: 📞 <a href="${PHONE_TEL}">9389585479</a>`);
       } else {
         if (data.knownCustomer) knownCustomerInfo = data.knownCustomer;
         // Tolerant of the model using either 1 or 2 brackets on either tag
@@ -416,9 +427,9 @@
         if (knownCustomerInfo && !knownCustomerPromptShown && !confirmedCustomerDetails) {
           knownCustomerPromptShown = true;
           if (knownCustomerInfo.address) {
-            addBotMessage(`Waise, humein aapka pichla address mila: <b>${escapeHtml(knownCustomerInfo.address)}</b>${knownCustomerInfo.cityName ? ` (${escapeHtml(knownCustomerInfo.cityName)})` : ''}. Kya isi pe booking karni hai?`);
+            addBotMessage(`By the way, we found your previous address: <b>${escapeHtml(knownCustomerInfo.address)}</b>${knownCustomerInfo.cityName ? ` (${escapeHtml(knownCustomerInfo.cityName)})` : ''}. Shall we book at this address?`);
             addQuickReplies([
-              { label: '✅ Haan, yahi address hai', onClick: () => {
+              { label: '✅ Yes, same address', onClick: () => {
                 confirmedCustomerDetails = knownCustomerInfo;
                 // RELIABILITY FIX: sending just "haan, wahi address hai"
                 // made the model loop forever asking for the address again
@@ -435,8 +446,8 @@
                 if (knownCustomerInfo.cityName) parts.push(`city ${knownCustomerInfo.cityName} hai`);
                 sendChatMessage(parts.join(', ') + '.');
               } },
-              { label: '📝 Naya address dena hai', onClick: () => {
-                sendChatMessage('Nahi, is baar ka address different hai — main naya address deta/deti hoon.');
+              { label: '📝 Use a new address', onClick: () => {
+                sendChatMessage('No, the address is different this time — I will give a new address.');
               } }
             ]);
           }
@@ -444,7 +455,7 @@
       }
     } catch (e) {
       typingRow.remove();
-      addBotMessage('Network mein dikkat aa rahi hai — thodi der baad try karein.');
+      addBotMessage('Network problem — please try again in a little while.');
     }
     aiRequestInFlight = false;
     setInputEnabled(true);
@@ -496,8 +507,8 @@
     const timeSlot = TIME_SLOT_MAP[timeKey];
 
     if (!city || !appliance || !type || !phoneOk || !dateOk || !timeSlot || !draft.name || !draft.address) {
-      addBotMessage('Kuch details match nahi ho paayi (jaise city, appliance, type, ya time slot) — ek baar phir se bata dein, ya seedha booking form use kar lein.');
-      addQuickReplies([{ label: '🛒 Booking Form Kholein', onClick: startBookFlow }]);
+      addBotMessage('Some details didn\'t match (like city, appliance, type or time slot) — please tell me again, or use the booking form.');
+      addQuickReplies([{ label: '🛒 Open Booking Form', onClick: startBookFlow }]);
       return;
     }
 
@@ -511,13 +522,13 @@
     try {
       await fetchJSON(`/api/price?cityId=${city.id}&applianceId=${appliance.id}&typeId=${type.id}`);
     } catch (e) {
-      addBotMessage(`Maaf kijiye, <strong>${escapeHtml(appliance.name)} — ${escapeHtml(type.name)}</strong> abhi <strong>${escapeHtml(city.name)}</strong> mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`);
-      addQuickReplies([{ label: '🛒 Kisi aur city/appliance ke liye try karein', onClick: startBookFlow }]);
+      addBotMessage(`Sorry, <strong>${escapeHtml(appliance.name)} — ${escapeHtml(type.name)}</strong> is not available in <strong>${escapeHtml(city.name)}</strong> yet.`);
+      addQuickReplies([{ label: '🛒 Try another city/appliance', onClick: startBookFlow }]);
       return;
     }
 
     const summaryHtml = `
-      <strong>Booking ki details confirm karein:</strong><br>
+      <strong>Please confirm your booking details:</strong><br>
       👤 ${escapeHtml(draft.name)}<br>
       📞 ${escapeHtml(draft.phone)}<br>
       📍 ${escapeHtml(draft.address)}<br>
@@ -530,8 +541,8 @@
 
     const body = document.getElementById('chatPanelBody');
     const row = el('div', 'chat-quick-replies');
-    const confirmBtn = el('button', 'chat-quick-btn', '✅ Confirm & Book Karein');
-    const editBtn = el('button', 'chat-quick-btn', '✏️ Kuch Badalna Hai');
+    const confirmBtn = el('button', 'chat-quick-btn', '✅ Confirm & Book');
+    const editBtn = el('button', 'chat-quick-btn', '✏️ Change Something');
     row.appendChild(confirmBtn);
     row.appendChild(editBtn);
     body.appendChild(row);
@@ -546,7 +557,7 @@
       if (answered) return;
       answered = true;
       row.remove();
-      addBotMessage('Theek hai, bataiye kya badalna hai.');
+      addBotMessage('Sure — tell me what you\'d like to change.');
     });
 
     confirmBtn.addEventListener('click', async () => {
@@ -558,7 +569,7 @@
   }
 
   async function submitAiGatheredBooking(info) {
-    const statusMsg = addBotMessage('⏳ Booking process shuru kar rahe hain...');
+    const statusMsg = addBotMessage('⏳ Creating your booking...');
     try {
       let phoneAlreadyVerified = false;
       try {
@@ -582,20 +593,20 @@
       const chosenSlot = (slots || []).find(s => s.id === info.timeSlotId);
       if (!chosenSlot || !chosenSlot.available) {
         statusMsg.remove();
-        addBotMessage('Maaf kijiye, ye time slot ab available nahi hai (kisi aur ne book kar liya, ya time nikal gaya). Kripya booking form se doosra time/date try karein.');
-        addQuickReplies([{ label: '🛒 Booking Form Kholein', onClick: () => { addBotMessage('Chaliye — jo details aapne di thi wahi rakh ke form khol dete hain, bas doosra time/date chunkar book kar lein.'); goToBooking({ cityId: info.cityId, applianceId: info.applianceId, typeId: info.typeId, name: info.name, phone: info.phone, address: info.address }); } }]);
+        addBotMessage('Sorry, this time slot is no longer available (it got booked or the time has passed). Please pick another date/time in the booking form.');
+        addQuickReplies([{ label: '🛒 Open Booking Form', onClick: () => { addBotMessage('Opening the form with the details you gave — just pick another date/time and book.'); goToBooking({ cityId: info.cityId, applianceId: info.applianceId, typeId: info.typeId, name: info.name, phone: info.phone, address: info.address }); } }]);
         return;
       }
       payload.timeSlotId = info.timeSlotId;
 
       if (otpEnabled && !phoneAlreadyVerified) {
         statusMsg.remove();
-        addBotMessage('Aapke number pe OTP bhej rahe hain — jo popup khule usme verify kar dein.');
+        addBotMessage('Sending an OTP to your number — please verify it in the window that opens.');
         try {
           payload.accessToken = await verifyPhoneWithOtp(info.phone);
         } catch (err) {
-          addBotMessage(err.message || 'OTP verification fail ho gaya. Dobara try karein ya booking form use karein.');
-          addQuickReplies([{ label: '🛒 Booking Form Kholein', onClick: () => { addBotMessage('Chaliye — jo details aapne di thi wahi rakh ke form khol dete hain, bas OTP dobara verify karke book kar lein.'); goToBooking({ cityId: info.cityId, applianceId: info.applianceId, typeId: info.typeId, name: info.name, phone: info.phone, address: info.address, bookingDate: info.bookingDate, timeSlotId: info.timeSlotId }); } }]);
+          addBotMessage(err.message || 'OTP verification failed. Please try again or use the booking form.');
+          addQuickReplies([{ label: '🛒 Open Booking Form', onClick: () => { addBotMessage('Opening the form with the details you gave — just verify the OTP again and book.'); goToBooking({ cityId: info.cityId, applianceId: info.applianceId, typeId: info.typeId, name: info.name, phone: info.phone, address: info.address, bookingDate: info.bookingDate, timeSlotId: info.timeSlotId }); } }]);
           return;
         }
       }
@@ -605,8 +616,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (data && data.cancelKey && data.booking && data.booking.id) seeruaSaveDeviceKey(data.booking.id, data.cancelKey);
       if (document.body.contains(statusMsg)) statusMsg.remove();
-      addBotMessage(`✅ Booking confirm ho gayi! Booking ID: <strong>${escapeHtml(data.booking.id)}</strong><br>Visit: ${escapeHtml(data.booking.bookingDate)}, ${escapeHtml(data.booking.timeSlot)}<br>Total: ₹${data.booking.totalPrice}`);
+      addBotMessage(`✅ Booking confirmed! Booking ID: <strong>${escapeHtml(data.booking.id)}</strong><br>Visit: ${escapeHtml(data.booking.bookingDate)}, ${escapeHtml(data.booking.timeSlot)}<br>Total: ₹${data.booking.totalPrice}`);
       // FLOW CHANGE: a chatbot booking already gives the server everything
       // it needs to recognize this customer next time (name/address/city
       // saved on the booking itself — see /api/customer-lookup), but this
@@ -624,7 +636,7 @@
       }
     } catch (err) {
       if (document.body.contains(statusMsg)) statusMsg.remove();
-      addBotMessage(err.message || 'Booking create nahi ho paayi. Kripya booking form se try karein ya humse call karein.');
+      addBotMessage(err.message || 'The booking could not be created. Please try the booking form or call us.');
     }
   }
 
@@ -713,7 +725,7 @@
     const body = document.getElementById('chatPanelBody');
     if (body) body.innerHTML = '';
     aiChatHistory = [];
-    addBotMessage(`👋 Namaskar! Seerua Appliance Care mein aapka swagat hai. Main ${ASSISTANT_NAME}, aapki kya seva kar sakti hoon? 🙂`);
+    addBotMessage(`👋 Hello! Welcome to Seerua Appliance Care. I\'m ${ASSISTANT_NAME} — how can I help you today? 🙂`);
     setInputEnabled(true);
   }
 
@@ -749,7 +761,7 @@
         </div>
         <div class="chat-panel-body" id="chatPanelBody"></div>
         <div class="chat-panel-input">
-          <input type="text" id="chatMainInput" maxlength="500" placeholder="Apna sawaal ya booking likhein..." autocomplete="off">
+          <input type="text" id="chatMainInput" maxlength="500" placeholder="Type your question or booking..." autocomplete="off">
           <button id="chatMainSendBtn" type="button" aria-label="Send message">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>

@@ -270,3 +270,10 @@ body.sp-sheet-open { overflow: hidden; }
 .sp-review blockquote { margin: 6px 0 8px; font-style: italic; color: #2b3138; font-size: 0.92rem; line-height: 1.5; }
 .sp-review figcaption { font-size: 0.78rem; color: var(--slate); }
 .sp-verified { color: #1f8a3b; font-weight: 600; }
+
+/* Service-page header cart: same black round icon as the homepage on
+   desktop; hidden on phones where the bottom bar already has "Cart". */
+.sp-header-cart { width: 36px; height: 36px; border-radius: 50%; background: #000; color: #fff; align-items: center; justify-content: center; padding: 0; }
+.sp-header-cart:hover { background: #262626; }
+.sp-header-cart-badge { top: -4px; right: -6px; border: 2px solid #fff; }
+@media (max-width: 720px) { .sp-header-cart { display: none !important; } }

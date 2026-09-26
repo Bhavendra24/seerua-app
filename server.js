@@ -251,6 +251,23 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Every public page gets the same, live footer (see buildSiteFooterHtml).
+app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
+  const originalSend = res.send.bind(res);
+  res.send = (body) => {
+    if (typeof body === 'string' && body.includes('<footer class="site-footer"')) {
+      try {
+        const m = req.path.match(/^\/appliance-repair\/([a-z0-9-]+)/);
+        const footer = buildSiteFooterHtml(m ? m[1] : null);
+        body = body.replace(/<footer class="site-footer">[\s\S]*?<\/footer>/, () => footer);
+      } catch (e) { console.error('footer build failed:', e.message); }
+    }
+    return originalSend(body);
+  };
+  next();
+});
+
 // BUG FIX: every dynamic HTML page below (home, city pages, careers,
 // the maintenance notice, etc.) was sent with no explicit Cache-Control
 // header at all. Without one, browsers are allowed to guess how long a
@@ -1027,6 +1044,22 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
       knownCustomer = { name: pastBooking.name, address: pastBooking.address, cityName: cityMatch ? cityMatch.name : '' };
     }
   }
+  // PRIVACY: anyone can type any phone number into the chat. The saved
+  // address is only offered back on the customer's OWN phone — proved by
+  // a secret booking key that only the device which made a booking holds
+  // (see cancelKey). Any other device gets just the first name.
+  let ownDevice = false;
+  if (knownCustomer && phoneMatch) {
+    const keys = Array.isArray(req.body.deviceKeys) ? req.body.deviceKeys.filter(k => typeof k === 'string' && k.length <= 80).slice(0, 50) : [];
+    if (keys.length) {
+      const hashes = keys.map(k => require('crypto').createHash('sha256').update(k).digest('hex'));
+      ownDevice = readData('bookings').some(b => b.phone === phoneMatch[1] && b.cancelKeyHash && hashes.includes(b.cancelKeyHash));
+    }
+  }
+  const knownCustomerPublic = knownCustomer
+    ? (ownDevice ? knownCustomer : { name: String(knownCustomer.name || '').trim().split(/\s+/)[0] || '' })
+    : null;
+  if (knownCustomer && !ownDevice) knownCustomer = { name: knownCustomerPublic.name, cityName: knownCustomer.cityName };
 
   const context = {
     cities: readData('cities').filter(c => c.active),
@@ -1179,6 +1212,9 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   const lastAssistantMsg = [...safeHistory].reverse().find(h => h.role === 'assistant');
   const alreadyToldUnavailable = lastAssistantMsg && (
     lastAssistantMsg.content.includes('abhi Seerua par available nahi hai') ||
+    lastAssistantMsg.content.includes('is not available at Seerua right now') ||
+    lastAssistantMsg.content.includes("it's coming soon!") ||
+    lastAssistantMsg.content.includes("Sorry, we don't serve") ||
     lastAssistantMsg.content.includes('Hum jald hi is service ko yahan bhi shuru karenge') ||
     lastAssistantMsg.content.includes('hum abhi') && lastAssistantMsg.content.includes('mein service nahi dete')
   );
@@ -1194,14 +1230,14 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   // so there's no model behavior left to rely on, correct or not.
   if (!alreadyToldUnavailable && context.forcedNotOfferedNotice) {
     const activeApplianceNames = context.appliances.map(a => a.name).join(', ');
-    return res.json({ reply: `Maaf kijiye, ${context.forcedNotOfferedNotice.applianceName} abhi Seerua par available nahi hai. Hum ${activeApplianceNames} ki service dete hain — inme se kisi ke liye madad chahiye?`, knownCustomer });
+    return res.json({ reply: `Sorry, ${context.forcedNotOfferedNotice.applianceName} service is not available at Seerua right now. We service ${activeApplianceNames} — can I help you with one of these?`, knownCustomer: knownCustomerPublic });
   }
   if (!alreadyToldUnavailable && context.forcedUnavailableNotice) {
-    return res.json({ reply: `Maaf kijiye, ${context.forcedUnavailableNotice.applianceName} abhi ${context.forcedUnavailableNotice.cityName} mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`, knownCustomer });
+    return res.json({ reply: `Sorry, ${context.forcedUnavailableNotice.applianceName} service is not available in ${context.forcedUnavailableNotice.cityName} yet — it's coming soon!`, knownCustomer: knownCustomerPublic });
   }
   if (!alreadyToldUnavailable && context.forcedCityNotServedNotice) {
     const servedCityNames = context.cities.map(c => c.name).join(', ');
-    return res.json({ reply: `Maaf kijiye, hum abhi "${context.forcedCityNotServedNotice.cityNameGuess}" mein service nahi dete. Hum ${servedCityNames} mein available hain.`, knownCustomer });
+    return res.json({ reply: `Sorry, we don't serve "${context.forcedCityNotServedNotice.cityNameGuess}" yet. We are available in ${servedCityNames}.`, knownCustomer: knownCustomerPublic });
   }
   // If the customer's already been told once, clear these before calling
   // the AI — otherwise the system prompt's forced "stop and refuse right
@@ -1249,14 +1285,14 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
         .sort((x, y) => ((x.hidden ? 2 : 0) + ((draftCity && (x.disabledCities || []).includes(draftCity.id)) ? 1 : 0)) - ((y.hidden ? 2 : 0) + ((draftCity && (y.disabledCities || []).includes(draftCity.id)) ? 1 : 0)))[0];
       let blockReason = null;
       if (draftAppliance && draftAppliance.hidden) {
-        blockReason = `Maaf kijiye, ${draftAppliance.name} abhi Seerua par available nahi hai.`;
+        blockReason = `Sorry, ${draftAppliance.name} service is not available at Seerua right now.`;
       } else if (draft.cityName && !draftCity) {
         // BUG FIX: this list was hardcoded to the original 8 cities —
         // it kept naming them even after cities were changed via Admin
         // Panel, telling customers the site serves places it no longer
         // does. Now built fresh from the actual active cities list.
         const servedCityNames = allCitiesFresh.map(c => c.name).join(', ');
-        blockReason = `Maaf kijiye, hum abhi "${draft.cityName}" mein service nahi dete. Hum ${servedCityNames} mein available hain.`;
+        blockReason = `Sorry, we don't serve "${draft.cityName}" yet. We are available in ${servedCityNames}.`;
       } else if (draftCity && draftAppliance) {
         const pricingFresh = readData('pricing');
         const hasPricing = pricingFresh.some(p => p.cityId === draftCity.id && p.applianceId === draftAppliance.id);
@@ -1266,7 +1302,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
         // isn't enough to call this genuinely available.
         const isDisabledInThisCity = (draftAppliance.disabledCities || []).includes(draftCity.id);
         if (!hasPricing || isDisabledInThisCity) {
-          blockReason = `Maaf kijiye, ${draftAppliance.name} abhi ${draftCity.name} mein available nahi hai. Hum jald hi is service ko yahan bhi shuru karenge!`;
+          blockReason = `Sorry, ${draftAppliance.name} service is not available in ${draftCity.name} yet — it's coming soon!`;
         }
       }
       if (blockReason) {
@@ -1289,7 +1325,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   // guaranteed. Sending it back here too lets the client (chatbot.js)
   // handle the actual auto-fill deterministically in plain JS instead of
   // hoping the model does it right — see chatbot.js.
-  res.json({ reply: result.reply, knownCustomer });
+  res.json({ reply: result.reply, knownCustomer: knownCustomerPublic });
 });
 
 app.get('/api/price', (req, res) => {
@@ -2470,8 +2506,20 @@ app.post('/api/admin/cities', requireAdmin, (req, res) => {
     return res.status(400).json({ error: `"${name.trim()}" is already in your cities list.` });
   }
   const city = { id: genId('c'), name: name.trim(), active: true };
+  const existingCityIds = cities.map(c => c.id);
   cities.push(city);
   writeData('cities', cities);
+  // An appliance switched off in EVERY existing city ("not started yet")
+  // starts switched off in the new city too — Admin ticks it when ready.
+  if (existingCityIds.length) {
+    const appls = readData('appliances');
+    let changed = false;
+    appls.forEach(a => {
+      const off = a.disabledCities || [];
+      if (existingCityIds.every(id => off.includes(id))) { a.disabledCities = [...off, city.id]; changed = true; }
+    });
+    if (changed) writeData('appliances', appls);
+  }
   // Re-adding a previously deleted city brings its pages straight back.
   const adminForSlugs = readData('admin');
   if ((adminForSlugs.removedCitySlugs || []).includes(slugify(city.name))) {
@@ -2683,10 +2731,19 @@ app.get('/api/admin/site-content', requireStaff, (req, res) => {
 });
 
 app.put('/api/admin/site-content/footer', requireAdmin, (req, res) => {
-  const { footerDescription, footerSlogan } = req.body;
+  const { footerDescription, footerSlogan, footerAddress, footerHours } = req.body;
   const content = readData('site-content');
   if (footerDescription !== undefined) content.footerDescription = String(footerDescription).trim();
   if (footerSlogan !== undefined) content.footerSlogan = String(footerSlogan).trim();
+  if (footerAddress !== undefined) content.footerAddress = String(footerAddress).trim().slice(0, 300);
+  if (footerHours !== undefined) content.footerHours = String(footerHours).trim().slice(0, 80);
+  for (const k of ['facebook', 'instagram', 'youtube']) {
+    const v = req.body[`social_${k}`];
+    if (v === undefined) continue;
+    const u = String(v).trim();
+    if (u && !/^https:\/\/[^\s"'<>]+$/.test(u)) return res.status(400).json({ error: `${k} link must start with https://` });
+    content[`social_${k}`] = u;
+  }
   writeData('site-content', content);
   res.json({ success: true, footerDescription: content.footerDescription, footerSlogan: content.footerSlogan });
 });
@@ -5255,6 +5312,109 @@ function buildHomeCityLinksHtml(cities, appliances, pricing) {
   return { chips, all };
 }
 
+// ---------- One site-wide footer ----------
+// Built fresh on every page from live data (cities, appliances, prices)
+// plus the owner's own details from Admin → Site Content (address, hours,
+// social links). Swapped into every page's <footer class="site-footer">
+// by the middleware near the top of this file.
+const FOOTER_ICON = {
+  phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24 11.36 11.36 0 003.56.57 1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.49a1 1 0 011 1 11.36 11.36 0 00.57 3.56 1 1 0 01-.25 1.02l-2.2 2.2z" fill="currentColor"/></svg>',
+  whatsapp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.36-.53.05-1.05.24-3.52-.73-2.98-1.17-4.86-4.2-5.01-4.4-.15-.19-1.2-1.59-1.2-3.03 0-1.44.75-2.15 1.02-2.44.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.76 1.26 1.63 2.04 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.73-.85.92-1.14.19-.29.39-.24.65-.14.27.1 1.68.79 1.97.93.29.15.48.22.55.34.07.13.07.75-.17 1.43z" fill="currentColor"/></svg>',
+  email: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 5.5A1.5 1.5 0 014.5 4h15A1.5 1.5 0 0121 5.5v13a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5v-13z" stroke="currentColor" stroke-width="1.6"/><path d="M4 6l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8h3V4h-3c-2.8 0-4.5 1.7-4.5 4.6V11H7v4h2.5v9h4v-9h3l.5-4h-3.5V8.9c0-.6.4-.9 1-.9z" fill="currentColor"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/><circle cx="17.3" cy="6.7" r="1.2" fill="currentColor"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z" fill="currentColor"/></svg>',
+  youtube: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 8.2a3 3 0 00-2.1-2.1C18 5.6 12 5.6 12 5.6s-6 0-7.9.5A3 3 0 002 8.2 31 31 0 001.6 12 31 31 0 002 15.8a3 3 0 002.1 2.1c1.9.5 7.9.5 7.9.5s6 0 7.9-.5a3 3 0 002.1-2.1 31 31 0 00.4-3.8 31 31 0 00-.4-3.8zM10 15V9l5.2 3L10 15z" fill="currentColor"/></svg>'
+};
+function buildSiteFooterHtml(currentCitySlug) {
+  const sc = readData('site-content');
+  const cities = readData('cities').filter(c => c.active);
+  const pricing = readData('pricing');
+  const appliances = readData('appliances').filter(a => !a.hidden);
+  const openIn = (a, c) => !(a.disabledCities || []).includes(c.id) && applianceHasPricing(a, c.id, pricing);
+  const currentCity = currentCitySlug ? cities.find(c => slugify(c.name) === currentCitySlug) : null;
+  // Keep the footer short however many cities/appliances get added:
+  // max FOOTER_MAX links per column, then a "View all" link to the full
+  // city-wise list on the homepage (which already links every page).
+  const FOOTER_MAX = 6;
+  const capList = (items, label) => items.length <= FOOTER_MAX ? items.join('')
+    : items.slice(0, FOOTER_MAX).join('') + `<li><a href="/#allServicesByCity" class="sf-more">${label} →</a></li>`;
+  const serviceLinks = capList(appliances.map(a => {
+    const c = (currentCity && openIn(a, currentCity)) ? currentCity : cities.find(ct => openIn(a, ct));
+    return c ? `<li><a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}">${escapeHtml(a.name)} Repair &amp; Service</a></li>` : '';
+  }).filter(Boolean), 'All services');
+  const orderedCities = currentCity ? [currentCity, ...cities.filter(c => c.id !== currentCity.id)] : cities;
+  const cityLinks = capList(orderedCities.map(c => {
+    const a = appliances.find(ap => openIn(ap, c));
+    return a ? `<li><a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}">${escapeHtml(c.name)}</a></li>` : '';
+  }).filter(Boolean), 'All cities');
+  const blogCity = cities[0];
+  const cityListText = joinWithAnd(cities.map(c => c.name));
+  const applianceListText = joinWithAnd(appliances.map(a => a.name));
+  const safeUrl = (u) => (typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u.trim())) ? u.trim() : '';
+  const socials = [['facebook', 'Facebook'], ['instagram', 'Instagram'], ['youtube', 'YouTube']]
+    .map(([k, label]) => { const u = safeUrl(sc[`social_${k}`]); return u ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" class="footer-icon-link" aria-label="${label}" title="${label}">${FOOTER_ICON[k]}</a>` : ''; })
+    .join('');
+  const hours = String(sc.footerHours || 'Mon – Sun, 9 AM – 8 PM').trim();
+  const address = String(sc.footerAddress || '').trim();
+  const year = new Date().getFullYear();
+  return `<footer class="site-footer">
+  <div class="container">
+    <div class="sf-grid">
+      <div class="sf-brand">
+        <div class="footer-brand">
+          <picture><source srcset="/images/logo.webp" type="image/webp"><img src="/images/logo.png" alt="Seerua Appliance Care"></picture>
+          <span>Seerua Appliance Care</span>
+        </div>
+        ${sc.footerSlogan ? `<p class="footer-slogan">${escapeHtml(sc.footerSlogan)}</p>` : ''}
+        ${sc.footerDescription ? `<p>${escapeHtml(fillContentPlaceholders(sc.footerDescription, cityListText, applianceListText))}</p>` : ''}
+      </div>
+      <div>
+        <h5>${currentCity ? `Services in ${escapeHtml(currentCity.name)}` : 'Our Services'}</h5>
+        <ul>${serviceLinks}</ul>
+      </div>
+      <div>
+        <h5>Cities We Serve</h5>
+        <ul>${cityLinks}</ul>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <ul>
+          <li><a href="/#about">About Us</a></li>
+          <li><a href="/#whyUs">Why Choose Us</a></li>
+          <li><a href="/careers">Careers</a></li>
+          ${blogCity ? `<li><a href="/appliance-repair/${slugify(blogCity.name)}/blog">Appliance Care Tips</a></li>` : ''}
+        </ul>
+      </div>
+      <div>
+        <h5>Help</h5>
+        <ul>
+          <li><a href="/#track">Track Booking</a></li>
+          <li><a href="/#track">Cancel a Booking</a></li>
+          <li><a href="/#faq">FAQs</a></li>
+        </ul>
+      </div>
+      <div class="sf-contact">
+        <h5>Contact Us</h5>
+        <ul class="sf-contact-list">
+          <li><a href="tel:+919389585479"><span class="sf-ic sf-ic-call">${FOOTER_ICON.phone}</span>+91 93895 85479</a></li>
+          <li><a href="https://wa.me/919389585479" target="_blank" rel="noopener"><span class="sf-ic sf-ic-wa">${FOOTER_ICON.whatsapp}</span>WhatsApp us</a></li>
+          <li><a href="mailto:b4india@gmail.com"><span class="sf-ic">${FOOTER_ICON.email}</span>b4india@gmail.com</a></li>
+          <li class="sf-text"><span class="sf-ic">${FOOTER_ICON.clock}</span>${escapeHtml(hours)}</li>
+          ${address ? `<li class="sf-text"><span class="sf-ic">${FOOTER_ICON.pin}</span>${escapeHtml(address)}</li>` : ''}
+        </ul>
+        ${socials ? `<div class="footer-contact-icons">${socials}</div>` : ''}
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">${year}</span> Seerua Appliance Care. All rights reserved.</span>
+      <span class="sf-legal"><a href="/terms">Terms &amp; Conditions</a> · <a href="/privacy-policy">Privacy Policy</a> · <a href="/cancellation-policy">Cancellation Policy</a></span>
+    </div>
+  </div>
+</footer>`;
+}
+
 function fillContentPlaceholders(text, cityListText, applianceListText) {
   return String(text || '')
     .split('{{CITY_LIST_TEXT}}').join(cityListText)
@@ -5960,6 +6120,8 @@ app.get('/sitemap.xml', (req, res) => {
   const urls = [
     { loc: `${SITE_URL}/`, changefreq: 'weekly', priority: '1.0', lastmod: lastmodOf(['cities', 'appliances', 'site-content', 'service-photos'], [INDEX_TEMPLATE_PATH, serverDay ? __filename : '']) },
     { loc: `${SITE_URL}/terms`, changefreq: 'monthly', priority: '0.3', lastmod: lastmodOf([], [path.join(__dirname, 'public', 'terms.html')]) },
+    { loc: `${SITE_URL}/privacy-policy`, changefreq: 'yearly', priority: '0.3', lastmod: lastmodOf([], [path.join(__dirname, 'public', 'privacy-policy.html')]) },
+    { loc: `${SITE_URL}/cancellation-policy`, changefreq: 'yearly', priority: '0.3', lastmod: lastmodOf([], [path.join(__dirname, 'public', 'cancellation-policy.html')]) },
     { loc: `${SITE_URL}/careers`, changefreq: 'monthly', priority: '0.5', lastmod: careersLastmod },
     // Per-city career pages — same long-tail reasoning as the
     // appliance+city pages: someone searching "technician job
@@ -6048,7 +6210,12 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sub
 app.get('/super-admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/subadmin', (req, res) => res.redirect(301, '/admin'));
 app.get('/technician', (req, res) => res.sendFile(path.join(__dirname, 'public', 'technician.html')));
-app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'public', 'terms.html')));
+const sendPublicPage = (file) => (req, res) => res.type('html').send(fs.readFileSync(path.join(__dirname, 'public', file), 'utf-8'));
+app.get('/terms', sendPublicPage('terms.html'));
+app.get('/privacy-policy', sendPublicPage('privacy-policy.html'));
+app.get('/cancellation-policy', sendPublicPage('cancellation-policy.html'));
+app.get(['/privacy', '/privacy.html', '/privacy-policy.html'], (req, res) => res.redirect(301, '/privacy-policy'));
+app.get(['/refund-policy', '/cancellation-policy.html'], (req, res) => res.redirect(301, '/cancellation-policy'));
 const CAREERS_TEMPLATE_PATH = path.join(__dirname, 'views', 'careers.template.html');
 
 // Builds a Google-for-Jobs-eligible JobPosting entry for one city. Google

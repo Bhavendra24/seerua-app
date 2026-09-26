@@ -33,8 +33,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609260">
-<link rel="stylesheet" href="/css/service-page.css?v=202609254">
+<link rel="stylesheet" href="/css/style.css?v=202609274">
+<link rel="stylesheet" href="/css/service-page.css?v=202609262">
 
 <script type="application/ld+json">
 {{SERVICE_SCHEMA_JSON}}
@@ -57,20 +57,20 @@
       <a href="/">Home</a>
       <a href="/#services">Our Services</a>
       <a href="/careers">👷 Careers</a>
-      <button type="button" class="nav-menu-btn" id="navCityBtn">City</button>
+      <button type="button" class="nav-menu-btn" id="navCityBtn" aria-haspopup="true">📍 {{CITY_NAME}} ▾</button>
     </nav>
     <div class="header-actions">
       <a class="call-link" href="tel:+919389585479">
         📞 <span class="call-text">9389585479</span>
       </a>
-      <a href="/#track" class="header-account-btn" id="headerAccountBtn" aria-label="My Account">
-        <svg id="headerAccountIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        <span id="headerAccountInitial" class="header-account-initial" style="display:none;"></span>
-      </a>
       <button type="button" class="sp-header-cart" id="spHeaderCart" aria-label="Cart">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
         <span class="sp-header-cart-badge" id="spHeaderCartBadge" hidden>0</span>
       </button>
+      <a href="/#track" class="header-account-btn" id="headerAccountBtn" aria-label="My Account">
+        <svg id="headerAccountIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span id="headerAccountInitial" class="header-account-initial" style="display:none;"></span>
+      </a>
     </div>
   </div>
 </header>
@@ -241,7 +241,7 @@
 <div class="bottom-sheet-backdrop" id="supportSheetBackdrop">
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
-    <h3>Humse Judein</h3>
+    <h3>Contact Us</h3>
     <button type="button" class="bottom-sheet-option" id="supportSheetChatBtn">
       <span class="bottom-sheet-icon" style="background:#eef0ff;color:#5b5bd6;">🤖</span>
       <span><strong>Bella AI Seerua Assistant</strong></span>
@@ -260,7 +260,7 @@
 <div class="bottom-sheet-backdrop" id="citySheetBackdrop">
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
-    <h3>Apna Shehar Chunein</h3>
+    <h3>Select Your City</h3>
     <div class="bottom-sheet-city-grid" id="bottomSheetCityGrid" data-filled="1">{{CITY_SHEET_HTML}}</div>
   </div>
 </div>
@@ -330,9 +330,19 @@ document.querySelectorAll('.faq-item').forEach(item => {
     if (!wasOpen) item.classList.add('open');
   });
 });
-document.getElementById('navCityBtn')?.addEventListener('click', () => document.getElementById('bottomNavCityBtn')?.click());
+// Desktop "📍 City ▾" button: open the city list as a dropdown under it.
+document.getElementById('navCityBtn')?.addEventListener('click', (e) => {
+  const bd = document.getElementById('citySheetBackdrop');
+  if (!bd) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  bd.classList.add('as-dropdown');
+  bd.style.setProperty('--dd-left', Math.max(8, Math.min(r.left, window.innerWidth - 290)) + 'px');
+  bd.style.setProperty('--dd-top', (r.bottom + 8) + 'px');
+  bd.classList.add('open');
+});
+document.getElementById('bottomNavCityBtn')?.addEventListener('click', () => document.getElementById('citySheetBackdrop')?.classList.remove('as-dropdown'), true);
 </script>
 <script src="/js/service-page.js?v=202609261"></script>
-<script src="/js/chatbot.js?v=202609239"></script>
+<script src="/js/chatbot.js?v=202609266"></script>
 </body>
 </html>

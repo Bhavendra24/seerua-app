@@ -2183,3 +2183,51 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 /* Appliance not started in any city yet */
 .service-card-soon .service-card-photo, .service-card-soon .service-icon-wrap { filter: grayscale(0.6); opacity: 0.75; }
 .soon-badge { display: inline-block; margin-top: 4px; padding: 5px 12px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 0.78rem; font-weight: 700; }
+
+/* ---------- Header polish ---------- */
+/* Empty cart: the "0" badge was showing because display:flex beat [hidden]. */
+.header-cart-badge[hidden] { display: none !important; }
+
+/* Desktop: the City button opens a dropdown right under it (it used to
+   open the phone-style sheet at the bottom of the screen, easy to miss). */
+.nav-menu-btn#navCityBtn { white-space: nowrap; }
+@media (min-width: 721px) {
+  #citySheetBackdrop.as-dropdown { background: transparent; display: block; }
+  #citySheetBackdrop.as-dropdown .bottom-sheet {
+    position: absolute; top: var(--dd-top, 72px); left: var(--dd-left, 50%);
+    width: 280px; max-width: 280px; max-height: 60vh;
+    border-radius: 14px; border: 1px solid var(--line);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+    padding: 14px; transform: translateY(-6px);
+  }
+  #citySheetBackdrop.as-dropdown.open .bottom-sheet { transform: translateY(0); }
+  #citySheetBackdrop.as-dropdown .bottom-sheet-handle { display: none; }
+  #citySheetBackdrop.as-dropdown h3 { font-size: 0.95rem; margin: 0 0 10px; }
+  #citySheetBackdrop.as-dropdown .bottom-sheet-city-grid { grid-template-columns: 1fr 1fr; }
+  #citySheetBackdrop.as-dropdown .bottom-sheet-city-grid a.active { background: var(--accent-100, #dbeafe); color: var(--blue-700); }
+}
+.bottom-sheet-city-btn.active, .bottom-sheet-city-grid a.active { background: var(--accent-100, #dbeafe); color: var(--blue-700); box-shadow: inset 0 0 0 2px var(--accent-500, #3b82f6); }
+
+/* ---------- Site-wide footer (built by the server) ---------- */
+.sf-grid { display: grid; grid-template-columns: 1.5fr 1fr 0.8fr 0.9fr 0.8fr 1.2fr; gap: 24px; margin-bottom: 26px; }
+.sf-grid ul { list-style: none; padding: 0; margin: 0; }
+.sf-grid .sf-sub { margin-top: 18px; }
+.sf-grid a.sf-more { font-weight: 600; color: #7cc4ff; }
+.sf-contact .sf-text { font-size: 0.88rem; color: #a9c1d6; line-height: 1.5; }
+.sf-legal a { margin: 0 2px; }
+@media (max-width: 960px) {
+  .sf-grid { grid-template-columns: 1fr 1fr; gap: 22px; }
+  .sf-brand, .sf-contact { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .site-footer { padding-bottom: 96px; } /* room for the phone's bottom bar */
+  .footer-bottom { flex-direction: column; align-items: flex-start; }
+}
+.sf-brand p, .sf-grid p { text-align: left; }
+
+.sf-contact-list li { display: block; }
+.sf-contact-list a, .sf-contact-list .sf-text { display: flex; align-items: flex-start; gap: 10px; }
+.sf-ic { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.08); color: #fff; display: inline-flex; align-items: center; justify-content: center; margin-top: -5px; }
+.sf-ic svg { width: 15px; height: 15px; }
+.sf-ic-call { color: var(--accent-500); }
+.sf-ic-wa { color: #25D366; }

@@ -3214,6 +3214,11 @@ async function renderSiteContent() {
   SITE_CONTENT = await api('/api/admin/site-content');
   document.getElementById('footerSloganInput').value = SITE_CONTENT.footerSlogan || '';
   document.getElementById('footerDescriptionInput').value = SITE_CONTENT.footerDescription || '';
+  document.getElementById('footerAddressInput').value = SITE_CONTENT.footerAddress || '';
+  document.getElementById('footerHoursInput').value = SITE_CONTENT.footerHours || '';
+  document.getElementById('socialFacebookInput').value = SITE_CONTENT.social_facebook || '';
+  document.getElementById('socialInstagramInput').value = SITE_CONTENT.social_instagram || '';
+  document.getElementById('socialYoutubeInput').value = SITE_CONTENT.social_youtube || '';
   renderFaqList();
   try {
     const res = await api('/api/admin/ai-instructions');
@@ -3248,7 +3253,12 @@ document.getElementById('saveFooterBtn').addEventListener('click', async () => {
       method: 'PUT',
       body: JSON.stringify({
         footerSlogan: document.getElementById('footerSloganInput').value,
-        footerDescription: document.getElementById('footerDescriptionInput').value
+        footerDescription: document.getElementById('footerDescriptionInput').value,
+        footerAddress: document.getElementById('footerAddressInput').value,
+        footerHours: document.getElementById('footerHoursInput').value,
+        social_facebook: document.getElementById('socialFacebookInput').value,
+        social_instagram: document.getElementById('socialInstagramInput').value,
+        social_youtube: document.getElementById('socialYoutubeInput').value
       })
     });
     msg.className = 'msg-inline success';

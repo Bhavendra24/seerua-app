@@ -43,6 +43,10 @@ Replace the URL with the one GitHub shows you after creating a new (empty) repos
 
 ## 🆕 Update 4 (Sep 2026) — Tile → Type → filled form; new time slots
 
+- **(Update 27) Naya footer + policy pages:** har page par ek jaisa footer (server se, live data): Services (us city ke, ya pehli chalu city), Cities We Serve, Company (About, Why Choose Us, Careers, Tips), Help (Track/Cancel Booking, FAQs), Contact (phone, WhatsApp, email, samay, pata) + social icons. Naye page: /privacy-policy, /cancellation-policy (sitemap mein). Terms mein cancellation niyam naye system jaise. Admin → Site Content → Footer mein: pata, kaam ka samay, Facebook/Instagram/YouTube link.
+- **(Update 26) Site ki bhasha English:** "Apna Shehar Chunein" → "Select Your City", "Humse Judein" → "Contact Us", "(OTP se verify karenge)" → "(verified by OTP)", chat window ke saare tay sandesh/buttons aur server ke tay jawab English mein. Chat mein number likhne par purana pata sirf customer ke APNE phone par (jis phone se booking hui — gupt booking key se pehchaan) "Yes, same address" button ke saath; doosre phone par sirf pehla naam.
+- **(Update 25) Computer par City chunna:** header mein "📍 Moradabad ▾" (homepage par pehle "📍 Select City ▾") — dabane par button ke theek neeche city list (dropdown), chuni hui city highlight. Service page par city chunne se usi appliance ka us city ka page khulta hai. Mobile par neeche wala City button pehle jaisa.
+- **(Update 24) Header:** computer par khaali cart ka "0" ab nahi dikhta; service page ka header homepage jaisa (call → cart → account, kaale gol icon); mobile par service page ke header se cart hataya (neeche bar mein pehle se hai).
 - **(Update 23) Band appliance:** jo appliance kisi bhi city mein chalu nahi (Admin → Appliances → "Available In Cities" mein sab tick hate), uski tile homepage par normal dikhti hai, par tile ya "Book Now" dabane par sandesh aata hai "… service is coming soon — booking is not open yet." (khaali popup nahi). "From AC, Washing Machine…" vaakya aur "Appliance care, explained" mein sirf chalu appliances. Sitemap par 1 ghante ka cache niyam.
 - **(Update 22) Bella kharcha kam:** Bella ko ab sirf baatcheet mein aayi city ki price aur usi appliance ki expert jaankari bheji jaati hai (pehle sab kuch har sandesh ke saath jaata tha); pichhli baatcheet ke 20 sandesh tak. Expert mode ke saath bhi kharcha pehle jitna (~₹0.6/jawab, Llama 3.3 70B $1.04/M token par).
 - **(Update 21) Bella expert mode:** Bella ko har appliance ki aam kharabiyan + wajah, dekhbhaal tips, har service mein kya shamil hai, aur har city ka Local info diya jaata hai. Senior technician ki tarah: 1-2 sawaal → sambhavit wajah → customer khud kar sake aise surakshit check → sahi service card + us city ki price → chat mein booking. Gas ki gandh/chingari/jalne ki gandh par pehle suraksha salah. Jawab customer ki bhasha/lipi mein (Roman Hinglish → Roman Hinglish). Model hosting panel mein TOGETHER_MODEL se badla ja sakta hai.
@@ -430,3 +434,9 @@ Every booking includes a 1-month (30-day) service guarantee, shown on the homepa
 - The logo is located at `public/images/logo.png` — to change it, simply replace it with a new file of the same name.
 
 For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
+
+### Update 28 — Footer contact icons + new-city rule
+- Footer: the duplicate icon row under the brand is removed; the Contact column now shows the icons (phone, WhatsApp, email, hours, address). Social icons appear there only once they are filled in.
+- Footer cities/services update automatically when a city or service is added or deleted in Admin.
+- New city rule: an appliance that is switched off in every existing city (e.g. Chimney/Geyser/Microwave, "not started yet") also starts switched off in a newly added city. Tick it in Admin → Appliances when ready.
+- Footer is capped at 6 cities / 6 services per column; beyond that an "All cities →" / "All services →" link goes to the homepage's full city-wise list. On a city page, that city is listed first.

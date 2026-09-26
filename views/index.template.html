@@ -35,8 +35,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=202609260">
-<link rel="stylesheet" href="/css/service-page.css?v=202609254">
+<link rel="stylesheet" href="/css/style.css?v=202609274">
+<link rel="stylesheet" href="/css/service-page.css?v=202609262">
 
 <script type="application/ld+json">
 {
@@ -74,7 +74,7 @@
       <a href="/">Home</a>
       <a href="#services">Our Services</a>
       <a href="/careers">👷 Careers</a>
-      <button type="button" class="nav-menu-btn" id="navCityBtn">City</button>
+      <button type="button" class="nav-menu-btn" id="navCityBtn" aria-haspopup="true">📍 Select City ▾</button>
     </nav>
     <div class="header-actions">
       <a class="call-link" href="tel:+919389585479">
@@ -355,7 +355,7 @@
                working unchanged; applyAccountToBookingFields() fills it
                in automatically from the saved account. -->
           <div class="field" id="fPhoneField" style="display:none;">
-            <label for="fPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
+            <label for="fPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(verified by OTP)</small></label>
             <input type="tel" id="fPhone" required pattern="[0-9]{10}" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
             <small id="fPhoneLockNote" style="display:none;color:var(--slate);margin-top:4px;">🔒 Locked to this number — remove all items below to use a different number.</small>
           </div>
@@ -651,7 +651,7 @@
 <div class="bottom-sheet-backdrop" id="supportSheetBackdrop">
   <div class="bottom-sheet">
     <div class="bottom-sheet-handle"></div>
-    <h3>Humse Judein</h3>
+    <h3>Contact Us</h3>
     <button type="button" class="bottom-sheet-option" id="supportSheetChatBtn">
       <span class="bottom-sheet-icon" style="background:#eef0ff;color:#5b5bd6;">🤖</span>
       <span><strong>Bella AI Seerua Assistant</strong></span>
@@ -761,7 +761,7 @@
            DOM (hidden) only so the existing qbDoAdd()/qbAddService() code
            reading it keeps working — it's auto-filled from the account. -->
       <div class="field" id="qbPhoneField" style="display:none;">
-        <label for="qbPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(OTP se verify karenge)</small></label>
+        <label for="qbPhone">Mobile Number * <small style="font-weight:400;color:var(--slate);">(verified by OTP)</small></label>
         <input type="tel" id="qbPhone" maxlength="10" placeholder="10 digit number" autocomplete="off" inputmode="numeric">
       </div>
 
@@ -1121,9 +1121,9 @@
   </div>
 </div>
 
-<script src="/js/main2.js?v=202609260"></script>
+<script src="/js/main2.js?v=202609264"></script>
 <script src="/js/service-page.js?v=202609261"></script>
 <script src="/js/i18n.js?v=202609080a"></script>
-<script src="/js/chatbot.js?v=202609239"></script>
+<script src="/js/chatbot.js?v=202609266"></script>
 </body>
 </html>
