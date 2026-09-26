@@ -2020,3 +2020,9 @@ Is session mein **sandbox mein instability** aayi (background server processes b
 - ⚠️ **Real mobile keyboard ka live test nahi kar paya** — ye asal mein sirf real mobile device pe hi poori tarah test ho sakta hai (headless browser testing mein virtual keyboard simulate nahi hota)
 
 **Request:** Please apne real phone pe test karke bataiyega ye keyboard wali problem theek hui ya nahi. Agar phir bhi issue ho, screenshot bhej dena.
+
+## Customer location pin (booking form)
+- Booking form: optional "📍 Use my current location" (phone GPS) and "🗺️ Pick on map" (pin stays in the middle, customer moves the map; Map / Satellite; OpenStreetMap + Esri tiles, no API key). Leaflet 1.9.4 is self-hosted in public/vendor/leaflet.
+- Saved on the booking as `location {lat, lng, accuracy}` (India bounds only).
+- Technician panel: the 🗺️ Map button opens Google Maps directions straight to the pin; job shows "exact pin ✓".
+- Admin orders: "🗺️ GPS pin" link next to the city.

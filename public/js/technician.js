@@ -264,7 +264,11 @@ function niceVisit(o) {
   const day = o.bookingDate === today ? `Today, ${dm}` : o.bookingDate === tmr ? `Tomorrow, ${dm}` : d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
   return { text: `${day}${o.timeSlot ? ' · ' + String(o.timeSlot).replace(' - ', ' – ') : ''}`, today: o.bookingDate <= today };
 }
-function mapLink(o) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${o.address || ''}, ${o.cityName || ''}`)}`; }
+function mapLink(o) {
+  // exact GPS pin shared by the customer wins; otherwise search the typed address
+  if (o.location && Number.isFinite(o.location.lat) && Number.isFinite(o.location.lng)) return `https://www.google.com/maps/dir/?api=1&destination=${o.location.lat},${o.location.lng}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${o.address || ''}, ${o.cityName || ''}`)}`;
+}
 function waLink(o) {
   const p = String(o.phone || '').replace(/\D/g, '');
   const me = CURRENT_TECH ? CURRENT_TECH.name : 'your technician';
@@ -339,7 +343,7 @@ function jobCardHtml(o) {
       <h3>${o.qty > 1 ? o.qty + '× ' : ''}${esc(o.applianceName)}</h3>
       <div class="job-svc">${esc(svc)}</div>
       <div class="job-line">👤 ${esc(o.name)}</div>
-      <div class="job-line">📍 ${esc(o.address)}, ${esc(o.cityName)}</div>
+      <div class="job-line">📍 ${esc(o.address)}, ${esc(o.cityName)}${o.location ? ' <span style="color:#15803d;font-weight:700;font-size:0.8rem;">· exact pin ✓</span>' : ''}</div>
       ${o.problem ? `<div class="job-problem">🗣️ Customer says: "${esc(o.problem)}"</div>` : ''}
       ${o.photoUrl ? `<div class="job-line"><a href="${esc(o.photoUrl)}" target="_blank" rel="noopener">📷 Customer's photo</a></div>` : ''}
       ${o.itemStatus !== 'completed' ? collectHtml(o) : `<div class="job-line">💰 ₹${fmtInr(o.lineTotal)}</div>`}

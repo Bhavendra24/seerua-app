@@ -121,6 +121,7 @@
       '     <label class="sp-label" for="spName">Your name</label><input class="sp-input" id="spName" type="text" autocomplete="name" placeholder="Full name" maxlength="80">' +
       '     <label class="sp-label" for="spPhone">Mobile number</label><div class="sp-phone-wrap"><span>+91</span><input class="sp-input" id="spPhone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10 digit mobile number" maxlength="16"></div>' +
       '     <label class="sp-label" for="spAddress" id="spAddressLabel">Full address</label><textarea class="sp-input" id="spAddress" rows="2" autocomplete="street-address" placeholder="House no., street, area, landmark" maxlength="300"></textarea>' +
+      '     <div class="sp-loc"><button type="button" class="sp-loc-btn" id="spLocBtn">📍 Use my current location</button><button type="button" class="sp-loc-btn" id="spMapBtn">🗺️ Pick on map</button><span class="sp-loc-msg" id="spLocMsg">Optional — helps the technician find your home exactly.</span></div>' +
       '    </div>' +
       '   </div>' +
       '   <div class="sp-label">Visit date</div><div class="sp-chips" id="spDates"></div>' +
@@ -523,6 +524,7 @@
     setMsg($('spFormMsg'), '');
     checkBookingStatus();
     prewarmOtp();
+    setTimeout(restoreLoc, 0);
   }
   // Phone Back button closes the popup instead of leaving the page.
   var sheetHistory = false;
@@ -533,6 +535,7 @@
     if (!sheetHistory) return;
     sheetHistory = false;
     var sheet = $('spSheet');
+    if (mapIsOpen() && sheet && sheet.classList.contains('open')) { closeMap(); pushSheetState(); return; }
     if (sheet && sheet.classList.contains('open')) { if (posting) { pushSheetState(); return; } closeSheet(true); }
   });
   function closeSheet(fromBack) {
@@ -831,6 +834,143 @@
   function readDetails() {
     return { name: $('spName').value.trim(), phone: normalizePhone($('spPhone').value), address: $('spAddress').value.trim() };
   }
+
+  // ---- Optional exact location (GPS pin) for the technician's Map ----
+  var pickedLoc = null;
+  var LOC_KEY = 'seerua_loc_v1';
+  function showLoc() {
+    var msg = $('spLocMsg'), btn = $('spLocBtn'); if (!msg || !btn) return;
+    if (pickedLoc) {
+      msg.innerHTML = '✓ Location pinned — the technician can navigate straight to you. <a href="#" id="spLocRemove">Remove</a>';
+      msg.className = 'sp-loc-msg ok'; btn.textContent = '📍 Use current location'; if ($('spMapBtn')) $('spMapBtn').textContent = '🗺️ Check / move pin';
+      var rm = $('spLocRemove'); if (rm) rm.onclick = function (e) { e.preventDefault(); pickedLoc = null; try { localStorage.removeItem(LOC_KEY); } catch (er) { /* ignore */ } showLoc(); };
+    } else {
+      msg.textContent = 'Optional — helps the technician find your home exactly.'; msg.className = 'sp-loc-msg'; btn.textContent = '📍 Use my current location'; if ($('spMapBtn')) $('spMapBtn').textContent = '🗺️ Pick on map';
+    }
+  }
+  function restoreLoc() {
+    // reuse a saved pin only for the same address it was taken for
+    try {
+      var s = JSON.parse(localStorage.getItem(LOC_KEY) || 'null');
+      var addr = ($('spAddress') && $('spAddress').value.trim()) || '';
+      pickedLoc = (s && addr && s.address === addr) ? s : null;
+    } catch (e) { pickedLoc = null; }
+    showLoc();
+  }
+  function pickLocation() {
+    var msg = $('spLocMsg'), btn = $('spLocBtn');
+    if (!navigator.geolocation) { msg.textContent = 'Your browser does not support location. The address is enough.'; msg.className = 'sp-loc-msg err'; return; }
+    btn.disabled = true; msg.textContent = 'Getting your location…'; msg.className = 'sp-loc-msg';
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      btn.disabled = false;
+      pickedLoc = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6), accuracy: Math.round(pos.coords.accuracy || 0), address: $('spAddress').value.trim() };
+      try { localStorage.setItem(LOC_KEY, JSON.stringify(pickedLoc)); } catch (e) { /* ignore */ }
+      showLoc();
+      if (mapState.wrap && !mapState.wrap.hidden && mapState.map) mapState.map.setView([pickedLoc.lat, pickedLoc.lng], 18);
+    }, function (err) {
+      btn.disabled = false;
+      msg.textContent = err && err.code === 1 ? 'Location permission is off. You can still book with the address.' : 'Could not get your location. You can still book with the address.';
+      msg.className = 'sp-loc-msg err';
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  }
+  // ---- "Pick on map": the pin stays in the middle, the customer moves the map ----
+  var mapState = { wrap: null, map: null, loading: null, layers: null };
+  function loadLeaflet() {
+    if (window.L && window.L.map) return Promise.resolve();
+    if (mapState.loading) return mapState.loading;
+    mapState.loading = new Promise(function (res, rej) {
+      var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/vendor/leaflet/leaflet.css?v=194'; document.head.appendChild(css);
+      var js = document.createElement('script'); js.src = '/vendor/leaflet/leaflet.js?v=194';
+      js.onload = function () { res(); }; js.onerror = function () { mapState.loading = null; rej(new Error('map')); };
+      document.head.appendChild(js);
+    });
+    return mapState.loading;
+  }
+  function mapWrap() {
+    if (mapState.wrap) return mapState.wrap;
+    var w = document.createElement('div');
+    w.className = 'sp-map-wrap'; w.id = 'spMapWrap'; w.hidden = true;
+    w.innerHTML =
+      '<div class="sp-map-box" role="dialog" aria-label="Pick your location on the map">' +
+      ' <div class="sp-map-head"><div><b>Move the map to your home</b><small>The pin stays in the middle. Zoom in for accuracy.</small></div><button type="button" class="sp-map-x" id="spMapClose" aria-label="Close">✕</button></div>' +
+      ' <div class="sp-map-area"><div class="sp-map" id="spMap"></div><div class="sp-map-pin" aria-hidden="true">📍</div>' +
+      '  <div class="sp-map-layers"><button type="button" data-l="map" class="on">Map</button><button type="button" data-l="sat">Satellite</button></div></div>' +
+      ' <div class="sp-map-foot"><button type="button" class="sp-loc-btn" id="spMapGps">📍 My location</button><button type="button" class="sp-map-ok" id="spMapOk">✓ Confirm this location</button></div>' +
+      ' <div class="sp-map-msg" id="spMapMsg"></div>' +
+      '</div>';
+    document.body.appendChild(w);
+    mapState.wrap = w;
+    w.addEventListener('click', function (e) { if (e.target === w) closeMap(); });
+    $('spMapClose').addEventListener('click', function () { closeMap(); });
+    $('spMapGps').addEventListener('click', function () {
+      var m = $('spMapMsg');
+      if (!navigator.geolocation) { m.textContent = 'Your browser does not support location.'; return; }
+      m.textContent = 'Getting your location…';
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        m.textContent = '';
+        if (mapState.map) mapState.map.setView([pos.coords.latitude, pos.coords.longitude], 18);
+      }, function (err) { m.textContent = err && err.code === 1 ? 'Location permission is off — move the map by hand.' : 'Could not get your location — move the map by hand.'; }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    });
+    $('spMapOk').addEventListener('click', function () {
+      if (!mapState.map) return;
+      var c = mapState.map.getCenter();
+      if (!(c.lat > 6 && c.lat < 38 && c.lng > 68 && c.lng < 98)) { $('spMapMsg').textContent = 'Please place the pin inside India.'; return; }
+      if (mapState.map.getZoom() < 15) { $('spMapMsg').textContent = 'Please zoom in closer to your home, then confirm.'; return; }
+      pickedLoc = { lat: +c.lat.toFixed(6), lng: +c.lng.toFixed(6), accuracy: null, address: ($('spAddress') && $('spAddress').value.trim()) || '' };
+      try { localStorage.setItem(LOC_KEY, JSON.stringify(pickedLoc)); } catch (e) { /* ignore */ }
+      showLoc();
+      closeMap();
+    });
+    w.querySelector('.sp-map-layers').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-l]'); if (!b || !mapState.layers) return;
+      var sat = b.getAttribute('data-l') === 'sat';
+      mapState.map.removeLayer(sat ? mapState.layers.map : mapState.layers.sat);
+      mapState.map.addLayer(sat ? mapState.layers.sat : mapState.layers.map);
+      w.querySelectorAll('.sp-map-layers button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+    return w;
+  }
+  function cityCenter() {
+    // rough centre for the chosen city (OpenStreetMap search), India if unknown
+    var name = city.name || '';
+    if (!name || !window.fetch) return Promise.resolve(null);
+    return fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=' + encodeURIComponent(name + ', India'))
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return d && d[0] ? [Number(d[0].lat), Number(d[0].lon)] : null; })
+      .catch(function () { return null; });
+  }
+  function openMap() {
+    var w = mapWrap();
+    w.hidden = false; document.body.classList.add('sp-map-open');
+    $('spMapMsg').textContent = '';
+    loadLeaflet().then(function () {
+      var start = pickedLoc ? { c: [pickedLoc.lat, pickedLoc.lng], z: 18 } : null;
+      var fresh = !mapState.map;
+      if (!mapState.map) {
+        mapState.map = L.map('spMap', { zoomControl: true, attributionControl: true }).setView([22.6, 79.0], 5);
+        mapState.layers = {
+          map: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }),
+          sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery © Esri' })
+        };
+        mapState.layers.map.addTo(mapState.map);
+      }
+      setTimeout(function () { mapState.map.invalidateSize(); }, 50);
+      if (start) return mapState.map.setView(start.c, start.z);
+      if (!fresh) return; // reopened — keep where the customer left the map
+      $('spMapMsg').textContent = 'Finding ' + (city.name || 'your city') + '…';
+      cityCenter().then(function (c) {
+        $('spMapMsg').textContent = '';
+        mapState.map.setView(c || [22.6, 79.0], c ? 13 : 5);
+      });
+    }).catch(function () {
+      $('spMapMsg').textContent = 'The map could not load. Check your internet — you can still book with the address.';
+    });
+  }
+  function closeMap() {
+    if (mapState.wrap) mapState.wrap.hidden = true;
+    document.body.classList.remove('sp-map-open');
+  }
+  function mapIsOpen() { return !!(mapState.wrap && !mapState.wrap.hidden); }
   function validate(d) {
     if (!city.id) return 'Please choose your city.';
     if (!cart.items.length) return 'Please choose a service first.';
@@ -885,6 +1025,7 @@
       accessToken: accessToken || undefined,
       couponCode: appliedCoupon ? appliedCoupon.code : undefined,
       referralCode: ref || undefined,
+      location: pickedLoc ? { lat: pickedLoc.lat, lng: pickedLoc.lng, accuracy: pickedLoc.accuracy } : undefined,
       items: cart.items.map(function (i) {
         var generic = i.skuId === 'svc-service' || i.skuId === 'svc-repair';
         return { applianceId: i.applianceId, typeId: i.typeId, serviceType: i.serviceType, qty: 1, skuId: i.skuId, problem: generic ? '' : i.skuName + ' requested.' };
@@ -1013,6 +1154,9 @@
     $('spConfirm').addEventListener('click', onConfirm);
     $('spPhone').addEventListener('input', function () { var v = normalizePhone(this.value); if (v !== this.value) this.value = v; });
     ['spName', 'spPhone', 'spAddress'].forEach(function (id) { $(id).addEventListener('input', function () { detailsEdited = true; }); });
+    if ($('spLocBtn')) $('spLocBtn').addEventListener('click', pickLocation);
+    if ($('spMapBtn')) $('spMapBtn').addEventListener('click', openMap);
+    if ($('spAddress')) $('spAddress').addEventListener('change', function () { if (pickedLoc) { pickedLoc.address = $('spAddress').value.trim(); try { localStorage.setItem(LOC_KEY, JSON.stringify(pickedLoc)); } catch (e) { /* ignore */ } } });
     $('spOtpCode').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 6); });
     $('spCouponApply').addEventListener('click', function () {
       var code = $('spCoupon').value.trim();

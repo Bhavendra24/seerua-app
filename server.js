@@ -1522,6 +1522,15 @@ app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too ma
   }
   const name = String(req.body.name || '').trim().slice(0, 80);
   const address = String(req.body.address || '').trim().slice(0, 300);
+  // Optional GPS pin the customer shared from the booking form (India bounds only).
+  let gpsLocation = null;
+  const L = req.body.location;
+  if (L && typeof L === 'object') {
+    const lat = Number(L.lat), lng = Number(L.lng), acc = Number(L.accuracy);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && lat > 6 && lat < 38 && lng > 68 && lng < 98) {
+      gpsLocation = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, accuracy: Number.isFinite(acc) && acc > 0 ? Math.round(Math.min(acc, 100000)) : null };
+    }
+  }
   if (Array.isArray(items) && items.length > 10) {
     return res.status(400).json({ error: 'Please book at most 10 services at a time.' });
   }
@@ -1791,6 +1800,7 @@ app.post('/api/bookings', simpleRateLimit('booking', 15, 60 * 60 * 1000, 'Too ma
         name,
         phone,
         address,
+        ...(gpsLocation ? { location: gpsLocation } : {}),
         cityId,
         cityName: city.name,
         items: resolvedItems,
@@ -5251,6 +5261,7 @@ app.get('/api/technician/orders', requireTechnician, (req, res) => {
           name: b.name,
           phone: b.phone,
           address: b.address,
+          location: b.location || null,
           cityName: b.cityName,
           bookingDate: b.bookingDate,
           timeSlot: b.timeSlot,

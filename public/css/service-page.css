@@ -302,3 +302,29 @@ body.sp-sheet-open { overflow: hidden; }
 /* Offer price: regular price crossed out + "₹X off" chip */
 .sp-mrp { color: #6b7280; font-weight: 500; font-size: 0.92em; margin-right: 2px; text-decoration-thickness: 1.5px; }
 .sp-off { background: #dcfce7; color: #166534; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }
+
+/* optional GPS pin under the address box */
+.sp-loc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+.sp-loc-btn { background: #fff; border: 1.5px solid #1b6fb0; color: #14508a; font-weight: 700; font-size: 0.82rem; padding: 6px 10px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+.sp-loc-btn:disabled { opacity: .6; }
+.sp-loc-msg { font-size: 0.76rem; color: #64748b; flex: 1; min-width: 140px; }
+.sp-loc-msg.ok { color: #15803d; font-weight: 600; }
+.sp-loc-msg.err { color: #b42318; }
+.sp-loc-msg a { color: #b42318; margin-left: 4px; }
+
+/* Pick-on-map popup (pin fixed in the centre, map moves) */
+.sp-map-wrap { position: fixed; inset: 0; z-index: 9000; background: rgba(15, 42, 67, .6); display: flex; align-items: center; justify-content: center; padding: 10px; }
+.sp-map-wrap[hidden] { display: none; }
+.sp-map-box { background: #fff; border-radius: 14px; width: 100%; max-width: 560px; overflow: hidden; display: flex; flex-direction: column; max-height: 94vh; }
+.sp-map-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 10px 12px; }
+.sp-map-head small { display: block; color: #64748b; font-size: 0.76rem; }
+.sp-map-x { background: none; border: 0; font-size: 1.2rem; cursor: pointer; padding: 2px 6px; }
+.sp-map-area { position: relative; height: 60vh; min-height: 280px; }
+.sp-map { position: absolute; inset: 0; }
+.sp-map-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); font-size: 2.2rem; line-height: 1; z-index: 500; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+.sp-map-layers { position: absolute; right: 8px; top: 8px; z-index: 500; display: flex; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.25); overflow: hidden; }
+.sp-map-layers button { border: 0; background: #fff; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+.sp-map-layers button.on { background: #14508a; color: #fff; }
+.sp-map-foot { display: flex; gap: 8px; padding: 10px 12px 4px; }
+.sp-map-ok { flex: 1; background: #14508a; color: #fff; border: 0; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 0.92rem; cursor: pointer; font-family: inherit; }
+.sp-map-msg { font-size: 0.78rem; color: #b42318; padding: 0 12px 10px; min-height: 1em; }
