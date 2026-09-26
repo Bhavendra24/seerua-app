@@ -476,5 +476,5 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - Fix: tapping a link inside the Menu sheet (e.g. Careers) did nothing — back-close.js undid the navigation. Link taps inside popups/sheets now navigate normally.
 - Admin / Sub-Admin / Technician panels: sidebar & login screens switched from dark navy to a light theme (white, blue accents).
 - 404 page text in English, blue button.
-- All panels (Super Admin, Sub-Admin, Technician): header / sidebar in light grey (#b3bac3) with dark text, active item white with orange marker; technician top and bottom bars grey too.
-- Main customer site header now uses the same light grey (#b3bac3) as the panels; logo blended into it, darker text for contrast.
+- All panels (Super Admin, Sub-Admin, Technician): header / sidebar in very light grey (#f1f3f5) with dark text, active item white with orange marker; technician top and bottom bars grey too.
+- Main customer site header now uses the same very light grey (#f1f3f5) as the panels; logo blended into it, darker text for contrast.

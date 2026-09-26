@@ -2331,9 +2331,9 @@ section.bg-mist + section.bg-mist { padding-top: 0; }
 }
 
 /* Main site header: same light grey as the panels */
-.site-header { background: #b3bac3 !important; border-bottom: 2px solid #1b6fb0; }
+.site-header { background: #f1f3f5 !important; border-bottom: 2px solid #1b6fb0; }
 .site-header .brand img { mix-blend-mode: multiply; }   /* logo's white square blends into the grey */
 .site-header .brand-name-sub { color: #b35a00; }         /* orange a bit deeper for contrast on grey */
 .nav-links a { color: #0f172a; }
-@media (max-width: 900px) { .nav-links { background: #c7cdd4 !important; } }
+@media (max-width: 900px) { .nav-links { background: #f7f8fa !important; } }
 .site-header .call-link, .site-header .call-link .call-text { color: #0f3f6e; }
