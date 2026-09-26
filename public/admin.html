@@ -454,13 +454,22 @@
     <!-- PRICING -->
     <section class="panel-view" id="view-pricing">
       <div class="topbar"><div><h1>Pricing</h1><div class="sub">Set a different price for each city and appliance type</div></div></div>
+      <div class="card" style="margin-bottom:14px;">
+        <h3 style="margin:0 0 6px;">🏷️ Offer % (all services)</h3>
+        <p style="font-size:0.82rem;color:var(--slate);margin:0 0 10px;">Har card par ek kata hua "pehle ka" price dikhega, jisse asli price itne % kam dikhe. Jaise 20% → asli ₹440 dikhega <s>₹550</s> ₹440 "₹110 off" (₹10 tak upar round). Customer se hamesha asli price hi liya jaata hai. A "Pehle ₹" price typed for a single service below wins over this. 0 = no offer anywhere (only the ones typed below).</p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <input type="number" id="offerPercentInput" min="0" max="80" step="1" style="width:90px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;"> <b>%</b>
+          <button class="btn btn-success btn-sm" onclick="saveOfferPercent()">Save</button>
+          <span class="msg-inline" id="offerPercentMsg" style="margin:0;"></span>
+        </div>
+      </div>
       <div class="card">
         <div class="filters">
           <select id="priceCityFilter"></select>
           <select id="priceApplianceFilter"></select>
         </div>
         <div class="table-wrap"><table>
-          <thead><tr><th>City</th><th>Appliance</th><th>Type</th><th>Service Price (₹)</th><th>Repair Price (₹)</th><th>Save</th></tr></thead>
+          <thead><tr><th>City</th><th>Appliance</th><th>Type</th><th>Price (₹) · Pehle ₹ (optional, sirf is service ka offer)</th><th>Repair Price (₹)</th><th>Save</th></tr></thead>
           <tbody id="pricingTable"></tbody>
         </table></div>
       </div>
@@ -1210,6 +1219,6 @@
 </div>
 
 
-<script src="/js/admin.js?v=202609271"></script>
+<script src="/js/admin.js?v=202609274"></script>
 </body>
 </html>

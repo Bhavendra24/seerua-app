@@ -1504,6 +1504,7 @@ function renderAppliances() {
           <button class="btn btn-danger btn-sm" onclick="deleteAppliance('${a.id}')">Appliance Delete</button>
         </div>
       </div>
+      ${isHidden ? '' : applianceLiveStatusHtml(a)}
       ${isHidden ? `<p style="font-size:0.82rem;color:#b45309;background:#fffbeb;border:1px solid #fde68a;padding:8px 12px;border-radius:8px;margin:0 0 12px;">This appliance is currently hidden — customers can't see or book it anywhere on the site (homepage, SEO pages, chatbot, sitemap). Click "Show on Website" above when it's ready to launch.</p>` : ''}
       <div class="chip-list">
         ${a.types.map(t => `<span class="chip">${esc(t.name)} <button onclick="deleteType('${a.id}','${t.id}')" title="Delete type">✕</button></span>`).join('') || '<span style="color:var(--slate);font-size:0.85rem;">No types added yet</span>'}
@@ -1535,6 +1536,21 @@ function renderAppliances() {
     </div>
   `;
   }).join('');
+}
+
+// Tells Admin at a glance whether this appliance is actually bookable on
+// the website yet, and in which cities. An appliance goes live in a city
+// only when it has at least one Type AND a price row for that city, and
+// the city isn't unticked — otherwise the homepage tile just says
+// "coming soon" and it's left out of the service page, footer and header menu.
+function applianceLiveStatusHtml(a) {
+  const off = a.disabledCities || [];
+  const types = a.types || [];
+  const live = CITIES.filter(c => !off.includes(c.id) && types.some(t => PRICING.some(p => p.cityId === c.id && p.applianceId === a.id && p.typeId === t.id)));
+  const box = (bg, bd, col, html) => `<p style="font-size:0.82rem;color:${col};background:${bg};border:1px solid ${bd};padding:8px 12px;border-radius:8px;margin:0 0 12px;line-height:1.5;">${html}</p>`;
+  if (!types.length) return box('#fffbeb', '#fde68a', '#92400e', `⚠️ <b>Not live yet.</b> ${esc(a.name)} has no Type, so the website shows it as "coming soon" and it is not in the service pages, header menu or footer. Tap <b>+ Add Type</b> (e.g. "LED TV"), then set its real prices in the <b>Pricing</b> tab — a new type starts at the default ₹299 service / ₹499 repair.`);
+  if (!live.length) return box('#fffbeb', '#fde68a', '#92400e', `⚠️ <b>Not live in any city.</b> Tick at least one city below (and check its prices in the Pricing tab).`);
+  return box('#f0fdf4', '#bbf7d0', '#166534', `✓ <b>Live on website</b> in ${live.map(c => esc(c.name)).join(', ')}.`);
 }
 
 // Toggles whether an appliance shows anywhere on the customer-facing
@@ -1685,7 +1701,25 @@ function renderPricingFilters() {
   applianceSel.value = prevAppliance;
 }
 
+async function loadOfferPercent() {
+  try {
+    const sc = await api('/api/admin/site-content');
+    const el = document.getElementById('offerPercentInput');
+    if (el) el.value = Number(sc.offerPercent) || 0;
+  } catch (e) { /* ignore */ }
+}
+async function saveOfferPercent() {
+  const el = document.getElementById('offerPercentInput');
+  const msg = document.getElementById('offerPercentMsg');
+  try {
+    await api('/api/admin/offer-percent', { method: 'PUT', body: JSON.stringify({ offerPercent: Number(el.value) || 0 }) });
+    msg.textContent = (Number(el.value) || 0) > 0 ? `✓ Saved — ${Number(el.value)}% offer is live on the website` : '✓ Saved — offer switched off';
+    msg.style.color = '#1f8a3b';
+  } catch (e) { msg.textContent = e.message; msg.style.color = '#d64545'; }
+}
+
 function renderPricing() {
+  loadOfferPercent();
   renderPricingFilters();
   const cityFilter = document.getElementById('priceCityFilter').value;
   const applianceFilter = document.getElementById('priceApplianceFilter').value;
@@ -1708,7 +1742,8 @@ function renderPricing() {
           ${t.services.map(svc => `
             <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;">
               <span style="flex:1;color:var(--slate);">${esc(svc.name)}</span>
-              <input type="number" min="0" value="${(p.servicePrices && p.servicePrices[svc.id]) ?? ''}" id="sku-${p.id}-${svc.id}" style="width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">
+              <input type="number" min="0" value="${(p.servicePrices && p.servicePrices[svc.id]) ?? ''}" id="sku-${p.id}-${svc.id}" title="Price the customer pays" style="width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;">
+              <input type="number" min="0" value="${(p.mrpPrices && p.mrpPrices[svc.id]) ?? ''}" id="mrp-${p.id}-${svc.id}" placeholder="Pehle ₹" title="Optional: regular price, shown crossed out (leave empty for no offer)" style="width:110px;padding:5px 7px;border:1px dashed #cbd5e1;border-radius:6px;color:#6b7280;">
             </label>
           `).join('')}
         </div>`
@@ -1742,11 +1777,19 @@ async function savePrice(id, skuIdsCsv) {
       // above without any quote-escaping conflicts.
       const skuIds = skuIdsCsv.split(',');
       const servicePrices = {};
+      const mrpPrices = {};
+      let badOffer = '';
       skuIds.forEach(skuId => {
         const el = document.getElementById(`sku-${id}-${skuId}`);
         if (el && el.value !== '') servicePrices[skuId] = Number(el.value);
+        const m = document.getElementById(`mrp-${id}-${skuId}`);
+        if (m) {
+          mrpPrices[skuId] = m.value === '' ? 0 : Number(m.value);
+          if (mrpPrices[skuId] && servicePrices[skuId] !== undefined && mrpPrices[skuId] <= servicePrices[skuId]) badOffer = badOffer || skuId;
+        }
       });
-      await api(`/api/admin/pricing/${id}`, { method: 'PUT', body: JSON.stringify({ servicePrices }) });
+      if (badOffer) { alert('"Offer se pehle" price must be MORE than the real price (or leave it empty).'); return; }
+      await api(`/api/admin/pricing/${id}`, { method: 'PUT', body: JSON.stringify({ servicePrices, mrpPrices }) });
     } else {
       const servicePrice = document.getElementById(`svc-${id}`).value;
       const repairPrice = document.getElementById(`rep-${id}`).value;

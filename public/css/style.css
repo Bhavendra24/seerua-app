@@ -2276,3 +2276,6 @@ body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 .slot-btn { background: #fff; color: #0f2a43; border-color: #93bde6; }
 .slot-btn:hover:not(.selected):not(.full) { background: #e7f1fa; border-color: #1b6fb0; }
 .slot-btn small { color: #475569; }
+/* "Appliance Care" under SEERUA in the logo's orange (#f7881a) */
+.brand-name-sub { color: #f08419; font-weight: 700; }
+.brand-name-main { color: #1868b0; } /* logo blue */

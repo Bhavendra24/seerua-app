@@ -80,6 +80,10 @@
     if (svcId === 'svc-repair' && typeof row.repairPrice === 'number') return row.repairPrice;
     return null;
   }
+  function mrpForSku(row, svcId, price) {
+    var m = row && row.mrpPrices ? Number(row.mrpPrices[svcId]) : 0;
+    return (m > 0 && typeof price === 'number' && m > price) ? m : null;
+  }
   function getAccount() { try { return JSON.parse(localStorage.getItem(ACCOUNT_KEY) || 'null'); } catch (e) { return null; } }
   function saveAccount(acc) { try { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(acc)); } catch (e) { /* ignore */ } updateHeaderInitial(); }
   // Logged-in customer (saved account) -> header profile icon shows the
@@ -406,7 +410,8 @@
           '<div class="sp-card-img">' + (photo ? '<img src="' + escapeHtml(photo) + '" alt="' + escapeHtml(it.title) + '" loading="lazy">' : '<span class="sp-strip-fallback">🔧</span>') +
           '<span class="sp-badge">' + inr(x.price) + '/-</span></div>' +
           '<div class="sp-card-body"><h3 class="sp-card-title">' + escapeHtml(it.title) + ' In ' + escapeHtml(city.name) + '</h3>' +
-          '<div class="sp-price">' + TAG + '<strong>' + inr(x.price) + '</strong>' +
+          '<div class="sp-price">' + TAG + (function () { var m = mrpForSku(row, x.svc.id, x.price); return m ? '<s class="sp-mrp">' + inr(m) + '</s>' : ''; })() + '<strong>' + inr(x.price) + '</strong>' +
+          (function () { var m = mrpForSku(row, x.svc.id, x.price); return m ? '<span class="sp-off">' + inr(m - x.price) + ' off</span>' : ''; })() +
           ((x.svc.id === 'svc-repair' || x.svc.id === 'svc-gasfill' || /repair|gas/i.test(x.svc.name || '')) ? '<span class="sp-parts">+ parts, if needed (with your OK)</span>' : '') + '</div>' +
           '<ul class="sp-checks">' + checks + '</ul></div>' +
           '<div class="sp-actions"><button type="button" class="sp-btn sp-btn-add' + (added ? ' added' : '') + '" data-act="add">' + CART_SVG + '<span>' + (added ? 'Added ✓' : 'Add') + '</span></button>' +

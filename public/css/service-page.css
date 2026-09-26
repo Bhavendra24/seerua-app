@@ -298,3 +298,7 @@ body.sp-sheet-open { overflow: hidden; }
 .sp-type-btn:active { border-color: #1b6fb0; background: #f3f8fd; }
 .sp-header-cart { background: #1b6fb0; }
 .sp-header-cart:hover { background: #14508a; }
+
+/* Offer price: regular price crossed out + "₹X off" chip */
+.sp-mrp { color: #6b7280; font-weight: 500; font-size: 0.92em; margin-right: 2px; text-decoration-thickness: 1.5px; }
+.sp-off { background: #dcfce7; color: #166534; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }

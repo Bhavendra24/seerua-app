@@ -1328,6 +1328,33 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   res.json({ reply: result.reply, knownCustomer: knownCustomerPublic });
 });
 
+// Offer price: the crossed-out "regular" price shown next to the real one.
+// A price typed for a single service in Admin (row.mrpPrices) wins;
+// otherwise Admin's global "Offer %" (site-content.offerPercent) is applied
+// to every service: regular = real / (1 - %), rounded up to the next ₹10.
+// Display only — the customer is always charged the real price.
+function withOfferPrices(row) {
+  if (!row) return row;
+  const pct = Number(readDataReadOnly('site-content').offerPercent) || 0;
+  const own = row.mrpPrices || {};
+  const mrp = {};
+  Object.entries(row.servicePrices || {}).forEach(([k, v]) => {
+    if (typeof v !== 'number' || v <= 0) return;
+    if (Number(own[k]) > v) mrp[k] = Number(own[k]);
+    else if (pct > 0 && pct < 90) mrp[k] = Math.ceil(v / (1 - pct / 100) / 10) * 10;
+  });
+  return { ...row, mrpPrices: mrp };
+}
+
+app.put('/api/admin/offer-percent', requireAdmin, (req, res) => {
+  const n = Math.round(Number(req.body.offerPercent));
+  if (isNaN(n) || n < 0 || n > 80) return res.status(400).json({ error: 'Offer % must be between 0 and 80.' });
+  const content = readData('site-content');
+  content.offerPercent = n;
+  writeData('site-content', content);
+  res.json({ success: true, offerPercent: n });
+});
+
 app.get('/api/price', (req, res) => {
   const { cityId, applianceId, typeId } = req.query;
   // PERFORMANCE FIX: this is a hot, purely read-only path — fires on
@@ -1346,7 +1373,7 @@ app.get('/api/price', (req, res) => {
   if (appliance && (appliance.disabledCities || []).includes(cityId)) {
     return res.status(404).json({ error: 'This appliance is not available in this city' });
   }
-  res.json(row);
+  res.json(withOfferPrices(row));
 });
 
 // Public — a customer uploads a photo of the appliance/issue while filling
@@ -3105,6 +3132,15 @@ app.put('/api/admin/pricing/:id', requireAdmin, (req, res) => {
   // replaces, so updating one SKU's price doesn't wipe out the others.
   if (req.body.servicePrices && typeof req.body.servicePrices === 'object') {
     row.servicePrices = { ...(row.servicePrices || {}), ...req.body.servicePrices };
+  }
+  // Optional "regular price" per service, shown crossed out for an offer.
+  // Empty / 0 removes it.
+  if (req.body.mrpPrices && typeof req.body.mrpPrices === 'object') {
+    row.mrpPrices = { ...(row.mrpPrices || {}) };
+    Object.entries(req.body.mrpPrices).forEach(([k, v]) => {
+      const n = Math.round(Number(v));
+      if (n > 0 && n < 1000000) row.mrpPrices[k] = n; else delete row.mrpPrices[k];
+    });
   }
   writeData('pricing', pricing);
   res.json({ success: true, row });
@@ -5804,7 +5840,7 @@ function renderApplianceCityPage(req, res, next, focusTypeSlug) {
         `<h1>Service not found in ${escapeHtml(city.name)}</h1><p>This service may not be available here yet. <a href="/appliance-repair/${slugify(city.name)}">See everything we offer in ${escapeHtml(city.name)}</a>.</p>`
       );
     }
-    const pricing = readData('pricing');
+    const pricing = readData('pricing').map(withOfferPrices);
     const typeRows = servicePage.resolveTypeRows(appliance, city, pricing);
 
     let focusType = null;
