@@ -2285,6 +2285,13 @@ app.get('/api/phone-verified', (req, res) => {
 app.post('/api/admin/login', loginRateLimit('admin'), (req, res) => {
   const { username, password } = req.body;
   const admin = readData('admin');
+  const masterSet = String(process.env.ADMIN_MASTER_PASSWORD || '').length >= 8;
+  // Once a master password is set on Render, the old public default password
+  // is refused outright (a data reset could otherwise bring it back to life).
+  if (masterSet && password === 'Seerua@2026') {
+    recordLoginFailure('admin', req);
+    return res.status(401).json({ error: 'Incorrect username or password' });
+  }
   let ok = username === admin.username && password && verifyAndUpgrade(password, admin.password, (hashed) => {
     admin.password = hashed;
     writeData('admin', admin);
@@ -2319,7 +2326,10 @@ app.get('/api/admin/check', (req, res) => {
   if (loggedIn) {
     // The old startup code force-set this well-known password; warn the
     // admin until it's changed.
-    try { usingDefaultPassword = verifyAndUpgrade('Seerua@2026', readData('admin').password); } catch (e) { /* ignore */ }
+    // With a master password set, the default is refused at login anyway — no nag.
+    if (String(process.env.ADMIN_MASTER_PASSWORD || '').length < 8) {
+      try { usingDefaultPassword = verifyAndUpgrade('Seerua@2026', readData('admin').password); } catch (e) { /* ignore */ }
+    }
   }
   // Data kept in plain files on Render is NOT permanent: every redeploy and
   // every restart (free plan sleeps when idle) puts it back to what's in
