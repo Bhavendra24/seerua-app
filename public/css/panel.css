@@ -456,3 +456,16 @@ body.compact .btn { padding: 7px 12px; }
 }
 /* login screens: light background instead of dark */
 .login-wrap { background: radial-gradient(60% 50% at 15% 10%, rgba(27,111,176,0.10), transparent 60%), radial-gradient(50% 45% at 90% 90%, rgba(240,132,25,0.08), transparent 60%), #f3f6f9; }
+
+/* ── Grey panel header / sidebar (all panels) ── */
+.sidebar { background: #eceff3; border-right-color: #d9dee5; }
+.side-nav button:hover { background: #e1e6ec; }
+.side-nav button.active { background: #ffffff; color: #14508a; border-left-color: #1b6fb0; box-shadow: 0 1px 3px rgba(15,42,67,0.08); }
+.sidebar-foot { border-top-color: #d9dee5; }
+@media (max-width: 900px) {
+  .sidebar { background: #eceff3; border-bottom: 2px solid #1b6fb0; }
+  .side-nav > button, .side-nav-more-toggle, #moreSettingsGroup.open button { background: #fff; border-color: #d3dae3 !important; }
+  .side-nav > button.active, #moreSettingsGroup.open button.active { background: #e7f1fa !important; }
+  #moreSettingsGroup.open { background: #eceff3; }
+  .sidebar .brand-row, .sidebar-foot { border-color: #d9dee5; }
+}
