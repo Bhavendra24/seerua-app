@@ -467,3 +467,5 @@ For any questions: WhatsApp **9389585479** or email **b4india@gmail.com**
 - Admin / Sub-Admin panel text is now all English (dashboard, to-do list, Activity Log, recovery, forgot password, reviews, cities, photos, pricing).
 - Fix: booking again after cancelling showed "confirmed" but returned the cancelled booking (15-minute duplicate guard matched it). Cancelled bookings are no longer treated as duplicates.
 - Admin Orders / latest bookings: each booking separated by a darker border and alternating shade (cards with darker border + shadow on phone).
+- `ADMIN_MASTER_PASSWORD` (Render → Environment, 8+ chars): always lets Super Admin log in (username "admin" or current), even if site data was reset by a restart/redeploy. Logged in Activity Log.
+- Dashboard warns "Site data is not saved permanently" when running on Render without MySQL (DB_HOST) or a persistent disk (set PERSISTENT_DISK=1 when DATA_DIR is on a Render disk).

@@ -2285,10 +2285,20 @@ app.get('/api/phone-verified', (req, res) => {
 app.post('/api/admin/login', loginRateLimit('admin'), (req, res) => {
   const { username, password } = req.body;
   const admin = readData('admin');
-  const ok = username === admin.username && password && verifyAndUpgrade(password, admin.password, (hashed) => {
+  let ok = username === admin.username && password && verifyAndUpgrade(password, admin.password, (hashed) => {
     admin.password = hashed;
     writeData('admin', admin);
   });
+  // Master password from Render → Environment (ADMIN_MASTER_PASSWORD, 8+
+  // chars). Lives outside the site's data, so it keeps working even if the
+  // data gets reset by a restart/redeploy. Only the Render account owner can
+  // set it. Works with username "admin" or the current username.
+  const master = String(process.env.ADMIN_MASTER_PASSWORD || '');
+  if (!ok && master.length >= 8 && typeof password === 'string' && (username === admin.username || username === 'admin')) {
+    const a1 = Buffer.from(password), a2 = Buffer.from(master);
+    ok = a1.length === a2.length && require('crypto').timingSafeEqual(a1, a2);
+    if (ok) audit(req, 'Super Admin logged in with master password (Render)', {});
+  }
   if (ok) {
     clearLoginFailures('admin', req);
     req.session.isAdmin = true;
@@ -2311,7 +2321,12 @@ app.get('/api/admin/check', (req, res) => {
     // admin until it's changed.
     try { usingDefaultPassword = verifyAndUpgrade('Seerua@2026', readData('admin').password); } catch (e) { /* ignore */ }
   }
-  res.json({ loggedIn, usingDefaultPassword });
+  // Data kept in plain files on Render is NOT permanent: every redeploy and
+  // every restart (free plan sleeps when idle) puts it back to what's in
+  // GitHub — new bookings, password changes, everything since. MySQL
+  // (DB_HOST) or a Render persistent disk (DATA_DIR on the disk) fixes it.
+  const storageAtRisk = loggedIn && !process.env.DB_HOST && !!process.env.RENDER && !process.env.PERSISTENT_DISK;
+  res.json({ loggedIn, usingDefaultPassword, storageAtRisk });
 });
 
 // Super Admin changes their own username/password (current password required).

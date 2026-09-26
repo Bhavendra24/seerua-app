@@ -75,8 +75,9 @@ async function api(url, opts = {}) {
 // ---------------- AUTH ----------------
 let currentView = 'dashboard';
 async function checkLogin() {
-  const { loggedIn, usingDefaultPassword } = await api('/api/admin/check');
+  const { loggedIn, usingDefaultPassword, storageAtRisk } = await api('/api/admin/check');
   window.__usingDefaultPassword = !!usingDefaultPassword;
+  window.__storageAtRisk = !!storageAtRisk;
   const pwWarn = document.getElementById('adminPwWarn');
   if (pwWarn) pwWarn.style.display = usingDefaultPassword ? 'block' : 'none';
   const pwCard = document.getElementById('adminPwCard');
@@ -520,6 +521,7 @@ function renderDashboard(opts) {
     card('₹' + fmtInr(revToday), "Today's earnings") +
     card('₹' + fmtInr(revMonth), "This month's earnings");
   todo.sort((a, b) => a.rank - b.rank || String(a.key).localeCompare(String(b.key)));
+  if (window.__storageAtRisk) todo.unshift({ html: '<b style="color:#b42318;">⚠️ Site data is not saved permanently</b> — on this hosting, every redeploy or restart puts bookings, customers and passwords back to an old copy. Connect a MySQL database (DB_HOST…) or a Render persistent disk. Until then, use Site Settings → Download Backup before every deploy.', btn: `<button class="btn btn-primary btn-sm" onclick="switchView('settings')">Backup</button>` });
   if (window.__usingDefaultPassword) todo.unshift({ html: '<b style="color:#b42318;">🔑 Admin password is still the default</b> — change it now (Site Settings → Admin Login Password)', btn: `<button class="btn btn-primary btn-sm" onclick="switchView('settings')">Change</button>` });
   document.getElementById('dashTodo').innerHTML = todo.length
     ? todo.slice(0, 25).map(t => `<div class="todo-row"><div>${t.html}</div><div>${t.btn || ''}</div></div>`).join('') + (todo.length > 25 ? `<div class="todo-row"><small>+ ${todo.length - 25} more…</small></div>` : '')
