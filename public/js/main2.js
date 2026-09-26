@@ -787,7 +787,11 @@ function joinWithAnd(names) {
 function renderServicesSubText() {
   const el = document.getElementById('servicesSubText');
   if (!el) return;
-  const names = ALL_APPLIANCES.map(a => a.name);
+  // Only appliances bookable in at least one city ("coming soon" ones are
+  // left out — the server already renders this line the same way).
+  const cityIds = (typeof CITIES !== 'undefined' ? CITIES : []).map(c => c.id);
+  const live = ALL_APPLIANCES.filter(a => !cityIds.length || cityIds.some(id => !(a.disabledCities || []).includes(id)));
+  const names = (live.length ? live : ALL_APPLIANCES).map(a => a.name);
   el.textContent = `From ${joinWithAnd(names)}, repair and service for every essential home appliance.`;
 }
 
@@ -800,7 +804,9 @@ function renderServiceDetails() {
   const section = document.getElementById('serviceDetails');
   const list = document.getElementById('serviceDetailsList');
   if (!section || !list) return;
-  const withText = ALL_APPLIANCES.filter(a => (a.aboutText || '').trim());
+  const cityIdsForDetails = (typeof CITIES !== 'undefined' ? CITIES : []).map(c => c.id);
+  const withText = ALL_APPLIANCES.filter(a => (a.aboutText || '').trim() &&
+    (!cityIdsForDetails.length || cityIdsForDetails.some(id => !(a.disabledCities || []).includes(id)))); // skip "coming soon" appliances
   if (!withText.length) {
     section.style.display = 'none';
     return;

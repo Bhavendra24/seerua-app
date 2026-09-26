@@ -335,6 +335,9 @@
       pick.photos = r[2] || {};
       var appl = r[1].find(function (a) { return a.id === applianceId; });
       if (!appl || !appl.types.length) { toast('This service is not available right now.'); return; }
+      // Not started in any city yet -> say so plainly instead of an empty popup.
+      var openCities = pick.cities.filter(function (c) { return (appl.disabledCities || []).indexOf(c.id) === -1; });
+      if (!openCities.length) { toast(appl.name + ' service is coming soon — booking is not open yet.'); return; }
       pick.appliance = appl;
       var cid = (opts.cityId && pick.cities.some(function (x) { return x.id === opts.cityId; })) ? opts.cityId
         : (cart.items.length && cart.cityId && pick.cities.some(function (x) { return x.id === cart.cityId; })) ? cart.cityId : guessCityId(pick.cities);
@@ -1113,6 +1116,12 @@
       var link = e.target.closest && e.target.closest('#servicesGrid .service-card-link');
       if (!link) return;
       var card = link.closest('.service-card');
+      if (card && card.getAttribute('data-coming-soon')) {
+        e.preventDefault();
+        ensureMarkup();
+        toast((card.querySelector('h3') || {}).textContent + ' service is coming soon — booking is not open yet.');
+        return;
+      }
       var id = card && card.getAttribute('data-appliance');
       if (!id) return;
       e.preventDefault();

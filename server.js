@@ -997,7 +997,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
     return res.status(400).json({ error: 'Message is too long — please keep it under 500 characters.' });
   }
   const safeHistory = Array.isArray(history)
-    ? history.filter(h => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string').slice(-30).map(h => ({ role: h.role, content: h.content.slice(0, 1500) }))
+    ? history.filter(h => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string').slice(-20).map(h => ({ role: h.role, content: h.content.slice(0, 900) }))
     : [];
 
   const admin = readData('admin');
@@ -1042,7 +1042,8 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
     todayDate: istDateStr(),
     slotsStillOpenToday: TIME_SLOTS.filter(s => currentIstHour < s.endHour).map(s => s.label),
     customInstructions: admin.aiCustomInstructions || '',
-    knownCustomer
+    knownCustomer,
+    conversationText: combinedChatText
   };
 
   // RELIABILITY FIX: the system prompt used to just ASK the model to
@@ -1079,6 +1080,9 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
     return null;
   }
   const mentionedCity = findMostRecentMention(context.cities, c => c.name);
+  // If two appliance records share a name (e.g. an old hidden "Chimney"
+  // and the live one), prefer the one that's actually bookable here.
+  const availabilityRank = (a) => (a.hidden ? 2 : 0) + ((mentionedCity && (a.disabledCities || []).includes(mentionedCity.id)) ? 1 : 0);
   // BUG FIX: this used to run TWO separate "most recent mention" searches
   // — one scoped to active appliances only, another scoped to hidden
   // appliances only — so even after a customer moved on from a stale
@@ -1090,7 +1094,7 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
   // recent appliance mention first, then checks whether THAT ONE
   // (whichever it turns out to be) happens to be hidden or active —
   // instead of two competing searches that can disagree.
-  const allAppliancesForDetection = readData('appliances');
+  const allAppliancesForDetection = readData('appliances').slice().sort((x, y) => availabilityRank(x) - availabilityRank(y));
   const mostRecentApplianceMention = findMostRecentMention(allAppliancesForDetection, a => a.name);
   const mentionedAppliance = (mostRecentApplianceMention && !mostRecentApplianceMention.hidden) ? mostRecentApplianceMention : null;
   if (mentionedCity && mentionedAppliance) {
@@ -1240,7 +1244,9 @@ app.post('/api/chatbot/ask', aiChatRateLimit, async (req, res) => {
       const allAppliancesFresh = readData('appliances');
       const allCitiesFresh = readData('cities').filter(c => c.active);
       const draftCity = allCitiesFresh.find(c => (draft.cityName || '').toLowerCase().trim() === c.name.toLowerCase());
-      const draftAppliance = allAppliancesFresh.find(a => (draft.applianceName || '').toLowerCase().trim() === a.name.toLowerCase());
+      const draftAppliance = allAppliancesFresh
+        .filter(a => (draft.applianceName || '').toLowerCase().trim() === a.name.toLowerCase())
+        .sort((x, y) => ((x.hidden ? 2 : 0) + ((draftCity && (x.disabledCities || []).includes(draftCity.id)) ? 1 : 0)) - ((y.hidden ? 2 : 0) + ((draftCity && (y.disabledCities || []).includes(draftCity.id)) ? 1 : 0)))[0];
       let blockReason = null;
       if (draftAppliance && draftAppliance.hidden) {
         blockReason = `Maaf kijiye, ${draftAppliance.name} abhi Seerua par available nahi hai.`;
@@ -5217,9 +5223,20 @@ function buildServicesGridHtml(appliances, cities, pricing) {
         ? buildPictureHtml(a.photoUrl, `class="service-card-photo" alt="${escapeHtml(a.name)} service technician at work" loading="lazy"`)
         : `<div class="service-icon-wrap"><div class="service-icon">${SERVER_SERVICE_ICONS[a.icon] || SERVER_SERVICE_ICONS.wrench}</div></div>`}
       <h3>${escapeHtml(a.name)}</h3>`;
+    // Not started in any city yet (Admin → Appliances → "Available In
+    // Cities" all unticked): the tile looks normal, but tapping it just
+    // says the service is coming soon (no empty booking popup).
+    if (!c) {
+      return `
+    <div class="service-card" data-appliance="${a.id}" data-coming-soon="1">
+      <a href="#services" class="service-card-link" aria-label="${escapeHtml(a.name)}" style="display:block;color:inherit;text-decoration:none;">${inner}</a>
+      <button type="button" class="btn btn-outline btn-sm" onclick="openApplianceBoxesPanel('${a.id}')">Book Now</button>
+    </div>
+  `;
+    }
     return `
     <div class="service-card" data-appliance="${a.id}">
-      <a href="${c ? `/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}` : '#services'}" class="service-card-link" aria-label="${escapeHtml(a.name)} repair and service" style="display:block;color:inherit;text-decoration:none;">${inner}</a>
+      <a href="/appliance-repair/${slugify(c.name)}/${applianceSlug(a.name)}" class="service-card-link" aria-label="${escapeHtml(a.name)} repair and service" style="display:block;color:inherit;text-decoration:none;">${inner}</a>
       <button type="button" class="btn btn-outline btn-sm" onclick="openApplianceBoxesPanel('${a.id}')">Book Now</button>
     </div>
   `;
@@ -5288,8 +5305,11 @@ app.get('/', (req, res) => {
     const cityNames = cities.map(c => c.name);
     const cityListText = joinWithAnd(cityNames);
     const appliances = readData('appliances').filter(a => !a.hidden);
-    const applianceListText = joinWithAnd(appliances.map(a => a.name));
     const homePricing = readData('pricing');
+    // Text like "From AC, Washing Machine... repair" names only what can
+    // actually be booked today; "coming soon" appliances still show a tile.
+    const bookableNow = appliances.filter(a => cities.some(c => !(a.disabledCities || []).includes(c.id) && applianceHasPricing(a, c.id, homePricing)));
+    const applianceListText = joinWithAnd((bookableNow.length ? bookableNow : appliances).map(a => a.name));
     const servicesGridHtml = buildServicesGridHtml(appliances, cities, homePricing);
     const homeCityLinks = buildHomeCityLinksHtml(cities, appliances, homePricing);
     const siteContent = readData('site-content');
@@ -6009,6 +6029,8 @@ app.get('/sitemap.xml', (req, res) => {
     `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
   ).join('\n')}\n</urlset>`;
   res.setHeader('Content-Type', 'application/xml');
+  // Short cache so a CDN/proxy never keeps serving an old sitemap for days.
+  res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(xml);
 });
 
